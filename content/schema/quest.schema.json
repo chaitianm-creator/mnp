@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Quest",
+  "type": "object",
+  "required": ["questId", "areaId", "residentId", "type", "sizeMinutes", "title", "brief", "reward", "steps", "isPublished", "version"],
+  "properties": {
+    "questId": { "type": "string", "pattern": "^q_[a-z0-9_]+$" },
+    "areaId": { "type": "string", "pattern": "^area_[a-z0-9_]+$" },
+    "residentId": { "type": "string", "pattern": "^res_[a-z0-9_]+$" },
+    "type": { "enum": ["villager", "merchant", "guild", "king", "boss"] },
+    "sizeMinutes": { "enum": [3, 7, 15] },
+    "order": { "type": "integer" },
+    "title": { "type": "string", "maxLength": 40 },
+    "brief": { "type": "string" },
+    "reward": {
+      "type": "object",
+      "required": ["xp", "coins"],
+      "properties": {
+        "xp": { "type": "integer", "minimum": 0 },
+        "coins": { "type": "integer", "minimum": 0 },
+        "skillPoints": { "type": "object", "additionalProperties": { "type": "integer" } }
+      }
+    },
+    "steps": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["stepId", "kind"],
+        "properties": {
+          "kind": { "enum": ["hearing", "choice_image", "choice_text", "reorder", "drag", "writing", "upload"] }
+        }
+      }
+    },
+    "isPublished": { "type": "boolean" },
+    "version": { "type": "integer", "minimum": 1 }
+  }
+}

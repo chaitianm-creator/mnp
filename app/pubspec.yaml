@@ -1,0 +1,39 @@
+name: design_kingdom
+description: "デザイン王国 — 仕事をクリアしながら成長するRPG"
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+# ─────────────────────────────────────────────
+# Phase 9 スケルトン方針:
+#  - まず Firebase 依存なしの DEMO モードで全画面フローを動かす
+#    (FakeQuestRepository をDI。Phase 10 で Firestore/Functions 実装に差し替え)
+#  - freezed / riverpod_generator の codegen は Phase 9 後半で導入予定。
+#    スケルトンは手書き immutable クラスで build_runner 不要にしている
+# ─────────────────────────────────────────────
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  go_router: ^14.2.0
+  google_fonts: ^6.2.1 # Zen Maru Gothic / DotGothic16
+  shared_preferences: ^2.2.3 # 中断再開のローカル保存(quest_local_source)
+  # Firebase(USE_FIREBASE=true 時に使用。DEMOモードでは初期化しない)
+  firebase_core: ^3.1.0
+  firebase_auth: ^5.1.0
+  cloud_firestore: ^5.0.1
+  cloud_functions: ^5.0.1
+  firebase_storage: ^12.0.1
+  image_picker: ^1.1.2 # 提出画像の選択(1280px/80%圧縮)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  # assets:
+  #   - assets/images/   # ドット絵アセットは Phase 8 §7 の規約で追加

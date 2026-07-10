@@ -1,0 +1,11 @@
+{
+  "name": "デザイン王国",
+  "short_name": "デザイン王国",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F0D9A8",
+  "theme_color": "#F06292",
+  "description": "仕事をクリアしながら成長するRPG",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}

@@ -1,0 +1,7 @@
+{
+  "name": "design-kingdom-content",
+  "private": true,
+  "type": "module",
+  "scripts": { "validate": "tsx scripts/validate.ts", "publish": "tsx scripts/publish.ts" },
+  "devDependencies": { "ajv": "^8.12.0", "glob": "^10.3.10", "tsx": "^4.7.0", "yaml": "^2.4.1", "firebase-admin": "^12.1.0" }
+}

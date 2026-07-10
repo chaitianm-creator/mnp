@@ -1,0 +1,3 @@
+design-kingdom v1.0-rc4
+build: 2026-07-10
+特徴: lib/ 配下の import は全て package:design_kingdom/ 形式(相対import 0件)

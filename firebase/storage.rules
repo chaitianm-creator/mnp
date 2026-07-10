@@ -1,0 +1,18 @@
+rules_version = "2";
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // 提出画像: 本人のみ。5MB上限・画像のみ(クライアントは1280px/80%圧縮済み)
+    match /users/{uid}/submissions/{file} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches("image/.*");
+    }
+    // コンテンツ画像: 読み取りのみ(書き込みは運営)
+    match /content/{path=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}

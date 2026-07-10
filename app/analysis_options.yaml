@@ -1,0 +1,7 @@
+include: package:flutter_lints/flutter.yaml
+
+# Phase 7 §3 の層依存ルール(import_lint)は build_runner 導入時に追加
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_final_locals: true

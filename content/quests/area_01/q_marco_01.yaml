@@ -1,0 +1,48 @@
+# マルコ編 第1話(Phase 5 §2.3 スキーマ準拠)。
+# アプリDEMOモードの FakeQuestRepository と同一内容 — 本番はこのYAMLが正。
+questId: q_marco_01
+areaId: area_01_hajimari
+residentId: res_marco
+type: villager
+sizeMinutes: 7
+order: 1
+title: 新商品『もちもち王国パン』のPOP
+brief: 来週発売の新商品。店頭で目を引くPOPがほしいんだ。
+reward:
+  xp: 50
+  coins: 10
+  skillPoints: { craft: 2, hearing: 1 }
+dropTable: { keyChance: 0.3, chestChance: 0.15 }
+steps:
+  - stepId: s1
+    kind: hearing
+    dialogue:
+      - { speaker: res_marco, text: 来てくれたんだね！実は相談があって… }
+      - { speaker: res_marco, text: 来週「もちもち王国パン」っていう新商品を出すんだ。店頭に置くPOPを作ってほしくて。 }
+    question: まずマルコさんに何を聞く？
+    choices:
+      - { id: a, text: 誰に買ってほしいパンですか？, score: 2, feedback: いいね！ターゲットの確認は最初の一歩だよ }
+      - { id: b, text: 何色のPOPにしますか？, score: 0, feedback: 色はまだ早いかも。まず目的から聞いてみよ？ }
+      - { id: c, text: いつまでに必要ですか？, score: 1, feedback: 納期の確認も大事！目的とセットで聞けたら完璧 }
+  - stepId: s2
+    kind: choice_text
+    question: 「もちもち感」が一番伝わるキャッチコピーはどれ？
+    options:
+      - { id: a, text: 新発売！王国パン 300G, correct: false, feedback: 情報は正しいけど、もちもち感が伝わらないかも }
+      - { id: b, text: のび〜る幸せ、もっちもち。, correct: true, feedback: 食感が目に浮かぶね！擬音は強い味方だよ }
+      - { id: c, text: 当店自慢の新商品です, correct: false, feedback: 「自慢」はお店側の言葉。お客さんの気持ちで書いてみよ？ }
+  - stepId: s3
+    kind: reorder
+    question: POPの情報を「目立たせたい順」に並べてみよう
+    items: [価格, キャッチコピー, 発売日, 商品名]
+    answerOrder: [キャッチコピー, 商品名, 価格, 発売日]
+  - stepId: s4
+    kind: upload
+    brief: ヒアリング内容をもとにPOPを作って提出しよう（Canvaなどの外部ツールでOK！）
+    reviewPromptId: rp_pop_basic
+    isDeliveryStep: true
+nextTeaser:
+  residentId: res_marco
+  text: 行列ができたよ！実は次の相談が…
+isPublished: true
+version: 1

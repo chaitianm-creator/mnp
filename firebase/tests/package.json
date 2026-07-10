@@ -1,0 +1,11 @@
+{
+  "name": "design-kingdom-rules-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "vitest run" },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.3",
+    "firebase": "^10.12.2",
+    "vitest": "^1.6.0"
+  }
+}

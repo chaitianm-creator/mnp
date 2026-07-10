@@ -1,0 +1,15 @@
+# Flutter/Dart
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/build/
+app/pubspec.lock
+
+# Node
+node_modules/
+**/node_modules/
+
+# Firebase
+.firebase/
+firebase-debug.log
