@@ -80,9 +80,9 @@ class _WelcomePageState extends State<WelcomePage> {
                         height: 140,
                         decoration: BoxDecoration(
                           color: KdColors.surface,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(6),
                           border:
-                              Border.all(color: KdColors.border, width: 2),
+                              Border.all(color: KdColors.border, width: 2.5),
                           boxShadow: const [
                             BoxShadow(
                                 color: KdColors.wood900,

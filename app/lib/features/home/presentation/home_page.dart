@@ -75,10 +75,8 @@ class _StatsBar extends StatelessWidget {
         const Icon(Icons.local_florist, color: KdColors.pink500, size: 22),
         const SizedBox(width: 4),
         Text('デザイン王国',
-            style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: KdColors.heading)),
+            style: KdTheme.dot(size: 15, color: KdColors.heading)
+                .copyWith(fontWeight: FontWeight.w700)),
         const Spacer(),
         const Icon(Icons.favorite, color: KdColors.pink500, size: 20),
         const SizedBox(width: 4),
@@ -106,7 +104,7 @@ class _AreaBand extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: KdColors.pink500,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: KdColors.pink700, width: 2),
         boxShadow: const [
           BoxShadow(color: KdColors.pink700, offset: Offset(0, 3), blurRadius: 0),
@@ -117,10 +115,8 @@ class _AreaBand extends StatelessWidget {
             style: KdTheme.dot(size: 12, color: Colors.white)),
         const SizedBox(height: 2),
         Text(title,
-            style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: Colors.white)),
+            style: KdTheme.dot(size: 18, color: Colors.white)
+                .copyWith(fontWeight: FontWeight.w700)),
       ]),
     );
   }
@@ -272,19 +268,26 @@ class _StageNode extends StatelessWidget {
       icon = node.icon ?? Icons.lock;
     }
 
-    final circle = Container(
-      width: active ? 84 : 72,
-      height: active ? 84 : 72,
+    // ドット絵の作法: 全ノードに焦げ茶の輪郭。挑戦可能ノードは白いハローで囲む。
+    Widget circle = Container(
+      width: active ? 76 : 68,
+      height: active ? 76 : 68,
       decoration: BoxDecoration(
         color: fill,
         shape: BoxShape.circle,
-        border: active
-            ? Border.all(color: Colors.white, width: 4)
-            : Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+        border: Border.all(color: KdColors.wood900, width: 2.5),
         boxShadow: [BoxShadow(color: edge, offset: const Offset(0, 5))],
       ),
       child: Icon(icon, color: Colors.white, size: active ? 38 : 30),
     );
+    if (active) {
+      circle = Container(
+        padding: const EdgeInsets.all(4),
+        decoration:
+            const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+        child: circle,
+      );
+    }
 
     return Semantics(
       button: true,
@@ -317,14 +320,12 @@ class _StartBalloon extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(color: KdColors.pink500, width: 2),
         ),
-        child: const Text('スタート',
-            style: TextStyle(
-                color: KdColors.pink700,
-                fontWeight: FontWeight.w800,
-                fontSize: 14)),
+        child: Text('スタート',
+            style: KdTheme.dot(size: 14, color: KdColors.pink700)
+                .copyWith(fontWeight: FontWeight.w700)),
       ),
       // 吹き出しの三角
       CustomPaint(

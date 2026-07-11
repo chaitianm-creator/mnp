@@ -97,16 +97,21 @@ class _SelectCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: selected ? KdColors.pink100 : KdColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: selected ? KdColors.pink500 : KdColors.border,
-            width: selected ? 2 : 1.5,
+            width: selected ? 2.5 : 2,
           ),
+          boxShadow: [
+            BoxShadow(
+                color: selected ? KdColors.pink700 : KdColors.wood900,
+                offset: const Offset(0, 2)),
+          ],
         ),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           if (icon != null) ...[

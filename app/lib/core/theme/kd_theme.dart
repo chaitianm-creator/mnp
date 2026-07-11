@@ -4,8 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
 
 /// Phase 8 §4 タイポグラフィ / §5 レイアウト・形状
-///  - 本文: Zen Maru Gothic(丸ゴシック) 最小17sp・行間1.6
-///  - 数値・チップ: DotGothic16(ドット絵世界との接続)
+///  - 本文: Zen Maru Gothic(丸ゴシック) 最小17sp・行間1.6(読みやすさ優先)
+///  - 見出し・ボタン・バナー・数値: DotGothic16(ドット絵世界との接続)
 ///  - ダークモード非対応(羊皮紙の世界観維持のためライト固定)
 abstract final class KdTheme {
   static ThemeData light() {
@@ -23,8 +23,8 @@ abstract final class KdTheme {
         error: KdColors.lava500,
       ),
       textTheme: body.copyWith(
-        headlineSmall: body.headlineSmall?.copyWith(
-            fontSize: 22, fontWeight: FontWeight.w800, color: KdColors.heading),
+        headlineSmall: GoogleFonts.dotGothic16(
+            fontSize: 21, fontWeight: FontWeight.w700, color: KdColors.heading),
         bodyLarge: body.bodyLarge?.copyWith(fontSize: 17, height: 1.6),
         bodyMedium: body.bodyMedium?.copyWith(fontSize: 14, height: 1.6),
       ),
@@ -33,8 +33,12 @@ abstract final class KdTheme {
         foregroundColor: KdColors.textPrimary,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: GoogleFonts.zenMaruGothic(
-          fontSize: 18, fontWeight: FontWeight.w800, color: KdColors.heading),
+        titleTextStyle: GoogleFonts.dotGothic16(
+            fontSize: 17, fontWeight: FontWeight.w700, color: KdColors.heading),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        labelTextStyle: WidgetStatePropertyAll(
+            GoogleFonts.dotGothic16(fontSize: 12, color: KdColors.ink900)),
       ),
       dividerColor: KdColors.border,
     );
