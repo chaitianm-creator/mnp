@@ -74,11 +74,28 @@ class _WelcomePageState extends State<WelcomePage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(icon, size: 96, color: KdColors.pink500),
-                      const SizedBox(height: 24),
-                      Text(title,
-                          style: Theme.of(context).textTheme.headlineSmall),
-                      const SizedBox(height: 16),
+                      // アイテムカード様式の額(素材パックのカード枠)
+                      Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          color: KdColors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border:
+                              Border.all(color: KdColors.border, width: 2),
+                          boxShadow: const [
+                            BoxShadow(
+                                color: KdColors.wood900,
+                                offset: Offset(0, 3),
+                                blurRadius: 0),
+                          ],
+                        ),
+                        child:
+                            Icon(icon, size: 80, color: KdColors.pink500),
+                      ),
+                      const SizedBox(height: 28),
+                      KdRibbonBanner(title, fontSize: 17),
+                      const SizedBox(height: 20),
                       Text(body,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyLarge),
@@ -90,16 +107,13 @@ class _WelcomePageState extends State<WelcomePage> {
           ),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             for (var i = 0; i < _slides.length; i++)
-              Container(
-                margin: const EdgeInsets.all(4),
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: i == _page
-                      ? KdColors.pink500
-                      : KdColors.border.withOpacity(0.3),
-                ),
+              Padding(
+                padding: const EdgeInsets.all(3),
+                child: Icon(Icons.local_florist,
+                    size: 14,
+                    color: i == _page
+                        ? KdColors.pink500
+                        : KdColors.border.withOpacity(0.3)),
               ),
           ]),
           Padding(

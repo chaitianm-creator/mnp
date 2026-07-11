@@ -42,7 +42,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
       appBar: AppBar(title: const Text('あなたのこと、教えて')),
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.all(20), children: [
-          Text('目標はなに？', style: Theme.of(context).textTheme.headlineSmall),
+          const KdSectionHeader('目標はなに？'),
           const SizedBox(height: 12),
           for (final (id, label, icon) in _goals) ...[
             _SelectCard(
@@ -54,8 +54,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             const SizedBox(height: 8),
           ],
           const SizedBox(height: 16),
-          Text('1日どのくらいできそう？',
-              style: Theme.of(context).textTheme.headlineSmall),
+          const KdSectionHeader('1日どのくらいできそう？'),
           const SizedBox(height: 4),
           Text('あとで変えられるよ。無理しないでいいの。',
               style: Theme.of(context).textTheme.bodyMedium),

@@ -148,9 +148,10 @@ class _AreaNode extends StatelessWidget {
           decoration: BoxDecoration(
             color: unlocked ? area.color : KdColors.border.withOpacity(0.3),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: KdColors.wood900, width: 2),
           ),
           child: Icon(unlocked ? area.icon : Icons.cloud,
-              color: Colors.white, size: 28),
+              color: Colors.white, size: 26),
         ),
         const SizedBox(width: 12),
         Expanded(

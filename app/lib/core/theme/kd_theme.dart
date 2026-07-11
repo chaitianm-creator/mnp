@@ -23,7 +23,8 @@ abstract final class KdTheme {
         error: KdColors.lava500,
       ),
       textTheme: body.copyWith(
-        headlineSmall: body.headlineSmall?.copyWith(fontSize: 22, fontWeight: FontWeight.w700),
+        headlineSmall: body.headlineSmall?.copyWith(
+            fontSize: 22, fontWeight: FontWeight.w800, color: KdColors.heading),
         bodyLarge: body.bodyLarge?.copyWith(fontSize: 17, height: 1.6),
         bodyMedium: body.bodyMedium?.copyWith(fontSize: 14, height: 1.6),
       ),
@@ -33,7 +34,7 @@ abstract final class KdTheme {
         elevation: 0,
         centerTitle: true,
         titleTextStyle: GoogleFonts.zenMaruGothic(
-          fontSize: 18, fontWeight: FontWeight.w700, color: KdColors.textPrimary),
+          fontSize: 18, fontWeight: FontWeight.w800, color: KdColors.heading),
       ),
       dividerColor: KdColors.border,
     );

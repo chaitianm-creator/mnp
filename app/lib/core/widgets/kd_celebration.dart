@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
+import 'package:design_kingdom/core/widgets/kd_widgets.dart';
 
 /// 演出基底(Phase 8 §8)。
 ///  - 1.5〜2.5秒 / タップで即スキップ可
@@ -48,7 +49,7 @@ class _KdCelebrationOverlayState extends State<KdCelebrationOverlay>
       behavior: HitTestBehavior.opaque,
       onTap: widget.onDone, // タップで即スキップ
       child: ColoredBox(
-        color: KdColors.pink100,
+        color: KdColors.pink50,
         child: SafeArea(
           child: Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -60,11 +61,7 @@ class _KdCelebrationOverlayState extends State<KdCelebrationOverlay>
                           Icon(widget.icon, size: 88, color: KdColors.pink500),
                     ),
               const SizedBox(height: 16),
-              Text(widget.title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(color: KdColors.pink700)),
+              KdRibbonBanner(widget.title, fontSize: 20),
               const SizedBox(height: 12),
               for (final line in widget.lines)
                 Padding(
