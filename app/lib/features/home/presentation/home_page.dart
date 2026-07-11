@@ -26,9 +26,13 @@ class HomePage extends ConsumerWidget {
         child: Column(children: [
           _StatsBar(streak: progress.streak, keys: progress.keys),
           const SizedBox(height: 8),
-          const _AreaBand(
-            areaLabel: 'エリア①',
-            title: 'はじまりの街（ミポリン村）',
+          // タップでエリア紹介(SC-31)へ
+          GestureDetector(
+            onTap: () => context.push('/area/area_01_hajimari'),
+            child: const _AreaBand(
+              areaLabel: 'エリア①',
+              title: 'はじまりの街（ミポリン村）',
+            ),
           ),
           if (progress.reservedQuestId != null)
             Padding(
