@@ -32,7 +32,7 @@ void main() {
 
     // ── SC-10 ホーム: ステージパスにスタートノードが出る ──
     expect(find.text('スタート'), findsOneWidget);
-    expect(find.text('はじまりの街（ミポリン村）'), findsOneWidget);
+    expect(find.text('はじまりの街（みぽりん村）'), findsOneWidget);
 
     // タップ1: スタートノード → SC-20 依頼詳細
     await tapAndSettle(tester, find.text('スタート'));

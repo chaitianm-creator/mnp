@@ -31,7 +31,7 @@ class HomePage extends ConsumerWidget {
             onTap: () => context.push('/area/area_01_hajimari'),
             child: const _AreaBand(
               areaLabel: 'エリア①',
-              title: 'はじまりの街（ミポリン村）',
+              title: 'はじまりの街（みぽりん村）',
             ),
           ),
           if (progress.reservedQuestId != null)

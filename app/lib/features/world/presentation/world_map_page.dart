@@ -32,7 +32,7 @@ const kAreas = [
   AreaDef(
       id: 'area_01_hajimari',
       order: 1,
-      name: 'はじまりの街（ミポリン村）',
+      name: 'はじまりの街（みぽりん村）',
       mindTheme: '冒険のスタート',
       skillLabel: '仕事の型',
       icon: Icons.home_work,
@@ -194,94 +194,80 @@ class _AreaNode extends StatelessWidget {
   }
 }
 
-/// エリアガイドの静的コンテンツ(仲間の大草原様式のエリア紹介)。
+/// エリアガイドの静的コンテンツ(エリア紹介ページ)。
 /// 本番は areas コレクションから取得 — DEMO はエリア①のみ定義。
-class _Spot {
-  const _Spot(this.icon, this.color, this.name, this.desc);
+class _Facility {
+  const _Facility(this.icon, this.color, this.name, this.role, this.desc);
   final IconData icon;
   final Color color;
   final String name;
+  final String role;
   final String desc;
-}
-
-class _RecQuest {
-  const _RecQuest(this.title, this.exp, {this.questId});
-  final String title;
-  final String exp;
-  final String? questId;
-}
-
-class _Reward {
-  const _Reward(this.icon, this.color, this.label, this.value);
-  final IconData icon;
-  final Color color;
-  final String label;
-  final String value;
 }
 
 class _AreaGuide {
   const _AreaGuide({
     required this.subtitle,
     required this.concept,
-    required this.spots,
-    required this.quests,
-    required this.rewards,
+    required this.highlights,
+    required this.todos,
+    required this.facilities,
     required this.teacherMessage,
-    required this.footer,
   });
   final String subtitle;
   final String concept;
-  final List<_Spot> spots;
-  final List<_RecQuest> quests;
-  final List<_Reward> rewards;
+  final List<String> highlights;
+  final List<String> todos;
+  final List<_Facility> facilities;
   final String teacherMessage;
-  final String footer;
 }
 
 const _guides = <String, _AreaGuide>{
   'area_01_hajimari': _AreaGuide(
-    subtitle: '〜はじめての仕事と出会う、冒険のスタート地点〜',
-    concept: 'はじめてでも、だいじょうぶ。この街の住民はみんな、'
-        'デザイン見習いのあなたを待っています。'
-        '小さな依頼をひとつずつクリアして、「仕事の型」を身につけよう！',
-    spots: [
-      _Spot(Icons.storefront, KdColors.pink500, 'パン屋のマルコ',
-          '・はじめての依頼主。「聞く→つくる→届ける」を体験しよう'),
-      _Spot(Icons.content_cut, KdColors.ocean500, '美容室のリナ',
-          '・3分のミニ依頼。「選ばれるデザイン」の感覚をつかもう'),
-      _Spot(Icons.assignment, KdColors.wood700, '依頼掲示板',
-          '・きょうの依頼はここでチェック。あなたを待ってる人がいるよ'),
-      _Spot(Icons.favorite, KdColors.pink700, 'みぽりん先生の家',
-          '・納品前の添削タイム。よかったところから教えてくれるよ'),
-      _Spot(Icons.water_drop, KdColors.ocean500, '噴水広場',
-          '・連続日数のハートが育つ、みんなの憩いの場'),
-      _Spot(Icons.flag, KdColors.gold500, '王国の門',
-          '・12件納品でボス戦が解放！次のエリアへの入り口'),
+    subtitle: '〜すべての冒険の第一歩〜',
+    concept: 'みぽりん先生と出会い、夢に向かって一歩を踏み出すための'
+        '温かく安心できる"はじまりの場所"。'
+        '仲間や学びがそろい、あなたの「やってみたい！」を'
+        'やさしく応援してくれる街です。',
+    highlights: [
+      'みぽりん先生の教えがそろう学びの拠点',
+      '仲間とつながる交流の場所',
+      '最初のミッションやクエストを受けられる掲示板',
+      'おしゃれでかわいいショップやカフェも充実♪',
+      'あなたの成長をそっと見守ってくれる街',
     ],
-    quests: [
-      _RecQuest('新商品『もちもち王国パン』のPOP', 'EXP+50', questId: 'q_marco_01'),
-      _RecQuest('お店の看板、どっちがいい？', 'EXP+20', questId: 'q_mini_001'),
-      _RecQuest('目標を決めて冒険をはじめよう', 'EXP+10'),
-      _RecQuest('みぽりん先生にあいさつしよう', 'EXP+10'),
+    todos: [
+      '初めての学びを受ける（レッスン・クエスト）',
+      '仲間と出会い、つながる（コミュニティ）',
+      'アイテムやデザイン素材をそろえる（ショップ）',
+      '今日のやることを決める（掲示板・ミッション）',
+      'ほっと一息ついて、リフレッシュする（カフェ・公園）',
     ],
-    rewards: [
-      _Reward(Icons.auto_awesome, KdColors.gold500, '経験値', '+50'),
-      _Reward(Icons.monetization_on, KdColors.gold500, 'コイン', '+10'),
-      _Reward(Icons.vpn_key, KdColors.gold500, 'カギ（たまにドロップ）', '+1'),
-      _Reward(Icons.local_florist, KdColors.pink500, '町の発展レベル', 'UP'),
-      _Reward(Icons.redeem, KdColors.pink700, 'ボス戦解放', '12件納品'),
+    facilities: [
+      _Facility(Icons.castle, KdColors.pink700, 'みぽりん先生の城', '学びの拠点',
+          'レッスンや教えがそろうこの街の中心。先生がいつも見守ってくれるよ♪'),
+      _Facility(Icons.assignment, KdColors.wood700, 'クエスト掲示板', 'ミッション受付',
+          '今日のミッションやイベントをチェック！やることが見つかるよ♪'),
+      _Facility(Icons.cottage, KdColors.pink500, 'コミュニティハウス', '仲間とつながる場所',
+          '仲間と交流したり、相談したりできるあたたかいおうち♪'),
+      _Facility(Icons.storefront, KdColors.gold500, 'デザインショップ', 'アイテム・素材屋',
+          'デザインに役立つアイテムや素材がそろうお店♪'),
+      _Facility(Icons.palette, KdColors.lava500, 'みぽりん工房', '制作・練習の場所',
+          '制作の練習をしたり、作品を生み出すワクワクの工房♪'),
+      _Facility(Icons.local_cafe, KdColors.ocean500, 'みぽりんカフェ', 'ひとやすみ',
+          'ほっと一息つけるカフェでリフレッシュ♪ おしゃべりもOK！'),
+      _Facility(Icons.local_florist, KdColors.grass500, 'みぽりんガーデン', '癒しの庭',
+          'お花や緑に囲まれた癒しの庭。気分転換にぴったり♪'),
     ],
-    teacherMessage: '一人で頑張ることも大切だけど、\n'
-        'はじめの一歩がいちばん勇気がいるの。\n'
-        'あなたなら ぜったいできるよ！\n'
-        '一歩ずつでいいの。いっしょに\n'
-        '理想の未来へ進んでいこうね♡',
-    footer: 'はじめての納品が、冒険の第一歩だよ！',
+    teacherMessage: 'ここは、あなたの冒険のはじまりの場所。\n'
+        '小さな一歩が、大きな未来につながるよ！\n'
+        'みぽりん村で、わくわくする毎日を\n'
+        'スタートさせようね♪',
   ),
 };
 
 /// SC-31 エリア詳細(町ビュー)。授かり効果の中心画面。
-/// エリアガイドがあるエリアは「仲間の大草原」様式の紹介ページを表示。
+/// エリアガイドがあるエリアは「全体マップ提案」様式の紹介ページを表示。
 class AreaDetailPage extends ConsumerWidget {
   const AreaDetailPage({super.key, required this.areaId});
   final String areaId;
@@ -305,7 +291,7 @@ class AreaDetailPage extends ConsumerWidget {
             const SizedBox(height: 6),
             Center(
               child: Text(guide.subtitle,
-                  style: KdTheme.dot(size: 12, color: KdColors.pink700)),
+                  style: KdTheme.dot(size: 13, color: KdColors.pink700)),
             ),
             const SizedBox(height: 16),
             // ── コンセプト ──
@@ -316,101 +302,91 @@ class AreaDetailPage extends ConsumerWidget {
                   style: Theme.of(context).textTheme.bodyLarge),
             ),
             const SizedBox(height: 20),
-            // ── この街でできること(スポット一覧) ──
-            Center(child: KdRibbonBanner('この街でできること', fontSize: 14)),
-            const SizedBox(height: 12),
+            // ── 見どころ ──
+            const KdSectionHeader('見どころ'),
+            const SizedBox(height: 8),
             KdParchmentCard(
               child: Column(children: [
-                for (final (i, spot) in guide.spots.indexed) ...[
-                  if (i > 0) const Divider(height: 16),
-                  Row(children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: spot.color,
-                        borderRadius: BorderRadius.circular(4),
-                        border:
-                            Border.all(color: KdColors.wood900, width: 2),
-                      ),
-                      child:
-                          Icon(spot.icon, color: Colors.white, size: 22),
-                    ),
-                    const SizedBox(width: 10),
+                for (final (i, h) in guide.highlights.indexed) ...[
+                  if (i > 0) const SizedBox(height: 8),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.local_florist,
+                        size: 16, color: KdColors.pink500),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(spot.name,
-                                style: KdTheme.dot(
-                                        size: 14, color: KdColors.heading)
-                                    .copyWith(fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 2),
-                            Text(spot.desc,
-                                style:
-                                    Theme.of(context).textTheme.bodyMedium),
-                          ]),
+                      child: Text(h,
+                          style: Theme.of(context).textTheme.bodyMedium),
                     ),
                   ]),
                 ],
               ]),
             ),
             const SizedBox(height: 20),
-            // ── おすすめクエスト ──
-            Center(child: KdRibbonBanner('おすすめクエスト', fontSize: 14)),
-            const SizedBox(height: 12),
+            // ── この街でできること ──
+            const KdSectionHeader('この街でできること'),
+            const SizedBox(height: 8),
             KdParchmentCard(
               child: Column(children: [
-                for (final (i, q) in guide.quests.indexed) ...[
-                  if (i > 0) const Divider(height: 14),
-                  InkWell(
-                    onTap: q.questId == null
-                        ? null
-                        : () => context.push('/quest/${q.questId}'),
-                    child: Row(children: [
-                      const Icon(Icons.star,
-                          size: 18, color: KdColors.gold500),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(q.title,
-                            style: Theme.of(context).textTheme.bodyMedium),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: KdColors.pink100,
-                          borderRadius: BorderRadius.circular(3),
-                          border: Border.all(
-                              color: KdColors.pink500, width: 1.5),
-                        ),
-                        child: Text(q.exp,
-                            style: KdTheme.dot(
-                                size: 12, color: KdColors.pink700)),
-                      ),
-                    ]),
-                  ),
+                for (final (i, t) in guide.todos.indexed) ...[
+                  if (i > 0) const SizedBox(height: 8),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.auto_awesome,
+                        size: 16, color: KdColors.gold500),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(t,
+                          style: Theme.of(context).textTheme.bodyMedium),
+                    ),
+                  ]),
                 ],
               ]),
             ),
             const SizedBox(height: 20),
-            // ── クリア報酬(例) ──
-            Center(child: KdRibbonBanner('クリア報酬（例）', fontSize: 14)),
+            // ── 主な施設紹介 ──
+            Center(child: KdRibbonBanner('主な施設紹介', fontSize: 14)),
             const SizedBox(height: 12),
             KdParchmentCard(
               child: Column(children: [
-                for (final (i, r) in guide.rewards.indexed) ...[
-                  if (i > 0) const Divider(height: 14),
+                for (final (i, f) in guide.facilities.indexed) ...[
+                  if (i > 0) const Divider(height: 18),
                   Row(children: [
-                    Icon(r.icon, size: 20, color: r.color),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: f.color,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: KdColors.wood900, width: 2),
+                      ),
+                      child: Icon(f.icon, color: Colors.white, size: 24),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(r.label,
-                          style: Theme.of(context).textTheme.bodyMedium),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.ideographic,
+                                children: [
+                                  Flexible(
+                                    child: Text(f.name,
+                                        style: KdTheme.dot(
+                                                size: 14,
+                                                color: KdColors.heading)
+                                            .copyWith(
+                                                fontWeight: FontWeight.w700)),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text('（${f.role}）',
+                                      style: KdTheme.dot(
+                                          size: 11, color: KdColors.ink900)),
+                                ]),
+                            const SizedBox(height: 2),
+                            Text(f.desc,
+                                style: Theme.of(context).textTheme.bodyMedium),
+                          ]),
                     ),
-                    Text(r.value,
-                        style: KdTheme.dot(size: 15, color: KdColors.heading)
-                            .copyWith(fontWeight: FontWeight.w700)),
                   ]),
                 ],
               ]),
@@ -429,8 +405,7 @@ class AreaDetailPage extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: KdColors.pink100,
                         shape: BoxShape.circle,
-                        border:
-                            Border.all(color: KdColors.pink500, width: 2),
+                        border: Border.all(color: KdColors.pink500, width: 2),
                       ),
                       child: const Icon(Icons.favorite,
                           color: KdColors.pink500, size: 26),
@@ -494,7 +469,11 @@ class AreaDetailPage extends ConsumerWidget {
           ),
           if (guide != null) ...[
             const SizedBox(height: 20),
-            Center(child: KdRibbonBanner(guide.footer, fontSize: 13)),
+            // ── 冒険への入り口(ワールドマップへ) ──
+            KdPrimaryButton(
+              label: '冒険への入り口（ワールドマップへ）',
+              onPressed: () => context.go('/map'),
+            ),
             const SizedBox(height: 8),
           ],
         ]),
