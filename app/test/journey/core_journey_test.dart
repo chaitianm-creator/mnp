@@ -30,12 +30,12 @@ void main() {
       (tester) async {
     await pumpApp(tester);
 
-    // ── SC-10 ホーム: 今日の依頼が表示される ──
-    expect(find.text('きょうの依頼'), findsOneWidget);
-    expect(find.textContaining('もちもち王国パン'), findsOneWidget);
+    // ── SC-10 ホーム: ステージパスにスタートノードが出る ──
+    expect(find.text('スタート'), findsOneWidget);
+    expect(find.text('はじまりの街（ミポリン村）'), findsOneWidget);
 
-    // タップ1: 依頼カード → SC-20 依頼詳細
-    await tapAndSettle(tester, find.textContaining('もちもち王国パン'));
+    // タップ1: スタートノード → SC-20 依頼詳細
+    await tapAndSettle(tester, find.text('スタート'));
     expect(find.text('この仕事を引き受ける'), findsOneWidget);
 
     // タップ2: 受注 → SC-21 ヒアリング(US-E2-01: 2タップで仕事が始まる)
@@ -69,8 +69,10 @@ void main() {
     expect(goodY < impY, isTrue, reason: '良い点が先(US-E3-02)');
     expect(find.textContaining('リテイク'), findsOneWidget);
 
-    // 納品 → SC-27 演出
-    await tapAndSettle(tester, find.text('納品する'));
+    // 納品 → SC-27 演出(deliverQuest の擬似遅延 400ms を明示的に進める)
+    await tester.tap(find.text('納品する'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
     expect(find.text('納品完了！'), findsOneWidget);
     expect(find.textContaining('XP +50'), findsOneWidget);
 
@@ -92,25 +94,27 @@ void main() {
     await tapAndSettle(tester, find.text('太めの丸ゴシック・濃い色文字'));
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
-    await tapAndSettle(tester, find.text('納品する'));
+    await tester.tap(find.text('納品する'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
     await tapAndSettle(tester, find.text('タップしてつづける'));
 
     // Phase 4 §3: 2回目のSC-28には「あと1クエスト」ボタン自体が存在しない
     expect(find.text('きょうのまとめ'), findsOneWidget);
     expect(find.text('あと1クエストだけやる（3分）'), findsNothing);
 
-    // ホームへ: 予約カード + 納品済み表示 + ストリーク反映
+    // ホームへ: 予約バナー + 全ステージ納品済み(挑戦ノードなし)
     await tapAndSettle(tester, find.text('きょうはここまで！ホームへ'));
     expect(find.textContaining('予約したお仕事'), findsOneWidget);
-    expect(find.textContaining('納品ずみ'), findsNWidgets(2));
+    expect(find.text('スタート'), findsNothing);
   });
 
   testWidgets('中断確認ダイアログは1タップで抜けられる(Phase 4 §7-2)', (tester) async {
     await pumpApp(tester);
-    await tapAndSettle(tester, find.textContaining('もちもち王国パン'));
+    await tapAndSettle(tester, find.text('スタート'));
     await tapAndSettle(tester, find.byIcon(Icons.close));
     expect(find.text('ここまでにする？'), findsOneWidget);
     await tapAndSettle(tester, find.text('あとで'));
-    expect(find.text('きょうの依頼'), findsOneWidget); // ホームへ戻れた
+    expect(find.text('スタート'), findsOneWidget); // ホームへ戻れた
   });
 }
