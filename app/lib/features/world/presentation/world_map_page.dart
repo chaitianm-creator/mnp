@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -95,9 +97,17 @@ const kAreas = [
       color: KdColors.pink700),
 ];
 
-/// SC-30 世界マップ。解放状態と発展度を一覧(未解放=セピア+雲)。
+/// SC-30 世界マップ = 王国の全体マップ。
+/// ゲームフィールド様式: エリアごとに地形が変わる縦長マップの上を、
+/// タイルの道が8つのエリアノードをつないでいく。
 class WorldMapPage extends ConsumerWidget {
   const WorldMapPage({super.key});
+
+  // 蛇行(左右への振れ幅の並び)
+  static const _sway = [0.0, 0.5, -0.45, 0.5, -0.5, 0.45, -0.5, 0.0];
+  static const _rowH = 168.0;
+  static const _topPad = 56.0;
+  static const _bottomPad = 56.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -105,21 +115,163 @@ class WorldMapPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('ワールドマップ')),
-      body: SafeArea(
-        child: ListView(padding: const EdgeInsets.all(20), children: [
-          Text('王国中の困りごとを、デザインで解決しよう',
-              style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 16),
-          for (final area in kAreas) ...[
-            _AreaNode(
-              area: area,
-              // DEMO: エリア①のみ解放。②以降は①クリア(12件)で解放(Phase 5 §2.1)
-              unlocked: area.order == 1 ||
-                  (progress.areaDelivered['area_01_hajimari'] ?? 0) >= 12,
-              stage: progress.stageOf(area.id),
-              delivered: progress.areaDelivered[area.id] ?? 0,
+      body: LayoutBuilder(builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final totalH = _topPad + kAreas.length * _rowH + _bottomPad;
+        final centers = <Offset>[
+          for (var i = 0; i < kAreas.length; i++)
+            Offset(
+              w / 2 + _sway[i % _sway.length] * (w * 0.26),
+              _topPad + i * _rowH + _rowH / 2 - 14,
             ),
-            const SizedBox(height: 12),
+        ];
+
+        return SingleChildScrollView(
+          child: SizedBox(
+            width: w,
+            height: totalH,
+            child: Stack(children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _WorldMapPainter(
+                      centers: centers, rowH: _rowH, topPad: _topPad),
+                ),
+              ),
+              // 王国の合言葉(マップ最上部)
+              Positioned(
+                top: 10,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: KdColors.pink500, width: 2),
+                    ),
+                    child: Text('王国中の困りごとを、デザインで解決しよう',
+                        style: KdTheme.dot(size: 12, color: KdColors.pink700)),
+                  ),
+                ),
+              ),
+              for (var i = 0; i < kAreas.length; i++)
+                _positionedArea(
+                  context,
+                  kAreas[i],
+                  centers[i],
+                  // DEMO: エリア①のみ解放。②以降は①クリア(12件)で解放(Phase 5 §2.1)
+                  unlocked: kAreas[i].order == 1 ||
+                      (progress.areaDelivered['area_01_hajimari'] ?? 0) >= 12,
+                  stage: progress.stageOf(kAreas[i].id),
+                ),
+            ]),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _positionedArea(BuildContext context, AreaDef area, Offset center,
+      {required bool unlocked, required int stage}) {
+    const boxW = 170.0;
+    return Positioned(
+      left: center.dx - boxW / 2,
+      top: center.dy - 36,
+      child: SizedBox(
+        width: boxW,
+        child: _MapNode(
+          area: area,
+          unlocked: unlocked,
+          stage: stage,
+          onTap: () => context.push('/area/${area.id}'),
+        ),
+      ),
+    );
+  }
+}
+
+/// マップ上のエリアノード: 円形3Dボタン + 番号バッジ + 黒の地名チップ。
+class _MapNode extends StatelessWidget {
+  const _MapNode(
+      {required this.area,
+      required this.unlocked,
+      required this.stage,
+      required this.onTap});
+  final AreaDef area;
+  final bool unlocked;
+  final int stage;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = unlocked ? area.color : const Color(0xFFB9AE99);
+    const edgeLocked = Color(0xFF8E8471);
+    final edge = unlocked
+        ? Color.lerp(area.color, KdColors.wood900, 0.35)!
+        : edgeLocked;
+
+    return Semantics(
+      button: true,
+      label: area.name,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Stack(clipBehavior: Clip.none, children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: fill,
+                shape: BoxShape.circle,
+                border: Border.all(color: KdColors.wood900, width: 2.5),
+                boxShadow: [BoxShadow(color: edge, offset: const Offset(0, 4))],
+              ),
+              child: Icon(unlocked ? area.icon : Icons.lock,
+                  color: Colors.white, size: 30),
+            ),
+            // 番号バッジ
+            Positioned(
+              top: -4,
+              left: -6,
+              child: Container(
+                width: 20,
+                height: 20,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: KdColors.gold500,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: KdColors.wood900, width: 2),
+                ),
+                child: Text('${area.order}',
+                    style: KdTheme.dot(size: 11, color: Colors.white)
+                        .copyWith(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          // 黒の地名チップ(参考マップのラベル様式)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: KdColors.chipBlack,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(area.name,
+                textAlign: TextAlign.center,
+                style: KdTheme.dot(size: 11)),
+          ),
+          if (unlocked) ...[
+            const SizedBox(height: 3),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              for (var i = 1; i <= 3; i++)
+                Icon(Icons.local_florist,
+                    size: 13,
+                    color: i <= stage
+                        ? KdColors.pink500
+                        : Colors.white.withOpacity(0.6)),
+            ]),
           ],
         ]),
       ),
@@ -127,71 +279,232 @@ class WorldMapPage extends ConsumerWidget {
   }
 }
 
-class _AreaNode extends StatelessWidget {
-  const _AreaNode(
-      {required this.area,
-      required this.unlocked,
-      required this.stage,
-      required this.delivered});
-  final AreaDef area;
-  final bool unlocked;
-  final int stage;
-  final int delivered;
+/// 王国マップの背景画: エリアごとの地形バンド + タイルの道(ドット絵の作法)。
+/// 乱数は固定シード = 毎フレーム同じ絵(ちらつき防止)。
+class _WorldMapPainter extends CustomPainter {
+  const _WorldMapPainter(
+      {required this.centers, required this.rowH, required this.topPad});
+  final List<Offset> centers;
+  final double rowH;
+  final double topPad;
+
+  // 地形パレット(エリア順)
+  static const _bands = [
+    Color(0xFF77B94C), // ① 草原の村
+    Color(0xFF3E8A3E), // ② 森
+    Color(0xFF3D8FE0), // ③ 湖
+    Color(0xFFE3C27E), // ④ 塔の砂地
+    Color(0xFF5A4038), // ⑤ 火山
+    Color(0xFF8BC34A), // ⑥ 大草原
+    Color(0xFF463B52), // ⑦ 洞窟
+    Color(0xFFF2B9CD), // ⑧ 城下
+  ];
+  static const _tile = Color(0xFFE8D3A0);
+  static const _tileEdge = Color(0xFF8A6A3A);
 
   @override
-  Widget build(BuildContext context) {
-    final child = KdParchmentCard(
-      child: Row(children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: unlocked ? area.color : KdColors.border.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: KdColors.wood900, width: 2),
-          ),
-          child: Icon(unlocked ? area.icon : Icons.cloud,
-              color: Colors.white, size: 26),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${area.order}. ${area.name}',
-                style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    color: unlocked
-                        ? KdColors.ink900
-                        : KdColors.ink900.withOpacity(0.4))),
-            const SizedBox(height: 2),
-            Text(unlocked ? area.mindTheme : '？？？',
-                style: Theme.of(context).textTheme.bodyMedium),
-          ]),
-        ),
-        if (unlocked)
-          Column(children: [
-            Text('発展', style: KdTheme.dot(size: 11, color: KdColors.ink900)),
-            Row(children: [
-              for (var i = 1; i <= 3; i++)
-                Icon(Icons.local_florist,
-                    size: 16,
-                    color: i <= stage
-                        ? KdColors.pink500
-                        : KdColors.border.withOpacity(0.3)),
-            ]),
-          ])
-        else
-          const Icon(Icons.lock, color: KdColors.wood700),
-      ]),
-    );
+  void paint(Canvas canvas, Size size) {
+    final rng = math.Random(7);
+    final paintFill = Paint();
 
-    // 未解放でもエリア紹介は見られる(挑戦はエリア①クリアで解放)
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => context.push('/area/${area.id}'),
-      child: unlocked ? child : Opacity(opacity: 0.7, child: child),
+    // ── 地形バンド ──
+    for (var i = 0; i < _bands.length; i++) {
+      final top = i == 0 ? 0.0 : topPad + i * rowH;
+      final bottom =
+          i == _bands.length - 1 ? size.height : topPad + (i + 1) * rowH;
+      paintFill.color = _bands[i];
+      canvas.drawRect(Rect.fromLTRB(0, top, size.width, bottom), paintFill);
+      // 境界のディザ(市松の2列でピクセル調の地形境界)
+      if (i > 0) {
+        paintFill.color = _bands[i - 1];
+        for (double x = 0; x < size.width; x += 16) {
+          canvas.drawRect(Rect.fromLTWH(x, top, 8, 8), paintFill);
+          canvas.drawRect(Rect.fromLTWH(x + 8, top + 8, 8, 8), paintFill);
+        }
+      }
+      // 地形のむら
+      for (var k = 0; k < 26; k++) {
+        final x = rng.nextDouble() * size.width;
+        final y = top + rng.nextDouble() * (bottom - top);
+        paintFill.color = rng.nextBool()
+            ? Color.lerp(_bands[i], Colors.black, 0.08)!
+            : Color.lerp(_bands[i], Colors.white, 0.08)!;
+        canvas.drawRect(
+            Rect.fromLTWH(x.floorToDouble(), y.floorToDouble(), 6, 6),
+            paintFill);
+      }
+      _decorateBand(
+          canvas, size, i, top, bottom, math.Random(100 + i));
+    }
+
+    // ── タイルの道(エリアノードをつなぐ) ──
+    for (var i = 0; i < centers.length - 1; i++) {
+      final a = centers[i];
+      final b = centers[i + 1];
+      const steps = 4;
+      for (var s = 1; s <= steps; s++) {
+        final t = s / (steps + 1);
+        final p = Offset.lerp(a, b, t)!;
+        _diamond(canvas, p, 20, 13);
+      }
+    }
+    for (final c in centers) {
+      _diamond(canvas, c.translate(0, 16), 38, 23);
+    }
+  }
+
+  /// 地形ごとの飾り(木・波・溶岩・クリスタル・花)。
+  void _decorateBand(Canvas canvas, Size size, int band, double top,
+      double bottom, math.Random rng) {
+    switch (band) {
+      case 0: // 草原の村: 花と木
+      case 5: // 大草原
+        for (var i = 0; i < 3; i++) {
+          _tree(canvas,
+              Offset(rng.nextBool() ? 22.0 + rng.nextDouble() * 22 : size.width - 56 + rng.nextDouble() * 16,
+                  top + 24 + rng.nextDouble() * (bottom - top - 60)));
+        }
+        for (var i = 0; i < 10; i++) {
+          _flower(
+              canvas,
+              Offset(rng.nextDouble() * size.width,
+                  top + rng.nextDouble() * (bottom - top)),
+              rng.nextBool() ? KdColors.pink100 : Colors.white);
+        }
+      case 1: // 森: 木を密に
+        for (var i = 0; i < 8; i++) {
+          _tree(
+              canvas,
+              Offset(rng.nextDouble() * (size.width - 60) + 16,
+                  top + 16 + rng.nextDouble() * (bottom - top - 60)),
+              dark: true);
+        }
+      case 2: // 湖: 波と白鳥っぽい光
+        final wave = Paint()..color = Colors.white.withOpacity(0.55);
+        for (var i = 0; i < 14; i++) {
+          final x = rng.nextDouble() * (size.width - 40);
+          final y = top + rng.nextDouble() * (bottom - top);
+          canvas.drawRect(Rect.fromLTWH(x, y, 16, 3), wave);
+        }
+      case 3: // 塔の砂地: 点在する石
+        final rock = Paint()..color = const Color(0xFFB98F4E);
+        for (var i = 0; i < 8; i++) {
+          final x = rng.nextDouble() * size.width;
+          final y = top + rng.nextDouble() * (bottom - top);
+          canvas.drawRRect(
+              RRect.fromRectAndRadius(Rect.fromLTWH(x, y, 10, 7),
+                  const Radius.circular(2)),
+              rock);
+        }
+      case 4: // 火山: 溶岩の亀裂
+        final lava = Paint()
+          ..color = KdColors.lava500
+          ..strokeWidth = 3
+          ..style = PaintingStyle.stroke
+          ..strokeJoin = StrokeJoin.miter;
+        for (var i = 0; i < 4; i++) {
+          final x0 = rng.nextDouble() * size.width;
+          final y0 = top + rng.nextDouble() * (bottom - top - 40);
+          final crack = Path()..moveTo(x0, y0);
+          var x = x0;
+          var y = y0;
+          for (var s = 0; s < 4; s++) {
+            x += rng.nextDouble() * 24 - 12;
+            y += 10 + rng.nextDouble() * 8;
+            crack.lineTo(x, y);
+          }
+          canvas.drawPath(crack, lava);
+        }
+        final ember = Paint()..color = const Color(0xFFFFB74D);
+        for (var i = 0; i < 8; i++) {
+          canvas.drawRect(
+              Rect.fromLTWH(rng.nextDouble() * size.width,
+                  top + rng.nextDouble() * (bottom - top), 4, 4),
+              ember);
+        }
+      case 6: // 洞窟: クリスタル
+        for (var i = 0; i < 7; i++) {
+          final x = rng.nextDouble() * size.width;
+          final y = top + rng.nextDouble() * (bottom - top);
+          final color = rng.nextBool()
+              ? const Color(0xFF7FB9F0)
+              : const Color(0xFFB388FF);
+          final crystal = Path()
+            ..moveTo(x, y - 9)
+            ..lineTo(x + 6, y)
+            ..lineTo(x, y + 9)
+            ..lineTo(x - 6, y)
+            ..close();
+          canvas.drawPath(crystal, Paint()..color = color);
+        }
+      case 7: // 城下: 花ときらめき
+        for (var i = 0; i < 12; i++) {
+          _flower(
+              canvas,
+              Offset(rng.nextDouble() * size.width,
+                  top + rng.nextDouble() * (bottom - top)),
+              rng.nextBool() ? Colors.white : KdColors.pink700);
+        }
+    }
+  }
+
+  void _diamond(Canvas canvas, Offset c, double w, double h) {
+    final path = Path()
+      ..moveTo(c.dx, c.dy - h)
+      ..lineTo(c.dx + w, c.dy)
+      ..lineTo(c.dx, c.dy + h)
+      ..lineTo(c.dx - w, c.dy)
+      ..close();
+    canvas.drawPath(path, Paint()..color = _tile);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = _tileEdge
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeJoin = StrokeJoin.miter,
     );
   }
+
+  void _tree(Canvas canvas, Offset base, {bool dark = false}) {
+    canvas.drawRect(
+        Rect.fromCenter(center: base.translate(0, 22), width: 8, height: 12),
+        Paint()..color = const Color(0xFF6D4C2F));
+    final leaf = Paint()
+      ..color = dark ? const Color(0xFF1F5E23) : const Color(0xFF2E7D32);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(center: base.translate(0, 8), width: 34, height: 18),
+            const Radius.circular(5)),
+        leaf);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(center: base.translate(0, -6), width: 26, height: 18),
+            const Radius.circular(5)),
+        leaf);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(center: base.translate(-4, -8), width: 10, height: 6),
+            const Radius.circular(2)),
+        Paint()..color = const Color(0xFF43A047));
+  }
+
+  void _flower(Canvas canvas, Offset c, Color color) {
+    final p = Paint()..color = color;
+    canvas.drawRect(Rect.fromCenter(center: c, width: 3, height: 3), p);
+    canvas.drawRect(
+        Rect.fromCenter(center: c.translate(-3, 0), width: 3, height: 3), p);
+    canvas.drawRect(
+        Rect.fromCenter(center: c.translate(3, 0), width: 3, height: 3), p);
+    canvas.drawRect(
+        Rect.fromCenter(center: c.translate(0, -3), width: 3, height: 3), p);
+    canvas.drawRect(
+        Rect.fromCenter(center: c.translate(0, 3), width: 3, height: 3), p);
+  }
+
+  @override
+  bool shouldRepaint(covariant _WorldMapPainter old) =>
+      old.centers != centers;
 }
 
 /// エリアガイドの静的コンテンツ(エリア紹介ページ)。
