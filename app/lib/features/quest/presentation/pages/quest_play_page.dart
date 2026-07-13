@@ -447,8 +447,8 @@ class _DeliveredFlowState extends ConsumerState<_DeliveredFlow> {
           lines: [
             '${widget.state.quest.residentName}「ありがとう！すごく助かったよ！」',
             'XP +${o.reward.xp}   コイン +${o.reward.coins}',
-            if (o.levelUpTo != null) '🎉 レベル ${o.levelUpTo} になった！',
-            if (o.droppedKey) '🗝 宝箱の鍵を拾った！',
+            if (o.levelUpTo != null) '★ レベル ${o.levelUpTo} になった！',
+            if (o.droppedKey) '★ 宝箱のカギを拾った！',
           ],
           onDone: () => setState(() => _celebrationDone = true),
         ),
@@ -482,22 +482,45 @@ class _SessionEndView extends ConsumerWidget {
           title: const Text('きょうのまとめ'), automaticallyImplyLeading: false),
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.all(20), children: [
-          // ① 今日の成果
+          // ① 今日の成果(レベルアップ・演出素材様式: リボン + ステータスタイル)
+          Center(child: KdRibbonBanner('きょうの成果', fontSize: 14)),
+          const SizedBox(height: 12),
           KdParchmentCard(
-            child: Column(children: [
-              Text('きょうの成果',
-                  style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text('納品 1件   XP +${o.reward.xp}   🔥ストリーク ${o.streak}日',
-                  style: KdTheme.dot(size: 15, color: KdColors.ink900)),
-            ]),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  const _ResultTile(
+                      icon: Icons.inventory,
+                      color: KdColors.pink500,
+                      label: 'のうひん',
+                      value: '1件'),
+                  _ResultTile(
+                      icon: Icons.auto_awesome,
+                      color: KdColors.gold500,
+                      label: 'けいけんち',
+                      value: 'EXP+${o.reward.xp}'),
+                  _ResultTile(
+                      icon: Icons.favorite,
+                      color: KdColors.pink700,
+                      label: 'れんぞく',
+                      value: '${o.streak}日'),
+                ]),
           ),
           const SizedBox(height: 12),
           // ② 昨日の自分との比較(DEMO: 固定文。本番は daily_log 差分)
           KdParchmentCard(
             child: Row(children: [
-              const Icon(Icons.trending_up, color: KdColors.grass500),
-              const SizedBox(width: 8),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: KdColors.grass500,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: KdColors.wood900, width: 2),
+                ),
+                child: const Icon(Icons.trending_up,
+                    color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text('きのうのあなたより、ヒアリング力が +1 育ったよ',
                     style: Theme.of(context).textTheme.bodyLarge),
@@ -506,16 +529,14 @@ class _SessionEndView extends ConsumerWidget {
           ),
           // ③ 明日の予告 + 受注予約(ツァイガルニク + 一貫性の原理)
           if (teaser != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             KdParchmentCard(
               child:
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('あしたの予告',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700, color: KdColors.pink700)),
-                const SizedBox(height: 8),
-                Text('${state.quest.residentName}「$teaser」',
-                    style: Theme.of(context).textTheme.bodyLarge),
+                const KdSectionHeader('あしたの予告'),
+                const SizedBox(height: 10),
+                KdDialogueBubble(
+                    speaker: state.quest.residentName, text: teaser),
                 const SizedBox(height: 12),
                 reserved
                     ? Row(children: [
@@ -536,11 +557,27 @@ class _SessionEndView extends ConsumerWidget {
           ],
           // ④ あと1クエスト(1回のみ。2回目は「ボタン自体を表示しない」= Phase 4 §3)
           if (canOneMore) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             KdParchmentCard(
               child: Column(children: [
-                Text('まだ少しだけ時間ある？3分のミニ依頼が1件あるよ',
-                    style: Theme.of(context).textTheme.bodyLarge),
+                Row(children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: KdColors.ocean500,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: KdColors.wood900, width: 2),
+                    ),
+                    child:
+                        const Icon(Icons.bolt, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('まだ少しだけ時間ある？3分のミニ依頼が1件あるよ',
+                        style: Theme.of(context).textTheme.bodyLarge),
+                  ),
+                ]),
                 const SizedBox(height: 12),
                 KdPrimaryButton(
                   label: 'あと1クエストだけやる（3分）',
@@ -563,5 +600,46 @@ class _SessionEndView extends ConsumerWidget {
         ]),
       ),
     );
+  }
+}
+
+/// きょうの成果のステータスタイル(アイコンタイル + 数値 + ラベル)。
+class _ResultTile extends StatelessWidget {
+  const _ResultTile({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: KdColors.wood900, width: 2),
+          boxShadow: [
+            BoxShadow(
+                color: Color.lerp(color, KdColors.wood900, 0.35)!,
+                offset: const Offset(0, 3)),
+          ],
+        ),
+        child: Icon(icon, color: Colors.white, size: 22),
+      ),
+      const SizedBox(height: 8),
+      Text(value,
+          style: KdTheme.dot(size: 15, color: KdColors.heading)
+              .copyWith(fontWeight: FontWeight.w700)),
+      const SizedBox(height: 2),
+      Text(label, style: KdTheme.dot(size: 11, color: KdColors.ink900)),
+    ]);
   }
 }
