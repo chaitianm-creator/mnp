@@ -7,46 +7,257 @@ import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
 import 'package:design_kingdom/core/widgets/kd_widgets.dart';
 
-/// SC-40 スキルツリー(骨格)。6系統の獲得ポイントのみ表示。
+/// SC-40 スキル = RPGステータス画面。
+/// 6系統のスキルバー(HP/MPバー様式) + そうびアイテム(アイテムカード素材様式)。
 /// ツリーUI・分岐選択は Phase 9 後半の次マイルストーンで実装。
 class SkillsPage extends ConsumerWidget {
   const SkillsPage({super.key});
 
-  static const _categories = {
-    'craft': ('制作技術', Icons.brush),
-    'hearing': ('ヒアリング', Icons.hearing),
-    'proposal': ('提案力', Icons.lightbulb),
-    'revision': ('改善力', Icons.refresh),
-    'selfmgmt': ('自己管理', Icons.schedule),
-    'community': ('コミュニティ', Icons.group),
-  };
+  // 6系統(Phase 8 §1.2)。バーの色はエリア地形の語彙と揃える。
+  static const _categories = [
+    ('制作技術', Icons.brush, KdColors.pink500),
+    ('ヒアリング', Icons.hearing, KdColors.ocean500),
+    ('提案力', Icons.lightbulb, KdColors.gold500),
+    ('改善力', Icons.refresh, KdColors.lava500),
+    ('自己管理', Icons.schedule, KdColors.grass500),
+    ('コミュニティ', Icons.group, KdColors.pink700),
+  ];
+
+  // そうびアイテム(みぽりん王国 素材パックのアイテムカード)。
+  // DEMO: 納品数に応じて1つずつ解放される。
+  static const _items = [
+    ('デザインペン', '伝説の武器', Icons.edit, '制作力 +9', 'アイデアを形にする魔法のペン。'),
+    ('共感のリボン', 'そうび', Icons.loyalty, '伝える力 +8', '相手の気持ちに寄り添う魔法のリボン。'),
+    ('自信のティアラ', 'そうび', Icons.workspace_premium, '自己肯定感 +10',
+        '自分の魅力に気づける魔法のティアラ。'),
+    ('実践のローブ', 'そうび', Icons.checkroom, '行動力 +10', '学びを成果につなげる魔法のローブ。'),
+    ('信頼のリング', 'そうび', Icons.donut_large, '選ばれる力 +10', '人とのご縁を育てる魔法のリング。'),
+    ('未来のコンパス', 'どうぐ', Icons.explore, '判断力 +8', '進むべき方向を示してくれるコンパス。'),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final p = ref.watch(userProgressProvider);
+    final delivered = p.deliveredQuestIds.length;
+    // DEMO: 納品でバーが伸びる(本番は deliverQuest の skillPoints 反映)
+    double skillValue(int i) => switch (i) {
+          0 => (0.20 + delivered * 0.22).clamp(0.0, 0.95),
+          1 => (0.15 + delivered * 0.18).clamp(0.0, 0.95),
+          _ => 0.10 + delivered * 0.03,
+        };
+
     return Scaffold(
       appBar: AppBar(title: const Text('スキル')),
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.all(20), children: [
-          Text('敵はいない。敵は、昨日の自分。',
+          const KdBandMessage('敵はいない。敵は、昨日の自分。'),
+          const SizedBox(height: 16),
+          // ── ステータス(レベル枠 + EXPバー) ──
+          KdParchmentCard(
+            child: Row(children: [
+              // レベル枠(素材パックの木製プレート様式)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: KdColors.wood900,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: KdColors.gold500, width: 2),
+                ),
+                child: Text('Lv.${p.level}',
+                    style: KdTheme.dot(size: 18, color: Colors.white)
+                        .copyWith(fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child:
+                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Text('EXP',
+                        style: KdTheme.dot(size: 12, color: KdColors.ink900)
+                            .copyWith(fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    Text('${p.xp} / 100',
+                        style: KdTheme.dot(size: 12, color: KdColors.ink900)),
+                  ]),
+                  const SizedBox(height: 4),
+                  _SkillBar(
+                      value: (p.xp % 100) / 100, color: KdColors.grass500),
+                ]),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 20),
+          // ── そだてるスキル(6系統のステータスバー) ──
+          Center(child: KdRibbonBanner('そだてるスキル', fontSize: 14)),
+          const SizedBox(height: 12),
+          KdParchmentCard(
+            child: Column(children: [
+              for (final (i, c) in _categories.indexed) ...[
+                if (i > 0) const SizedBox(height: 14),
+                Row(children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: c.$3,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: KdColors.wood900, width: 2),
+                    ),
+                    child: Icon(c.$2, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            Text(c.$1,
+                                style: KdTheme.dot(
+                                        size: 13, color: KdColors.ink900)
+                                    .copyWith(fontWeight: FontWeight.w700)),
+                            const Spacer(),
+                            Text('Lv.1',
+                                style: KdTheme.dot(
+                                    size: 12, color: KdColors.heading)),
+                          ]),
+                          const SizedBox(height: 4),
+                          _SkillBar(value: skillValue(i), color: c.$3),
+                        ]),
+                  ),
+                ]),
+              ],
+            ]),
+          ),
+          const SizedBox(height: 20),
+          // ── そうびアイテム(アイテムカード素材様式) ──
+          Center(child: KdRibbonBanner('そうび・どうぐ', fontSize: 14)),
+          const SizedBox(height: 12),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              mainAxisExtent: 168,
+            ),
+            itemCount: _items.length,
+            itemBuilder: (context, i) {
+              final item = _items[i];
+              final owned = i < delivered; // 納品1件ごとに1つ解放(DEMO)
+              return _ItemCard(
+                name: item.$1,
+                kind: item.$2,
+                icon: item.$3,
+                effect: item.$4,
+                flavor: item.$5,
+                owned: owned,
+              );
+            },
+          ),
+          const SizedBox(height: 6),
+          Text('お仕事を納品すると、そうびが1つずつ手に入るよ',
+              textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 16),
-          for (final e in _categories.entries) ...[
-            KdParchmentCard(
-              child: Row(children: [
-                Icon(e.value.$2, color: KdColors.pink500),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: Text(e.value.$1,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 16))),
-                // DEMO: スキルポイントの実配分は deliverQuest 反映後に接続
-                Text('Lv 1', style: KdTheme.dot(size: 14, color: KdColors.ink900)),
-              ]),
-            ),
-            const SizedBox(height: 10),
-          ],
+          const KdBandMessage('コツコツ育てたスキルが、あなたの冒険を支えてくれるよ！'),
         ]),
       ),
+    );
+  }
+}
+
+/// スキルバー: HP/MPバー様式(木枠レール + 2トーン充填)。色はスキルごと。
+class _SkillBar extends StatelessWidget {
+  const _SkillBar({required this.value, required this.color});
+  final double value; // 0.0-1.0
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 12,
+      decoration: BoxDecoration(
+        color: KdColors.parchmentLight,
+        border: Border.all(color: KdColors.border, width: 1.5),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(1),
+        child: FractionallySizedBox(
+          alignment: Alignment.centerLeft,
+          widthFactor: value.clamp(0.0, 1.0),
+          child: Column(children: [
+            Expanded(
+                child: Container(color: Color.lerp(color, Colors.white, 0.45))),
+            Expanded(flex: 2, child: Container(color: color)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// アイテムカード(そうび・どうぐ): 素材パックのカード様式。未入手はシルエット。
+class _ItemCard extends StatelessWidget {
+  const _ItemCard({
+    required this.name,
+    required this.kind,
+    required this.icon,
+    required this.effect,
+    required this.flavor,
+    required this.owned,
+  });
+  final String name;
+  final String kind;
+  final IconData icon;
+  final String effect;
+  final String flavor;
+  final bool owned;
+
+  @override
+  Widget build(BuildContext context) {
+    return KdParchmentCard(
+      padding: const EdgeInsets.all(10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Text(kind,
+            style: KdTheme.dot(
+                size: 10,
+                color: owned ? KdColors.heading : KdColors.textSecondary)),
+        const SizedBox(height: 4),
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: owned ? KdColors.pink100 : KdColors.border.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+                color: owned ? KdColors.pink500 : KdColors.border, width: 2),
+          ),
+          child: Icon(owned ? icon : Icons.lock,
+              size: 24,
+              color: owned ? KdColors.pink700 : KdColors.textSecondary),
+        ),
+        const SizedBox(height: 6),
+        Text(owned ? name : '？？？',
+            style: KdTheme.dot(size: 12, color: KdColors.ink900)
+                .copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 2),
+        Text(owned ? effect : '- - -',
+            style: KdTheme.dot(size: 11, color: KdColors.heading)),
+        const SizedBox(height: 4),
+        Expanded(
+          child: Text(owned ? flavor : 'お仕事を納品すると手に入るよ',
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontSize: 11, height: 1.4)),
+        ),
+      ]),
     );
   }
 }

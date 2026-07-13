@@ -1022,7 +1022,7 @@ class AreaDetailPage extends ConsumerWidget {
             const SizedBox(height: 16),
             // ── ヘッダー帯 ──
             if (guide.header != null) ...[
-              _BandMessage(guide.header!),
+              KdBandMessage(guide.header!),
               const SizedBox(height: 16),
             ],
             // ── コンセプト ──
@@ -1304,7 +1304,7 @@ class AreaDetailPage extends ConsumerWidget {
             const SizedBox(height: 20),
             // ── フッター帯 ──
             if (guide.footer != null) ...[
-              _BandMessage(guide.footer!),
+              KdBandMessage(guide.footer!),
               const SizedBox(height: 12),
             ],
             // ── 冒険への入り口(ワールドマップへ) ──
@@ -1316,40 +1316,6 @@ class AreaDetailPage extends ConsumerWidget {
           ],
         ]),
       ),
-    );
-  }
-}
-
-/// ヘッダー/フッターの帯メッセージ(✦付きの桜ピンクの帯)。
-class _BandMessage extends StatelessWidget {
-  const _BandMessage(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: KdColors.pink500,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: KdColors.pink700, width: 2),
-        boxShadow: const [
-          BoxShadow(color: KdColors.pink700, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Row(children: [
-        const Icon(Icons.auto_awesome, size: 14, color: Colors.white),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(text,
-              textAlign: TextAlign.center,
-              style: KdTheme.dot(size: 13, color: Colors.white)
-                  .copyWith(fontWeight: FontWeight.w700)),
-        ),
-        const SizedBox(width: 8),
-        const Icon(Icons.auto_awesome, size: 14, color: Colors.white),
-      ]),
     );
   }
 }

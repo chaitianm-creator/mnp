@@ -176,6 +176,40 @@ class _RibbonPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+/// 帯メッセージ: ヘッダー/フッターの合言葉(きらめき付きの桜ピンクの帯)。
+class KdBandMessage extends StatelessWidget {
+  const KdBandMessage(this.text, {super.key});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: KdColors.pink500,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: KdColors.pink700, width: 2),
+        boxShadow: const [
+          BoxShadow(color: KdColors.pink700, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Row(children: [
+        const Icon(Icons.auto_awesome, size: 14, color: Colors.white),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text,
+              textAlign: TextAlign.center,
+              style: KdTheme.dot(size: 13, color: Colors.white)
+                  .copyWith(fontWeight: FontWeight.w700)),
+        ),
+        const SizedBox(width: 8),
+        const Icon(Icons.auto_awesome, size: 14, color: Colors.white),
+      ]),
+    );
+  }
+}
+
 /// 黒ラベルチップ: 地名 / サイズ(3・7・15分) / 納期などの「情報」。
 class KdChip extends StatelessWidget {
   const KdChip(this.label, {super.key, this.icon});
