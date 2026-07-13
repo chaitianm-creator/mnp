@@ -117,22 +117,8 @@ class _QuestDetail extends StatelessWidget {
         const KdChip('はじまりの街', icon: Icons.place),
       ]),
       const SizedBox(height: 16),
-      // 依頼主のポートレート + 会話ウィンドウ
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: KdColors.pink100,
-            shape: BoxShape.circle,
-            border: Border.all(color: KdColors.wood900, width: 2.5),
-          ),
-          child:
-              const Icon(Icons.storefront, size: 28, color: KdColors.pink700),
-        ),
-        const SizedBox(width: 10),
-        Expanded(child: KdDialogueBubble(speaker: q.residentName, text: q.brief)),
-      ]),
+      // 依頼主の吹き出し(ポートレート内蔵)
+      KdDialogueBubble(speaker: q.residentName, text: q.brief),
       const SizedBox(height: 16),
       // クエストボックス様式の依頼メモ
       KdParchmentCard(

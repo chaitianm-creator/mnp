@@ -350,27 +350,96 @@ class KdProgressBar extends StatelessWidget {
   }
 }
 
-/// 住民会話の吹き出し(SC-20/21)。話者名 + 羊皮紙吹き出し。
+/// 住民会話の吹き出し(SC-20/21)。
+/// 素材パックの「吹き出し・会話ウィンドウ」様式:
+/// ポートレート + 話者名 + しっぽ付きの羊皮紙吹き出し。
 class KdDialogueBubble extends StatelessWidget {
-  const KdDialogueBubble({super.key, required this.speaker, required this.text});
+  const KdDialogueBubble({
+    super.key,
+    required this.speaker,
+    required this.text,
+    this.icon = Icons.storefront,
+  });
   final String speaker;
   final String text;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(speaker,
-          style: KdTheme.dot(size: 13, color: KdColors.pink700)
-              .copyWith(fontWeight: FontWeight.w700)),
-      const SizedBox(height: 4),
-      KdParchmentCard(
-        padding: const EdgeInsets.all(12),
-        child: Text(text,
-            style: Theme.of(context)
-                .textTheme
-                .bodyLarge
-                ?.copyWith(color: KdColors.textPrimary)),
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // 住民のポートレート(本番はドット絵に差し替え)
+      Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: KdColors.pink100,
+          shape: BoxShape.circle,
+          border: Border.all(color: KdColors.wood900, width: 2.5),
+        ),
+        child: Icon(icon, size: 24, color: KdColors.pink700),
+      ),
+      const SizedBox(width: 4),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 14),
+            child: Text(speaker,
+                style: KdTheme.dot(size: 13, color: KdColors.pink700)
+                    .copyWith(fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(height: 3),
+          CustomPaint(
+            painter: const _BubblePainter(),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 14, 15),
+              child: Text(text,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyLarge
+                      ?.copyWith(color: KdColors.textPrimary)),
+            ),
+          ),
+        ]),
       ),
     ]);
   }
+}
+
+/// しっぽ付き吹き出しの描画(段差影 + 木枠、しっぽは左のポートレートを指す)。
+class _BubblePainter extends CustomPainter {
+  const _BubblePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final body = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTRB(12, 0, size.width, size.height - 3),
+        const Radius.circular(10),
+      ));
+    final tail = Path()
+      ..moveTo(13, 12)
+      ..lineTo(0, 19)
+      ..lineTo(13, 28)
+      ..close();
+    final bubble = Path.combine(PathOperation.union, body, tail);
+
+    // 下辺の濃色1段ずれ(ドット絵の影)
+    canvas.save();
+    canvas.translate(0, 3);
+    canvas.drawPath(bubble, Paint()..color = KdColors.wood900);
+    canvas.restore();
+
+    canvas.drawPath(bubble, Paint()..color = KdColors.surface);
+    canvas.drawPath(
+      bubble,
+      Paint()
+        ..color = KdColors.border
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
