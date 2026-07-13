@@ -262,13 +262,27 @@ class _ItemCard extends StatelessWidget {
   }
 }
 
-/// SC-50 プロフィール(骨格)。レベル・XP・コイン・ストリーク・鍵。
+/// SC-50 プロフィール = 冒険者カード。
+/// キャラクターカード + ステータス + 実績バッジ + みぽりん先生からのメッセージ。
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = ref.watch(userProgressProvider);
+    final delivered = p.deliveredQuestIds.length;
+
+    // 実績バッジ(DEMO: 進捗から判定。本番は achievements コレクション)
+    final badges = [
+      ('はじめての納品', Icons.emoji_events, KdColors.gold500, delivered >= 1),
+      ('おかわり達人', Icons.replay, KdColors.pink500, delivered >= 2),
+      ('よやく上手', Icons.mail, KdColors.ocean500, p.reservedQuestId != null),
+      ('3日れんぞく', Icons.favorite, KdColors.pink700, p.streak >= 3),
+      ('エリア①クリア', Icons.flag, KdColors.grass500,
+          (p.areaDelivered['area_01_hajimari'] ?? 0) >= 12),
+      ('王国認定', Icons.workspace_premium, KdColors.gold500, false), // v1.1
+    ];
+
     return Scaffold(
       appBar: AppBar(title: const Text('わたし'), actions: [
         IconButton(
@@ -278,55 +292,190 @@ class ProfilePage extends ConsumerWidget {
       ]),
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.all(20), children: [
+          // ── 冒険者カード ──
           KdParchmentCard(
             child: Column(children: [
-              const CircleAvatar(
-                radius: 36,
-                backgroundColor: KdColors.pink100,
-                child: Icon(Icons.person, size: 40, color: KdColors.pink700),
+              // アバター(額入り)
+              Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  color: KdColors.pink100,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: KdColors.pink500, width: 3),
+                  boxShadow: const [
+                    BoxShadow(color: KdColors.pink700, offset: Offset(0, 3)),
+                  ],
+                ),
+                child:
+                    const Icon(Icons.person, size: 48, color: KdColors.pink700),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text('デザイン見習い',
                   style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 4),
-              Text('レベル ${p.level}',
-                  style: KdTheme.dot(size: 16, color: KdColors.ink900)),
+              const SizedBox(height: 2),
+              Text('〜 王国認定デザイナーを目指して 〜',
+                  style: KdTheme.dot(size: 11, color: KdColors.ink900)),
+              const SizedBox(height: 12),
+              Row(children: [
+                // レベル枠(木製プレート様式)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: KdColors.wood900,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: KdColors.gold500, width: 2),
+                  ),
+                  child: Text('Lv.${p.level}',
+                      style: KdTheme.dot(size: 18, color: Colors.white)
+                          .copyWith(fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Text('EXP',
+                              style: KdTheme.dot(
+                                      size: 12, color: KdColors.ink900)
+                                  .copyWith(fontWeight: FontWeight.w700)),
+                          const Spacer(),
+                          Text('${p.xp} / 100',
+                              style: KdTheme.dot(
+                                  size: 12, color: KdColors.ink900)),
+                        ]),
+                        const SizedBox(height: 4),
+                        _SkillBar(
+                            value: (p.xp % 100) / 100,
+                            color: KdColors.grass500),
+                      ]),
+                ),
+              ]),
             ]),
           ),
+          const SizedBox(height: 20),
+          // ── ぼうけんの記録(ステータス) ──
+          Center(child: KdRibbonBanner('ぼうけんの記録', fontSize: 14)),
           const SizedBox(height: 12),
           KdParchmentCard(
             child: Column(children: [
-              _statRow(context, Icons.star, 'XP', '${p.xp}'),
-              _statRow(context, Icons.monetization_on, 'コイン', '${p.coins}'),
-              _statRow(context, Icons.favorite, 'ストリーク', '${p.streak}日'),
-              _statRow(context, Icons.vpn_key, '宝箱の鍵', '${p.keys}'),
-              _statRow(context, Icons.inventory, '納品数',
-                  '${p.deliveredQuestIds.length}件'),
+              _statRow(context, Icons.auto_awesome, KdColors.gold500,
+                  'けいけんち', '${p.xp}'),
+              const Divider(height: 14),
+              _statRow(context, Icons.monetization_on, KdColors.gold500,
+                  'コイン', '${p.coins}'),
+              const Divider(height: 14),
+              _statRow(context, Icons.favorite, KdColors.pink500,
+                  'れんぞく日数', '${p.streak}日'),
+              const Divider(height: 14),
+              _statRow(context, Icons.vpn_key, KdColors.gold500,
+                  '宝箱のカギ', '${p.keys}'),
+              const Divider(height: 14),
+              _statRow(context, Icons.inventory, KdColors.wood700,
+                  '納品したお仕事', '$delivered件'),
             ]),
           ),
+          const SizedBox(height: 20),
+          // ── じっせきバッジ ──
+          Center(child: KdRibbonBanner('じっせきバッジ', fontSize: 14)),
           const SizedBox(height: 12),
           KdParchmentCard(
-            child: Text(
-              '納品ポートフォリオ・称号・設定は次のマイルストーンで実装予定だよ',
-              style: Theme.of(context).textTheme.bodyMedium,
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 14,
+              runSpacing: 14,
+              children: [
+                for (final (name, icon, color, earned) in badges)
+                  SizedBox(
+                    width: 92,
+                    child: Column(children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: earned
+                              ? color
+                              : KdColors.border.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: earned
+                                  ? KdColors.wood900
+                                  : KdColors.border,
+                              width: 2),
+                          boxShadow: earned
+                              ? [
+                                  BoxShadow(
+                                      color: Color.lerp(
+                                          color, KdColors.wood900, 0.35)!,
+                                      offset: const Offset(0, 3)),
+                                ]
+                              : null,
+                        ),
+                        child: Icon(earned ? icon : Icons.lock,
+                            size: 26,
+                            color: earned
+                                ? Colors.white
+                                : KdColors.textSecondary),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(earned ? name : '？？？',
+                          textAlign: TextAlign.center,
+                          style: KdTheme.dot(
+                              size: 11,
+                              color: earned
+                                  ? KdColors.ink900
+                                  : KdColors.textSecondary)),
+                    ]),
+                  ),
+              ],
             ),
           ),
+          const SizedBox(height: 20),
+          // ── みぽりん先生からのメッセージ ──
+          Center(child: KdRibbonBanner('みぽりん先生からのメッセージ', fontSize: 14)),
+          const SizedBox(height: 12),
+          KdParchmentCard(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: KdColors.pink100,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: KdColors.pink500, width: 2),
+                ),
+                child: const Icon(Icons.favorite,
+                    color: KdColors.pink500, size: 26),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                    delivered == 0
+                        ? 'ようこそ、デザイン王国へ！\nさいしょの一歩を、いっしょに\n踏み出そうね♪'
+                        : 'ここまで $delivered件も納品できたね！\nあなたの努力は、ちゃんと\n未来につながっているよ♡',
+                    style: Theme.of(context).textTheme.bodyLarge),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          const KdBandMessage('きょうのがんばりも、ちゃんと未来につながってるよ♪'),
         ]),
       ),
     );
   }
 
-  Widget _statRow(
-      BuildContext context, IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(children: [
-        Icon(icon, size: 20, color: KdColors.gold500),
-        const SizedBox(width: 8),
-        Text(label, style: Theme.of(context).textTheme.bodyLarge),
-        const Spacer(),
-        Text(value, style: KdTheme.dot(size: 15, color: KdColors.ink900)),
-      ]),
-    );
+  Widget _statRow(BuildContext context, IconData icon, Color color,
+      String label, String value) {
+    return Row(children: [
+      Icon(icon, size: 20, color: color),
+      const SizedBox(width: 10),
+      Text(label, style: Theme.of(context).textTheme.bodyLarge),
+      const Spacer(),
+      Text(value,
+          style: KdTheme.dot(size: 15, color: KdColors.heading)
+              .copyWith(fontWeight: FontWeight.w700)),
+    ]);
   }
 }
