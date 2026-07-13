@@ -117,9 +117,50 @@ class _QuestDetail extends StatelessWidget {
         const KdChip('はじまりの街', icon: Icons.place),
       ]),
       const SizedBox(height: 16),
-      KdDialogueBubble(speaker: q.residentName, text: q.brief),
-      const Spacer(),
+      // 依頼主のポートレート + 会話ウィンドウ
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: KdColors.pink100,
+            shape: BoxShape.circle,
+            border: Border.all(color: KdColors.wood900, width: 2.5),
+          ),
+          child:
+              const Icon(Icons.storefront, size: 28, color: KdColors.pink700),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: KdDialogueBubble(speaker: q.residentName, text: q.brief)),
+      ]),
+      const SizedBox(height: 16),
+      // クエストボックス様式の依頼メモ
       KdParchmentCard(
+        padding: const EdgeInsets.all(12),
+        child: Row(children: [
+          const Icon(Icons.star, size: 18, color: KdColors.gold500),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('メインクエスト: ${q.title}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: KdTheme.dot(size: 13, color: KdColors.heading)
+                    .copyWith(fontWeight: FontWeight.w700)),
+          ),
+        ]),
+      ),
+      const Spacer(),
+      // ほうしゅうプレート(ごほうびは金の額)
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: KdColors.parchmentLight,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: KdColors.gold500, width: 2.5),
+          boxShadow: const [
+            BoxShadow(color: Color(0xFFB88A18), offset: Offset(0, 2)),
+          ],
+        ),
         child: Row(children: [
           const Icon(Icons.star, color: KdColors.reward),
           const SizedBox(width: 8),
@@ -188,12 +229,32 @@ class _TeacherFeedback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // メッセージウィンドウ(先生からのメッセージ)様式
     return GestureDetector(
       onTap: onDismiss,
-      child: KdParchmentCard(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: KdColors.pink50,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: KdColors.pink500, width: 2),
+          boxShadow: const [
+            BoxShadow(color: KdColors.pink700, offset: Offset(0, 2)),
+          ],
+        ),
         child: Row(children: [
-          const Icon(Icons.favorite, color: KdColors.pink500),
-          const SizedBox(width: 8),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: KdColors.pink100,
+              shape: BoxShape.circle,
+              border: Border.all(color: KdColors.pink500, width: 2),
+            ),
+            child:
+                const Icon(Icons.favorite, size: 18, color: KdColors.pink500),
+          ),
+          const SizedBox(width: 10),
           Expanded(
               child: Text('みぽりん先生「$text」',
                   style: Theme.of(context).textTheme.bodyMedium)),
@@ -211,10 +272,28 @@ class _Reviewing extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // みぽりん先生のポートレート
+        Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            color: KdColors.pink100,
+            shape: BoxShape.circle,
+            border: Border.all(color: KdColors.pink500, width: 3),
+            boxShadow: const [
+              BoxShadow(color: KdColors.pink700, offset: Offset(0, 3)),
+            ],
+          ),
+          child: const Icon(Icons.favorite, size: 44, color: KdColors.pink500),
+        ),
+        const SizedBox(height: 20),
         const CircularProgressIndicator(color: KdColors.pink500),
         const SizedBox(height: 24),
         Text('みぽりん先生が見ているよ…ふむふむ',
             style: Theme.of(context).textTheme.bodyLarge),
+        const SizedBox(height: 6),
+        Text('とどけたさくひんを、ていねいに見てくれているよ',
+            style: KdTheme.dot(size: 12, color: KdColors.ink900)),
       ]),
     );
   }
@@ -230,6 +309,8 @@ class _ReviewResultView extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = state.review!;
     return ListView(children: [
+      Center(child: KdRibbonBanner('みぽりん先生のおてがみ', fontSize: 14)),
+      const SizedBox(height: 12),
       _ReviewSection(
           title: 'よかったところ',
           icon: Icons.favorite,
@@ -242,11 +323,35 @@ class _ReviewResultView extends StatelessWidget {
           color: KdColors.gold500,
           items: r.improvements),
       const SizedBox(height: 12),
-      KdParchmentCard(
+      // メッセージウィンドウ様式のアドバイス
+      Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: KdColors.pink50,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: KdColors.pink500, width: 2),
+          boxShadow: const [
+            BoxShadow(color: KdColors.pink700, offset: Offset(0, 2)),
+          ],
+        ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('つぎへのアドバイス',
-              style: TextStyle(
-                  fontWeight: FontWeight.w700, color: KdColors.pink700)),
+          Row(children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: KdColors.pink100,
+                shape: BoxShape.circle,
+                border: Border.all(color: KdColors.pink500, width: 2),
+              ),
+              child: const Icon(Icons.favorite,
+                  size: 16, color: KdColors.pink500),
+            ),
+            const SizedBox(width: 8),
+            Text('つぎへのアドバイス',
+                style: KdTheme.dot(size: 14, color: KdColors.heading)
+                    .copyWith(fontWeight: FontWeight.w700)),
+          ]),
           const SizedBox(height: 8),
           Text(r.nextAdvice, style: Theme.of(context).textTheme.bodyLarge),
         ]),
@@ -279,11 +384,22 @@ class _ReviewSection extends StatelessWidget {
     return KdParchmentCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(icon, color: color, size: 20),
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: KdColors.wood900, width: 2),
+            ),
+            child: Icon(icon, color: Colors.white, size: 16),
+          ),
           const SizedBox(width: 8),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+          Text(title,
+              style: KdTheme.dot(size: 14, color: KdColors.ink900)
+                  .copyWith(fontWeight: FontWeight.w700)),
         ]),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         for (final item in items)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
@@ -450,7 +566,9 @@ class _SessionEndView extends ConsumerWidget {
               ]),
             ),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          const KdBandMessage('きょうもよくがんばったね！また明日、王国で会おうね♪'),
+          const SizedBox(height: 8),
           TextButton(
             onPressed: () => context.go('/home'),
             child: const Text('きょうはここまで！ホームへ',

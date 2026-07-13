@@ -67,9 +67,12 @@ void main() {
     final goodY = tester.getTopLeft(find.text('よかったところ')).dy;
     final impY = tester.getTopLeft(find.text('もっと良くなるところ')).dy;
     expect(goodY < impY, isTrue, reason: '良い点が先(US-E3-02)');
+    await tester.scrollUntilVisible(find.textContaining('リテイク'), 200);
     expect(find.textContaining('リテイク'), findsOneWidget);
 
     // 納品 → SC-27 演出(deliverQuest の擬似遅延 400ms を明示的に進める)
+    await tester.ensureVisible(find.text('納品する'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('納品する'));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpAndSettle();
@@ -93,6 +96,9 @@ void main() {
     await tapAndSettle(tester, find.text('この仕事を引き受ける'));
     await tapAndSettle(tester, find.text('太めの丸ゴシック・濃い色文字'));
     await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('納品する'), 200);
+    await tester.ensureVisible(find.text('納品する'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('納品する'));
     await tester.pump(const Duration(milliseconds: 600));
