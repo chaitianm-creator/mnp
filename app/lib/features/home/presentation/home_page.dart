@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,9 +10,9 @@ import 'package:design_kingdom/core/theme/kd_theme.dart';
 import 'package:design_kingdom/features/quest/domain/entities/quest.dart';
 import 'package:design_kingdom/features/quest/presentation/view_models/quest_play_view_model.dart';
 
-/// SC-10 ホーム = ステージパス。
-/// Duolingo様式の縦パス: 上からステージノードが蛇行し、
-/// 「いま挑戦できる1個」だけが桜ピンクで光る(迷わせない)。
+/// SC-10 ホーム = ステージマップ。
+/// ゲームフィールド様式: 芝生の野原にタイルの道が蛇行し、その上を
+/// ステージノードが進んでいく。「いま挑戦できる1個」だけが桜ピンクで光る。
 /// 設計目標: 起動 → クエスト開始まで 2 タップは維持(スタートノード即タップ)。
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -48,12 +50,13 @@ class HomePage extends ConsumerWidget {
                 ),
               ]),
             ),
+          const SizedBox(height: 8),
           Expanded(
             child: offers.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) =>
                   const Center(child: Text('あれれ、王国とつながらないみたい')),
-              data: (quests) => _StagePath(
+              data: (quests) => _StageField(
                 quests: quests,
                 deliveredIds: progress.deliveredQuestIds,
               ),
@@ -65,7 +68,7 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-/// 上部ステータス(Duolingo様式のトップバー): 連続日数ハート + カギ。
+/// 上部ステータス(トップバー): 連続日数ハート + カギ。
 class _StatsBar extends StatelessWidget {
   const _StatsBar({required this.streak, required this.keys});
   final int streak;
@@ -94,7 +97,7 @@ class _StatsBar extends StatelessWidget {
   }
 }
 
-/// エリアバンド(「ユニット64」の緑バンドに相当する桜ピンクの帯)。
+/// エリアバンド(桜ピンクの帯)。
 class _AreaBand extends StatelessWidget {
   const _AreaBand({required this.areaLabel, required this.title});
   final String areaLabel;
@@ -136,14 +139,17 @@ class _PathNode {
   final IconData? icon;
 }
 
-/// 縦に蛇行するステージパス本体。
-class _StagePath extends StatelessWidget {
-  const _StagePath({required this.quests, required this.deliveredIds});
+/// ゲームフィールド本体: 芝生 + タイルの道 + 木々 + 川の上にノードを配置。
+class _StageField extends StatelessWidget {
+  const _StageField({required this.quests, required this.deliveredIds});
   final List<Quest> quests;
   final Set<String> deliveredIds;
 
-  // Duolingo様式の蛇行(左右への振れ幅の並び)
+  // 蛇行(左右への振れ幅の並び)
   static const _sway = [0.0, 0.45, 0.7, 0.45, 0.0, -0.45, -0.7, -0.45];
+  static const _rowH = 118.0;
+  static const _topPad = 40.0;
+  static const _bottomPad = 48.0;
 
   @override
   Widget build(BuildContext context) {
@@ -158,43 +164,72 @@ class _StagePath extends StatelessWidget {
     final allQuestsDone =
         quests.every((q) => deliveredIds.contains(q.questId));
     // 「いま挑戦できる1個」= 最初の未納品クエスト
-    final activeIndex =
-        nodes.indexWhere((n) => n.kind == _NodeKind.quest && !deliveredIds.contains(n.quest!.questId));
+    final activeIndex = nodes.indexWhere((n) =>
+        n.kind == _NodeKind.quest &&
+        !deliveredIds.contains(n.quest!.questId));
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 20, bottom: 32),
-      itemCount: nodes.length,
-      itemBuilder: (context, i) {
-        final node = nodes[i];
-        final sway = _sway[i % _sway.length];
-        final delivered = node.kind == _NodeKind.quest &&
-            deliveredIds.contains(node.quest!.questId);
-        final active = i == activeIndex;
-        final chestOpen = node.kind == _NodeKind.chest && allQuestsDone;
+    return LayoutBuilder(builder: (context, constraints) {
+      final w = constraints.maxWidth;
+      final totalH = _topPad + nodes.length * _rowH + _bottomPad;
+      // 各ノードの中心座標(タイルの道もこの座標を通る)
+      final centers = <Offset>[
+        for (var i = 0; i < nodes.length; i++)
+          Offset(
+            w / 2 + _sway[i % _sway.length] * (w * 0.28),
+            _topPad + i * _rowH + _rowH / 2,
+          ),
+      ];
 
-        return SizedBox(
-          height: active ? 156 : 104,
+      return SingleChildScrollView(
+        child: SizedBox(
+          width: w,
+          height: totalH,
           child: Stack(children: [
-            // みぽりん先生の応援スポット(パス脇の飾り)
-            if (i == 2)
-              Align(
-                alignment: const Alignment(-0.8, 0),
-                child: _MiporinSpot(),
-              ),
-            Align(
-              alignment: Alignment(sway, 1),
-              child: _StageNode(
-                node: node,
-                delivered: delivered,
-                active: active,
-                chestOpen: chestOpen,
-                onTap: () => _onNodeTap(context, node,
-                    delivered: delivered, active: active, chestOpen: chestOpen),
-              ),
+            Positioned.fill(
+              child: CustomPaint(painter: _FieldPainter(centers: centers)),
             ),
+            // みぽりん先生の応援スポット(フィールドの飾り)
+            Positioned(
+              left: 14,
+              top: centers[2].dy - 56,
+              child: const _MiporinSpot(),
+            ),
+            for (var i = 0; i < nodes.length; i++)
+              _positionedNode(context, nodes[i], centers[i],
+                  active: i == activeIndex,
+                  delivered: nodes[i].kind == _NodeKind.quest &&
+                      deliveredIds.contains(nodes[i].quest!.questId),
+                  chestOpen:
+                      nodes[i].kind == _NodeKind.chest && allQuestsDone),
           ]),
-        );
-      },
+        ),
+      );
+    });
+  }
+
+  Widget _positionedNode(
+      BuildContext context, _PathNode node, Offset center,
+      {required bool active,
+      required bool delivered,
+      required bool chestOpen}) {
+    // 円の中心が center に来るように配置(スタート吹き出しの分は上に伸ばす)
+    const boxW = 120.0;
+    final circleH = active ? 84.0 : 73.0;
+    final balloonH = active ? 52.0 : 0.0;
+    return Positioned(
+      left: center.dx - boxW / 2,
+      top: center.dy - circleH / 2 - balloonH,
+      child: SizedBox(
+        width: boxW,
+        child: _StageNode(
+          node: node,
+          delivered: delivered,
+          active: active,
+          chestOpen: chestOpen,
+          onTap: () => _onNodeTap(context, node,
+              delivered: delivered, active: active, chestOpen: chestOpen),
+        ),
+      ),
     );
   }
 
@@ -231,8 +266,158 @@ class _StagePath extends StatelessWidget {
   }
 }
 
+/// ゲームフィールドの背景画: 芝生・タイルの道・木々・川・花(ドット絵の作法)。
+/// 乱数は固定シード = 毎フレーム同じ絵(ちらつき防止)。
+class _FieldPainter extends CustomPainter {
+  const _FieldPainter({required this.centers});
+  final List<Offset> centers;
+
+  // フィールドパレット(参考ゲーム画面の実測系)
+  static const _grass = Color(0xFF77B94C);
+  static const _grassDark = Color(0xFF69AC41);
+  static const _grassLight = Color(0xFF85C55C);
+  static const _leaf = Color(0xFF2E7D32);
+  static const _leafLight = Color(0xFF43A047);
+  static const _trunk = Color(0xFF6D4C2F);
+  static const _tile = Color(0xFFE3C27E);
+  static const _tileEdge = Color(0xFFB98F4E);
+  static const _tileLight = Color(0xFFF2DCA9);
+  static const _water = Color(0xFF3D8FE0);
+  static const _waterLight = Color(0xFF7FB9F0);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rng = math.Random(42);
+    final paintFill = Paint();
+
+    // ── 芝生の下地 + ピクセル調のむら ──
+    paintFill.color = _grass;
+    canvas.drawRect(Offset.zero & size, paintFill);
+    for (var i = 0; i < (size.width * size.height) / 900; i++) {
+      final x = rng.nextDouble() * size.width;
+      final y = rng.nextDouble() * size.height;
+      paintFill.color = rng.nextBool() ? _grassDark : _grassLight;
+      canvas.drawRect(
+          Rect.fromLTWH(x.floorToDouble(), y.floorToDouble(), 6, 6), paintFill);
+    }
+
+    // ── 川(右端を蛇行する帯) ──
+    final river = Path()..moveTo(size.width, 0);
+    for (double y = 0; y <= size.height; y += 24) {
+      final wobble = math.sin(y / 90) * 14;
+      river.lineTo(size.width - 34 + wobble, y);
+    }
+    river
+      ..lineTo(size.width, size.height)
+      ..close();
+    paintFill.color = _water;
+    canvas.drawPath(river, paintFill);
+    // 川面のハイライト(短い横線)
+    paintFill.color = _waterLight;
+    for (double y = 12; y < size.height; y += 42) {
+      final wobble = math.sin(y / 90) * 14;
+      canvas.drawRect(
+          Rect.fromLTWH(size.width - 24 + wobble, y, 10, 3), paintFill);
+    }
+
+    // ── タイルの道(ノード間をジグザグにつなぐひし形タイル) ──
+    for (var i = 0; i < centers.length - 1; i++) {
+      final a = centers[i];
+      final b = centers[i + 1];
+      const steps = 3;
+      for (var s = 1; s <= steps; s++) {
+        final t = s / (steps + 1);
+        final p = Offset.lerp(a, b, t)!;
+        _diamond(canvas, p, 22, 14);
+      }
+    }
+    // ノードの足元は大きめのタイル
+    for (final c in centers) {
+      _diamond(canvas, c.translate(0, 18), 40, 24);
+    }
+
+    // ── 木々(左右の縁) + 花 ──
+    for (double y = 30; y < size.height - 20; y += 96) {
+      final jitter = rng.nextDouble() * 20 - 10;
+      _tree(canvas, Offset(24 + jitter, y));
+      _tree(canvas, Offset(size.width - 64 + jitter * 0.5, y + 48));
+    }
+    for (var i = 0; i < size.height / 26; i++) {
+      final x = 46 + rng.nextDouble() * (size.width - 130);
+      final y = rng.nextDouble() * size.height;
+      _flower(canvas, Offset(x, y),
+          rng.nextBool() ? KdColors.pink100 : Colors.white);
+    }
+  }
+
+  void _diamond(Canvas canvas, Offset c, double w, double h) {
+    final path = Path()
+      ..moveTo(c.dx, c.dy - h)
+      ..lineTo(c.dx + w, c.dy)
+      ..lineTo(c.dx, c.dy + h)
+      ..lineTo(c.dx - w, c.dy)
+      ..close();
+    canvas.drawPath(path, Paint()..color = _tile);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = _tileEdge
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeJoin = StrokeJoin.miter,
+    );
+    // 上辺のハイライト
+    canvas.drawLine(Offset(c.dx - w * 0.5, c.dy - h * 0.5),
+        Offset(c.dx, c.dy - h * 0.92), Paint()
+          ..color = _tileLight
+          ..strokeWidth = 2);
+  }
+
+  void _tree(Canvas canvas, Offset base) {
+    // 幹
+    canvas.drawRect(Rect.fromCenter(
+        center: base.translate(0, 22), width: 8, height: 12),
+        Paint()..color = _trunk);
+    // 葉(2段の角丸ブロック)
+    final leaf = Paint()..color = _leaf;
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(center: base.translate(0, 8), width: 34, height: 18),
+            const Radius.circular(5)),
+        leaf);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(center: base.translate(0, -6), width: 26, height: 18),
+            const Radius.circular(5)),
+        leaf);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(
+                center: base.translate(-4, -8), width: 10, height: 6),
+            const Radius.circular(2)),
+        Paint()..color = _leafLight);
+  }
+
+  void _flower(Canvas canvas, Offset c, Color color) {
+    final p = Paint()..color = color;
+    canvas.drawRect(Rect.fromCenter(center: c, width: 3, height: 3), p);
+    canvas.drawRect(
+        Rect.fromCenter(center: c.translate(-3, 0), width: 3, height: 3), p);
+    canvas.drawRect(
+        Rect.fromCenter(center: c.translate(3, 0), width: 3, height: 3), p);
+    canvas.drawRect(
+        Rect.fromCenter(center: c.translate(0, -3), width: 3, height: 3), p);
+    canvas.drawRect(
+        Rect.fromCenter(center: c.translate(0, 3), width: 3, height: 3), p);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FieldPainter old) =>
+      old.centers != centers;
+}
+
 /// ステージノード(円形3Dボタン)。
-///  - 挑戦可能: 桜ピンク + 「スタート」吹き出し + 白リング
+///  - 挑戦可能: 桜ピンク + 「スタート」吹き出し + 白ハロー
 ///  - クリア済み: ゴールド + 花
 ///  - 未解放: ベージュグレー + 鍵など
 class _StageNode extends StatelessWidget {
@@ -306,14 +491,13 @@ class _StageNode extends StatelessWidget {
             const SizedBox(height: 6),
           ],
           circle,
-          const SizedBox(height: 6),
         ]),
       ),
     );
   }
 }
 
-/// 「スタート」吹き出し(Duolingoのスタートバルーン様式)。
+/// 「スタート」吹き出し。
 class _StartBalloon extends StatelessWidget {
   const _StartBalloon();
 
@@ -355,29 +539,46 @@ class _TrianglePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// みぽりん先生の応援スポット(パス脇の飾り。本番はドット絵に差し替え)。
+/// みぽりん先生の応援スポット(フィールドの飾り。本番はドット絵に差し替え)。
 class _MiporinSpot extends StatelessWidget {
+  const _MiporinSpot();
+
   @override
   Widget build(BuildContext context) {
     return Column(mainAxisSize: MainAxisSize.min, children: [
+      // 応援の吹き出し
       Container(
-        width: 64,
-        height: 64,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: KdColors.pink500, width: 1.5),
+        ),
+        child: Text('ファイト♪',
+            style: KdTheme.dot(size: 11, color: KdColors.pink700)),
+      ),
+      const SizedBox(height: 4),
+      Container(
+        width: 56,
+        height: 56,
         decoration: BoxDecoration(
           color: KdColors.pink100,
           shape: BoxShape.circle,
-          border: Border.all(color: KdColors.pink500, width: 2),
+          border: Border.all(color: KdColors.wood900, width: 2.5),
         ),
-        child: const Icon(Icons.favorite, color: KdColors.pink500, size: 32),
+        child: const Icon(Icons.favorite, color: KdColors.pink500, size: 28),
       ),
       const SizedBox(height: 4),
-      Text('みぽりん先生',
-          style: KdTheme.dot(size: 11, color: KdColors.ink900)),
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        for (var i = 0; i < 3; i++)
-          Icon(Icons.star,
-              size: 14, color: KdColors.border.withOpacity(0.35)),
-      ]),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: KdColors.border, width: 1.5),
+        ),
+        child: Text('みぽりん先生',
+            style: KdTheme.dot(size: 10, color: KdColors.ink900)),
+      ),
     ]);
   }
 }
