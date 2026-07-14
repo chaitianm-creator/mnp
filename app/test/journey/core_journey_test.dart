@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/main.dart';
 
 /// Phase 12: コアジャーニーテスト(Phase 2 付録A ジャーニー1の自動化)。
@@ -11,12 +12,27 @@ import 'package:design_kingdom/main.dart';
 /// 検証するユーザーストーリー:
 ///  US-E2-01(2タップ開始) / US-E2-04(受注→ヒアリング→制作→提出→添削→納品)
 ///  US-E3-02(良い点が先) / US-E1-07(受注予約) / Phase 4 §3(あと1クエスト1回制限)
+///  + 練習クエスト3つクリア済み状態からの「今日の依頼」導線
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  // 練習クエスト3つクリア済み = 「今日の依頼」解放済みの状態
+  const practiceDone = UserProgress(
+    streak: 1,
+    xp: 45,
+    deliveredQuestIds: {'q_practice_01', 'q_practice_02', 'q_practice_03'},
+    areaDelivered: {'area_01_hajimari': 3},
+  );
+
   Future<void> pumpApp(WidgetTester tester) async {
-    SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(const ProviderScope(child: DesignKingdomApp()));
+    SharedPreferences.setMockInitialValues({'daily_unlock_celebrated': true});
+    // ホームの常時ゆれアニメーションを止める(reduce motion対応を利用)
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [initialProgressProvider.overrideWithValue(practiceDone)],
+      child: const DesignKingdomApp(),
+    ));
     await tester.pumpAndSettle();
   }
 
@@ -30,16 +46,22 @@ void main() {
       (tester) async {
     await pumpApp(tester);
 
-    // ── SC-10 ホーム: きょうの依頼チェックリストが出る ──
+    // ── SC-10 ホームメニュー(キャラ中心のゲーム様式) ──
+    expect(find.text('練習クエスト'), findsOneWidget);
+    expect(find.text('今日の依頼'), findsOneWidget);
+    expect(find.text('みぽりん先生'), findsOneWidget);
+
+    // タップ1: メニュー「今日の依頼」 → 依頼リスト(エリアバンドはここで確認)
+    await tapAndSettle(tester, find.text('今日の依頼'));
     expect(find.text('きょうの依頼'), findsOneWidget);
     expect(find.text('はじまりの街（みぽりん村）'), findsOneWidget);
     expect(find.textContaining('もちもち王国パン'), findsOneWidget);
 
-    // タップ1: 依頼リストの行 → SC-20 依頼詳細
+    // タップ2: 依頼リストの行 → SC-20 依頼詳細
     await tapAndSettle(tester, find.textContaining('もちもち王国パン'));
     expect(find.text('この仕事を引き受ける'), findsOneWidget);
 
-    // タップ2: 受注 → SC-21 ヒアリング(US-E2-01: 2タップで仕事が始まる)
+    // 受注 → SC-21 ヒアリング
     await tapAndSettle(tester, find.text('この仕事を引き受ける'));
     expect(find.text('まずマルコさんに何を聞く？'), findsOneWidget);
 
@@ -110,21 +132,33 @@ void main() {
     expect(find.text('きょうのまとめ'), findsOneWidget);
     expect(find.text('あと1クエストだけやる（3分）'), findsNothing);
 
-    // ホームへ: 予約バナー + 依頼リスト2件ともチェック済み
+    // ホームメニューへ → 「今日の依頼」を開き直すと予約バナー + 2件チェック済み
     await tapAndSettle(tester, find.text('きょうはここまで！ホームへ'));
-    // シェルのIndexedStackでホームは生存し続けるため、スクロール位置を先頭へ戻す
-    await tester.scrollUntilVisible(find.textContaining('予約したお仕事'), -200);
-    await tester.pumpAndSettle();
+    await tapAndSettle(tester, find.text('今日の依頼'));
     expect(find.textContaining('予約したお仕事'), findsOneWidget);
     expect(find.byIcon(Icons.check_circle), findsNWidgets(3)); // サマリー1 + 依頼2
   });
 
   testWidgets('中断確認ダイアログは1タップで抜けられる(Phase 4 §7-2)', (tester) async {
     await pumpApp(tester);
+    await tapAndSettle(tester, find.text('今日の依頼'));
     await tapAndSettle(tester, find.textContaining('もちもち王国パン'));
     await tapAndSettle(tester, find.byIcon(Icons.close));
     expect(find.text('ここまでにする？'), findsOneWidget);
     await tapAndSettle(tester, find.text('あとで'));
-    expect(find.text('きょうの依頼'), findsOneWidget); // ホームへ戻れた
+    expect(find.text('練習クエスト'), findsOneWidget); // ホームメニューへ戻れた
+  });
+
+  testWidgets('練習クエスト未クリアでは「今日の依頼」はロックされる', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    await tester.pumpWidget(const ProviderScope(child: DesignKingdomApp()));
+    await tester.pumpAndSettle();
+
+    // ロック中の案内文
+    expect(find.text('練習3つで解放'), findsOneWidget);
+    await tapAndSettle(tester, find.text('今日の依頼'));
+    expect(find.textContaining('練習クエストを3つクリアすると解放'), findsOneWidget);
   });
 }

@@ -49,7 +49,8 @@ class _WelcomePageState extends State<WelcomePage> {
       _controller.nextPage(
           duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
     } else {
-      context.go('/goal');
+      // 初回フロー: みぽりん先生との出会い → 入団手続き(登録)
+      context.go('/meeting');
     }
   }
 
@@ -68,7 +69,7 @@ class _WelcomePageState extends State<WelcomePage> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(0, 8, 12, 0),
                 child: GestureDetector(
-                  onTap: () => context.go('/goal'), // 常時スキップ可
+                  onTap: () => context.go('/meeting'), // 常時スキップ可
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 5),
@@ -138,13 +139,23 @@ class _WelcomePageState extends State<WelcomePage> {
                 ),
             ]),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
               child: SizedBox(
                 width: double.infinity,
                 child: KdPrimaryButton(
                   label: _page < _slides.length - 1 ? 'つぎへ' : 'はじめる',
                   onPressed: _next,
                 ),
+              ),
+            ),
+            // 先生・スタッフ用の入り口(生徒フローの邪魔をしない控えめな導線)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: GestureDetector(
+                onTap: () => context.go('/teacher-login'),
+                child: Text('先生・スタッフの方はこちら',
+                    style: KdTheme.dot(size: 11, color: KdColors.ink900)
+                        .copyWith(decoration: TextDecoration.underline)),
               ),
             ),
           ]),

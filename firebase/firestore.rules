@@ -7,6 +7,17 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
 
+    // role は custom claims(サーバー側で付与)のみを信頼する。
+    // クライアントが users ドキュメントに書いた role は判定に使わない
+    // (「role をクライアント側だけで判定しない」の強制ポイント)。
+    function isTeacher() {
+      return signedIn() &&
+        (request.auth.token.role == "teacher" || request.auth.token.role == "admin");
+    }
+    function isAdmin() {
+      return signedIn() && request.auth.token.role == "admin";
+    }
+
     // ── コンテンツ(運営のみ書き込み・Admin SDK経由) ──────────
     match /areas/{doc} {
       allow read: if signedIn() && resource.data.isPublished == true;
@@ -33,16 +44,27 @@ service cloud.firestore {
     match /review_jobs/{doc} { allow read, write: if false; }
 
     // ── ユーザーデータ ─────────────────────────────────
+    // users/{userId}: role, nickname, email, avatarId, designExperience,
+    //   learningInterests, level, xp, coins, streakDays, completedQuestIds,
+    //   currentQuestId, createdAt, lastLoginAt, isActive, onboardingCompleted
     match /users/{uid} {
-      allow read: if isOwner(uid);
+      // 生徒は自分のみ。先生は担当生徒の状況確認のため読み取り可
+      // (メール等のPII表示はアプリ側でマスクし、一覧では出さない)。
+      allow read: if isOwner(uid) || isTeacher();
       allow create: if false; // 初期ドキュメントは onUserCreated(Functions)
       // クライアントが書けるのは「設定系」フィールドのみ。
-      // level/xp/coins/streak/keys 等の報酬フィールドは Functions のみ(原則2)
+      // role / email / level / xp / coins / streakDays / isActive 等は
+      // Functions のみ(role の昇格・報酬改ざん・凍結解除をクライアントから防ぐ)
       allow update: if isOwner(uid)
         && request.resource.data.diff(resource.data).affectedKeys()
-           .hasOnly(["displayName", "goal", "dailyMinutes",
+           .hasOnly(["displayName", "nickname", "avatarId", "goal",
+                     "dailyMinutes", "designExperience", "learningInterests",
                      "notification", "flags", "equippedTitleId",
-                     "lastActiveAt"]);
+                     "onboardingCompleted", "lastActiveAt", "lastLoginAt"]);
+      // 先生は運用フィールドのみ更新可(一時停止・個別割当。UIは確認ダイアログ必須)
+      allow update: if isTeacher()
+        && request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(["isActive", "currentQuestId"]);
       allow delete: if false; // 退会は deleteAccount(Functions)
 
       // 進行状態: クライアント読み書き可。ただし delivered/reviewed 遷移は Functions のみ
@@ -70,6 +92,31 @@ service cloud.firestore {
 
       // 装飾の配置: クライアント自由(コイン減算を伴う購入は purchaseItem 経由)
       match /decorations_placed/{doc} { allow read, write: if isOwner(uid); }
+    }
+
+    // ── 提出物(添削フロー) ─────────────────────────────
+    // submissions/{submissionId}: userId, questId, imageUrl, submittedAt,
+    //   status(waiting/reviewed/resubmit), feedback
+    match /submissions/{doc} {
+      // 生徒: 自分の提出のみ読める。先生: 全提出を読める(添削のため)
+      allow read: if isTeacher()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+      // 生徒: 自分名義の新規提出のみ作成可(status は waiting 固定)
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == "waiting";
+      // 先生: 添削コメント・再提出依頼のみ更新可(提出内容は書き換え不可)
+      allow update: if isTeacher()
+        && request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(["status", "feedback", "reviewedAt", "reviewedBy"]);
+      allow delete: if isAdmin();
+    }
+
+    // ── 先生用メモ(生徒からは一切見えない) ────────────────
+    // teacherNotes/{noteId}: studentId, teacherId, note, updatedAt
+    match /teacherNotes/{doc} {
+      allow read, create, update: if isTeacher();
+      allow delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
     }
   }
 }

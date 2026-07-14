@@ -52,6 +52,18 @@ class FirestoreQuestRepository implements QuestRepository {
   }
 
   @override
+  Future<List<Quest>> fetchPracticeQuests() async {
+    // 練習クエスト = type: guild の公開クエスト(先生の基礎レッスン)
+    final snap = await _db
+        .collection('quests')
+        .where('type', isEqualTo: 'guild')
+        .where('isPublished', isEqualTo: true)
+        .orderBy('order')
+        .get();
+    return [for (final d in snap.docs) _questFromDoc(d.id, d.data())];
+  }
+
+  @override
   Future<Quest> fetchQuest(String questId) async {
     final doc = await _db.doc('quests/$questId').get();
     if (!doc.exists) throw StateError('quest/not-found');

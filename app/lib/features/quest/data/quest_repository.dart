@@ -6,6 +6,7 @@ import 'package:design_kingdom/features/quest/domain/entities/quest.dart';
 /// 契約は Phase 6 の Callable と 1:1 (acceptQuest / submitForReview / deliverQuest)。
 abstract interface class QuestRepository {
   Future<List<Quest>> fetchTodayOffers();
+  Future<List<Quest>> fetchPracticeQuests();
   Future<Quest> fetchQuest(String questId);
   Future<void> acceptQuest(String questId);
   Future<ReviewResult> submitForReview(String questId, StepAnswer submission);
@@ -121,6 +122,133 @@ class FakeQuestRepository implements QuestRepository {
     ],
   );
 
+  /// 練習クエスト(みぽりん先生の基礎レッスン)。
+  /// 3つクリアで「今日の依頼」(お客様からの実依頼)が解放される。
+  static const practiceQuests = [
+    Quest(
+      questId: 'q_practice_01',
+      areaId: 'area_01_hajimari',
+      residentId: 'res_miporin',
+      residentName: 'みぽりん先生',
+      type: QuestType.guild,
+      sizeMinutes: 3,
+      title: 'はじめの一歩　文字を見やすく並べてみよう',
+      brief: 'デザインのきほんは「じゅんばん」。お知らせの文字を、読みやすい順に並べてみよう。',
+      reward: QuestReward(xp: 15, coins: 3, skillPoints: {'craft': 1}),
+      steps: [
+        ChoiceStep(
+          stepId: 's1',
+          question: 'けいじばんのお知らせ、パッと見て伝わるのはどっち？',
+          options: [
+            ChoiceOption(
+                id: 'a',
+                text: '全部おなじ大きさの文字',
+                correct: false,
+                feedback: 'ぜんぶ同じだと、どこが大事かわからないかも'),
+            ChoiceOption(
+                id: 'b',
+                text: 'いちばん大事なことだけ大きい文字',
+                correct: true,
+                feedback: '正解！「大事なことを大きく」が見やすさの第一歩だよ'),
+          ],
+        ),
+        ReorderStep(
+          stepId: 's2',
+          question: 'お祭りのお知らせ、目立たせたい順に並べてみよう',
+          items: ['日づけ', 'お祭りの名前', '場所', '問い合わせ先'],
+          answerOrder: ['お祭りの名前', '日づけ', '場所', '問い合わせ先'],
+        ),
+      ],
+    ),
+    Quest(
+      questId: 'q_practice_02',
+      areaId: 'area_01_hajimari',
+      residentId: 'res_miporin',
+      residentName: 'みぽりん先生',
+      type: QuestType.guild,
+      sizeMinutes: 3,
+      title: 'いろのちから　目立つ色をえらぼう',
+      brief: '色にはそれぞれ役割があるの。「見てほしいところ」に合う色をえらぶ練習だよ。',
+      reward: QuestReward(xp: 15, coins: 3, skillPoints: {'craft': 1}),
+      steps: [
+        ChoiceStep(
+          stepId: 's1',
+          question: '「セール中！」を一番目立たせたいとき、どの組み合わせ？',
+          options: [
+            ChoiceOption(
+                id: 'a',
+                text: 'うすい黄色の紙に 白い文字',
+                correct: false,
+                feedback: '似た明るさどうしだと、文字が消えちゃうの'),
+            ChoiceOption(
+                id: 'b',
+                text: '赤い紙に 白い文字',
+                correct: true,
+                feedback: '正解！濃い色×白のコントラストは遠くからでも読めるよ'),
+            ChoiceOption(
+                id: 'c',
+                text: '青い紙に むらさきの文字',
+                correct: false,
+                feedback: '近い色どうしは、なじみすぎて読みにくいんだ'),
+          ],
+        ),
+        ChoiceStep(
+          stepId: 's2',
+          question: 'たくさんの色をつかうと、どうなると思う？',
+          options: [
+            ChoiceOption(
+                id: 'a',
+                text: 'にぎやかで ぜんぶ目立つ',
+                correct: false,
+                feedback: 'ぜんぶ目立つ＝どれも目立たない、なんだ。ふしぎだね'),
+            ChoiceOption(
+                id: 'b',
+                text: 'どこを見ればいいか わからなくなる',
+                correct: true,
+                feedback: '正解！色は「3色まで」がきほん。しぼるほど強くなるよ'),
+          ],
+        ),
+      ],
+    ),
+    Quest(
+      questId: 'q_practice_03',
+      areaId: 'area_01_hajimari',
+      residentId: 'res_miporin',
+      residentName: 'みぽりん先生',
+      type: QuestType.guild,
+      sizeMinutes: 3,
+      title: 'そろえるまほう　まっすぐ整列させよう',
+      brief: '「そろえる」だけでデザインは見ちがえるの。整列のまほうを覚えよう。',
+      reward: QuestReward(xp: 15, coins: 3, skillPoints: {'craft': 1}),
+      steps: [
+        ChoiceStep(
+          stepId: 's1',
+          question: 'メニュー表、きれいに見えるのはどっち？',
+          options: [
+            ChoiceOption(
+                id: 'a',
+                text: '文字のはじまりが バラバラ',
+                correct: false,
+                feedback: 'バラバラだと、目があちこち迷子になっちゃう'),
+            ChoiceOption(
+                id: 'b',
+                text: '文字のはじまりが 左でピシッとそろっている',
+                correct: true,
+                feedback: '正解！「左ぞろえ」は読みやすさのまほうだよ'),
+          ],
+        ),
+        ReorderStep(
+          stepId: 's2',
+          question: 'ポスターづくりの手順を、正しい順に並べてみよう',
+          items: ['かざりをつける', 'つたえることを決める', 'ならべてそろえる'],
+          answerOrder: ['つたえることを決める', 'ならべてそろえる', 'かざりをつける'],
+        ),
+      ],
+    ),
+  ];
+
+  List<Quest> get _all => [...practiceQuests, _marco01, _mini];
+
   @override
   Future<List<Quest>> fetchTodayOffers() async {
     await Future<void>.delayed(const Duration(milliseconds: 300));
@@ -128,9 +256,15 @@ class FakeQuestRepository implements QuestRepository {
   }
 
   @override
+  Future<List<Quest>> fetchPracticeQuests() async {
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    return practiceQuests;
+  }
+
+  @override
   Future<Quest> fetchQuest(String questId) async {
-    final all = await fetchTodayOffers();
-    return all.firstWhere((q) => q.questId == questId);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    return _all.firstWhere((q) => q.questId == questId);
   }
 
   @override
@@ -140,6 +274,23 @@ class FakeQuestRepository implements QuestRepository {
   Future<ReviewResult> submitForReview(String questId, StepAnswer submission) async {
     // 本番は Phase 6 §4 パイプライン(Claude API)。DEMO は添削待ち演出のため 2 秒待つ。
     await Future<void>.delayed(const Duration(seconds: 2));
+    if (questId.startsWith('q_practice')) {
+      // 練習クエストは先生の基礎レッスン向けコメント
+      return const ReviewResult(
+        goodPoints: [
+          '「大事なことから」の順番で考えられているね！',
+          '迷わず選べたのがすばらしい。目がもう育ってきているよ',
+        ],
+        improvements: [
+          'つぎは「なぜそれが見やすいのか」を一言で言えるようになろう',
+        ],
+        nextAdvice: 'この調子！基礎のクエストを3つクリアすると、お客様からの依頼に挑戦できるよ♪',
+        scores: {
+          'satisfaction': 4, 'quality': 4, 'proposal': 3,
+          'deadline': 5, 'hearing': 3, 'revision': 3,
+        },
+      );
+    }
     return const ReviewResult(
       goodPoints: [
         'キャッチコピーを一番大きく置けているね！情報の優先順位がバッチリ',

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:design_kingdom/core/firebase/firebase_bootstrap.dart';
+import 'package:design_kingdom/core/state/account.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/widgets/kd_widgets.dart';
 
@@ -34,6 +35,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _save(String key, bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(key, value);
+  }
+
+  Future<void> _confirmLogout() async {
+    // 影響の大きい操作は必ず確認ダイアログを挟む
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: KdColors.surface,
+        title: const Text('ログアウトする？'),
+        content: const Text('進捗はこの端末に保存されています。またいつでも戻ってこられます。'),
+        actions: [
+          TextButton(onPressed: () => ctx.pop(false), child: const Text('やめる')),
+          TextButton(
+              onPressed: () => ctx.pop(true), child: const Text('ログアウト')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await ref.read(accountProvider.notifier).logout(); // 進捗は端末に残す
+    if (!mounted) return;
+    context.go('/welcome');
   }
 
   Future<void> _confirmDelete() async {
@@ -117,6 +139,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           const SizedBox(height: 12),
           KdParchmentCard(
+            child: ListTile(
+              leading: const Icon(Icons.favorite, color: KdColors.pink500),
+              title: const Text('みぽりん先生との出会いを もう一度見る'),
+              trailing: const Icon(Icons.chevron_right, size: 20),
+              onTap: () => context.push('/meeting?replay=1'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          KdParchmentCard(
             child: Column(children: [
               ListTile(
                 title: const Text('利用規約'),
@@ -137,12 +168,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           const SizedBox(height: 12),
           KdParchmentCard(
-            child: ListTile(
-              title: const Text('アカウントを削除する',
-                  style: TextStyle(color: KdColors.lava500)),
-              subtitle: const Text('すべてのデータが完全に削除されます'),
-              onTap: _confirmDelete,
-            ),
+            child: Column(children: [
+              ListTile(
+                title: const Text('ログアウト'),
+                subtitle: const Text('タイトル画面にもどります'),
+                onTap: _confirmLogout,
+              ),
+              ListTile(
+                title: const Text('アカウントを削除する',
+                    style: TextStyle(color: KdColors.lava500)),
+                subtitle: const Text('すべてのデータが完全に削除されます'),
+                onTap: _confirmDelete,
+              ),
+            ]),
           ),
         ]),
       ),

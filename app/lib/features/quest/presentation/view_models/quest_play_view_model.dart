@@ -12,6 +12,10 @@ final questRepositoryProvider =
 final todayOffersProvider = FutureProvider<List<Quest>>(
     (ref) => ref.watch(questRepositoryProvider).fetchTodayOffers());
 
+/// 練習クエスト(みぽりん先生の基礎レッスン)。3つクリアで「今日の依頼」解放。
+final practiceQuestsProvider = FutureProvider<List<Quest>>(
+    (ref) => ref.watch(questRepositoryProvider).fetchPracticeQuests());
+
 /// クエストプレイの UI 状態。
 /// status は Phase 4 §4 状態機械そのもの。画面はこの状態に従属する。
 class QuestPlayState {
