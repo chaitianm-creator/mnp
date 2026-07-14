@@ -42,7 +42,8 @@ void main() {
     expect(find.textContaining('入団手続き'), findsOneWidget);
     await tester.enterText(find.byType(TextField).at(0), 'てすとちゃん');
     await tester.enterText(find.byType(TextField).at(1), 'test@example.com');
-    await tester.enterText(find.byType(TextField).at(2), 'himitsu1234');
+    await tester.enterText(find.byType(TextField).at(2), '2026');
+    await tester.pumpAndSettle(); // 配布パスワードの照合を待つ
 
     // 診断: つよみ=戦士 / にがて=商人
     await tapAndSettle(tester, find.text('戦士').first);

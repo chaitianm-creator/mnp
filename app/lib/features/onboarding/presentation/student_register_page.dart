@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:design_kingdom/core/config/enrollment_config.dart';
 import 'package:design_kingdom/core/state/account.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
@@ -28,6 +29,14 @@ class _StudentRegisterPageState extends ConsumerState<StudentRegisterPage> {
   String? _experience;
   final Set<String> _interests = {};
   bool _submitting = false;
+
+  // 配布パスワードの照合状態
+  static const _passwordEmptyMessage = '配布パスワードを入力してください';
+  static const _passwordWrongMessage = '配布パスワードが正しくありません';
+  bool _passwordVerified = false;
+  String? _passwordError = _passwordEmptyMessage;
+  bool _showPassword = false;
+  int _verifySeq = 0; // 連打時に古い照合結果で上書きしないための通し番号
 
   static const _experiences = [
     ('none', 'デザインは はじめて', Icons.spa),
@@ -57,17 +66,49 @@ class _StudentRegisterPageState extends ConsumerState<StudentRegisterPage> {
   bool get _canSubmit =>
       _nickname.text.trim().isNotEmpty &&
       _email.text.contains('@') &&
-      _password.text.length >= 4 &&
+      _passwordVerified &&
       _strong != null &&
       _weak != null &&
       _experience != null &&
       _interests.isNotEmpty &&
       !_submitting;
 
+  /// 入力のたびに照合(前後空白は除去・大文字小文字は区別)。
+  /// 照合ロジックは enrollmentCodeVerifierProvider に分離してあり、
+  /// 将来は Firebase Functions / Firestore 招待コード照合へ差し替える。
+  Future<void> _onPasswordChanged(String value) async {
+    final seq = ++_verifySeq;
+    if (value.trim().isEmpty) {
+      setState(() {
+        _passwordVerified = false;
+        _passwordError = _passwordEmptyMessage;
+      });
+      return;
+    }
+    final ok = await ref.read(enrollmentCodeVerifierProvider).verify(value);
+    if (!mounted || seq != _verifySeq) return;
+    setState(() {
+      _passwordVerified = ok;
+      _passwordError = ok ? null : _passwordWrongMessage;
+    });
+  }
+
   Future<void> _register() async {
+    // 念のため送信時にも再照合(本番のサーバー検証と同じタイミング)
+    final ok = await ref
+        .read(enrollmentCodeVerifierProvider)
+        .verify(_password.text);
+    if (!mounted) return;
+    if (!ok) {
+      setState(() {
+        _passwordVerified = false;
+        _passwordError = _password.text.trim().isEmpty
+            ? _passwordEmptyMessage
+            : _passwordWrongMessage;
+      });
+      return;
+    }
     setState(() => _submitting = true);
-    // DEMO: 配布パスワードの照合はサーバーなしのため形式チェックのみ。
-    // 本番は Auth 登録時に配布パスワード(クラスコード)を Functions で検証する。
     await ref.read(accountProvider.notifier).registerStudent(UserAccount(
           role: UserRole.student,
           nickname: _nickname.text.trim(),
@@ -120,7 +161,21 @@ class _StudentRegisterPageState extends ConsumerState<StudentRegisterPage> {
                       controller: _password,
                       hint: '配布パスワード（先生からもらったもの）',
                       icon: Icons.vpn_key,
-                      obscure: true,
+                      obscure: !_showPassword,
+                      errorText: _passwordError,
+                      onChanged: _onPasswordChanged,
+                      suffix: IconButton(
+                        tooltip: _showPassword ? 'パスワードを隠す' : 'パスワードを表示',
+                        icon: Icon(
+                          _showPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          size: 20,
+                          color: KdColors.wood700,
+                        ),
+                        onPressed: () =>
+                            setState(() => _showPassword = !_showPassword),
+                      ),
                     ),
                   ]),
             ),
@@ -228,15 +283,24 @@ class _StudentRegisterPageState extends ConsumerState<StudentRegisterPage> {
     required IconData icon,
     bool obscure = false,
     TextInputType? keyboardType,
+    String? errorText,
+    Widget? suffix,
+    ValueChanged<String>? onChanged,
   }) {
     return TextField(
       controller: controller,
       obscureText: obscure,
       keyboardType: keyboardType,
-      onChanged: (_) => setState(() {}),
+      onChanged: (v) {
+        setState(() {});
+        onChanged?.call(v);
+      },
       decoration: InputDecoration(
         hintText: hint,
+        errorText: errorText,
+        errorStyle: const TextStyle(color: KdColors.lava500, fontSize: 12),
         prefixIcon: Icon(icon, size: 20, color: KdColors.wood700),
+        suffixIcon: suffix,
         filled: true,
         fillColor: Colors.white,
         contentPadding:
@@ -252,6 +316,14 @@ class _StudentRegisterPageState extends ConsumerState<StudentRegisterPage> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
           borderSide: const BorderSide(color: KdColors.pink500, width: 2.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: KdColors.lava500, width: 2),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: KdColors.lava500, width: 2.5),
         ),
       ),
     );
