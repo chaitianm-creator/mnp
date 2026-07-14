@@ -36,6 +36,9 @@ class _StudentRegisterPageState extends ConsumerState<StudentRegisterPage> {
   bool _passwordVerified = false;
   String? _passwordError = _passwordEmptyMessage;
   bool _showPassword = false;
+  // メールもDEMOでは伏字が基本(教室でのデモ・画面共有でPIIを映さない)。
+  // 目のアイコンで一時的に表示して入力内容を確認できる。
+  bool _showEmail = false;
   int _verifySeq = 0; // 連打時に古い照合結果で上書きしないための通し番号
 
   static const _experiences = [
@@ -155,7 +158,26 @@ class _StudentRegisterPageState extends ConsumerState<StudentRegisterPage> {
                       hint: 'メールアドレス',
                       icon: Icons.mail_outline,
                       keyboardType: TextInputType.emailAddress,
+                      obscure: !_showEmail,
+                      suffix: IconButton(
+                        tooltip: _showEmail ? 'メールを隠す' : 'メールを表示',
+                        icon: Icon(
+                          _showEmail ? Icons.visibility_off : Icons.visibility,
+                          size: 20,
+                          color: KdColors.wood700,
+                        ),
+                        onPressed: () =>
+                            setState(() => _showEmail = !_showEmail),
+                      ),
                     ),
+                    if (_email.text.trim().isNotEmpty && !_showEmail)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 4),
+                        child: Text(
+                          '入力中: ${maskEmail(_email.text.trim())}',
+                          style: KdTheme.dot(size: 10, color: KdColors.wood700),
+                        ),
+                      ),
                     const SizedBox(height: 10),
                     _field(
                       controller: _password,

@@ -145,10 +145,36 @@ void main() {
           tester.widget<TextField>(find.byType(TextField).at(2));
 
       expect(passwordField().obscureText, isTrue, reason: '初期状態は伏字');
-      await tapAndSettle(tester, find.byIcon(Icons.visibility));
+      // 目アイコンはメール欄とパスワード欄の2つ(パスワード欄=2つ目)
+      await tapAndSettle(tester, find.byIcon(Icons.visibility).last);
       expect(passwordField().obscureText, isFalse, reason: '目アイコンで表示');
       await tapAndSettle(tester, find.byIcon(Icons.visibility_off));
       expect(passwordField().obscureText, isTrue, reason: 'もう一度押すと伏字に戻る');
+    });
+
+    testWidgets('メールも伏字表示で、マスク表示と目のアイコンで内容を確認できる',
+        (tester) async {
+      await pumpRegister(tester);
+
+      TextField emailField() =>
+          tester.widget<TextField>(find.byType(TextField).at(1));
+
+      expect(emailField().obscureText, isTrue, reason: '初期状態は伏字');
+
+      // 伏字のままでもマスク表示(s***@example.com)で内容を確認できる
+      await tester.enterText(find.byType(TextField).at(1), 'sakura@example.com');
+      await tester.pumpAndSettle();
+      expect(find.text('入力中: s***@example.com'), findsOneWidget);
+
+      // 目アイコンで平文表示に切り替え(マスク表示は消える)
+      await tapAndSettle(tester, find.byIcon(Icons.visibility).first);
+      expect(emailField().obscureText, isFalse);
+      expect(find.text('入力中: s***@example.com'), findsNothing);
+
+      // 戻すと再び伏字+マスク表示
+      await tapAndSettle(tester, find.byIcon(Icons.visibility_off).first);
+      expect(emailField().obscureText, isTrue);
+      expect(find.text('入力中: s***@example.com'), findsOneWidget);
     });
   });
 }
