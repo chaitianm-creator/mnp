@@ -7,13 +7,16 @@ import 'package:go_router/go_router.dart';
 import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
+import 'package:design_kingdom/core/widgets/kd_widgets.dart';
 import 'package:design_kingdom/features/quest/domain/entities/quest.dart';
 import 'package:design_kingdom/features/quest/presentation/view_models/quest_play_view_model.dart';
 
-/// SC-10 ホーム = ステージマップ。
-/// ゲームフィールド様式: 芝生の野原にタイルの道が蛇行し、その上を
-/// ステージノードが進んでいく。「いま挑戦できる1個」だけが桜ピンクで光る。
-/// 設計目標: 起動 → クエスト開始まで 2 タップは維持(スタートノード即タップ)。
+/// SC-10 ホーム。
+/// 「わかりやすさ」優先の情報設計:
+///  ① あいさつヘッダー(だれの画面か) → ② エリアバンド(いまどこか)
+///  → ③ きょうのサマリー(大きな数字) → ④ きょうの依頼(チェックリスト)
+///  → ⑤ ぼうけんマップ(ゲームフィールド)。
+/// 設計目標: 起動 → クエスト開始まで 2 タップは維持(依頼リスト即タップ)。
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
@@ -25,65 +28,158 @@ class HomePage extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: Column(children: [
-          _StatsBar(streak: progress.streak, keys: progress.keys),
-          const SizedBox(height: 8),
-          // タップでエリア紹介(SC-31)へ
-          GestureDetector(
-            onTap: () => context.push('/area/area_01_hajimari'),
-            child: const _AreaBand(
-              areaLabel: 'エリア①',
-              title: 'はじまりの街（みぽりん村）',
-            ),
-          ),
-          if (progress.reservedQuestId != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: Row(children: [
-                const Icon(Icons.mail, color: KdColors.pink500, size: 18),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text('予約したお仕事「${progress.reservedTeaser}」はあした届くよ！',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium),
+        child: offers.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) =>
+              const Center(child: Text('あれれ、王国とつながらないみたい')),
+          data: (quests) {
+            final delivered = progress.deliveredQuestIds;
+            final doneCount =
+                quests.where((q) => delivered.contains(q.questId)).length;
+            final activeIndex =
+                quests.indexWhere((q) => !delivered.contains(q.questId));
+
+            return ListView(
+              padding: const EdgeInsets.only(bottom: 24),
+              children: [
+                _Header(streak: progress.streak, keys: progress.keys),
+                const SizedBox(height: 8),
+                // タップでエリア紹介(SC-31)へ
+                GestureDetector(
+                  onTap: () => context.push('/area/area_01_hajimari'),
+                  child: const _AreaBand(
+                    areaLabel: 'エリア①',
+                    title: 'はじまりの街（みぽりん村）',
+                  ),
                 ),
-              ]),
-            ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: offers.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) =>
-                  const Center(child: Text('あれれ、王国とつながらないみたい')),
-              data: (quests) => _StageField(
-                quests: quests,
-                deliveredIds: progress.deliveredQuestIds,
-              ),
-            ),
-          ),
-        ]),
+                if (progress.reservedQuestId != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Row(children: [
+                      const Icon(Icons.mail, color: KdColors.pink500, size: 18),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                            '予約したお仕事「${progress.reservedTeaser}」はあした届くよ！',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium),
+                      ),
+                    ]),
+                  ),
+                const SizedBox(height: 12),
+                // ── きょうのサマリー(大きな数字で今日の状態がひと目でわかる) ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: KdParchmentCard(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const KdSectionHeader('きょうのサマリー'),
+                          const SizedBox(height: 10),
+                          Row(children: [
+                            Expanded(
+                              child: _SummaryTile(
+                                icon: Icons.check_circle,
+                                label: 'できた依頼',
+                                value: '$doneCount',
+                                unit: '件',
+                                color: const Color(0xFFF7E3A8),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _SummaryTile(
+                                icon: Icons.favorite,
+                                label: 'れんぞく',
+                                value: '${progress.streak}',
+                                unit: '日',
+                                color: KdColors.pink100,
+                              ),
+                            ),
+                          ]),
+                        ]),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // ── きょうの依頼(チェックリスト: どれをやればいいか迷わない) ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: KdParchmentCard(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const KdSectionHeader('きょうの依頼'),
+                          const SizedBox(height: 4),
+                          for (final (i, q) in quests.indexed)
+                            _QuestRow(
+                              quest: q,
+                              index: i,
+                              done: delivered.contains(q.questId),
+                              active: i == activeIndex,
+                            ),
+                        ]),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // ── ぼうけんマップ(進み具合を風景で楽しむ) ──
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: KdSectionHeader('ぼうけんマップ'),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: KdColors.wood900, width: 2.5),
+                    ),
+                    child: _StageField(
+                      quests: quests,
+                      deliveredIds: delivered,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-/// 上部ステータス(トップバー): 連続日数ハート + カギ。
-class _StatsBar extends StatelessWidget {
-  const _StatsBar({required this.streak, required this.keys});
+/// あいさつヘッダー: アバター + 呼びかけ + 連続日数ハート/カギ。
+class _Header extends StatelessWidget {
+  const _Header({required this.streak, required this.keys});
   final int streak;
   final int keys;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Row(children: [
-        const Icon(Icons.local_florist, color: KdColors.pink500, size: 22),
-        const SizedBox(width: 4),
-        Text('デザイン王国',
-            style: KdTheme.dot(size: 15, color: KdColors.heading)
-                .copyWith(fontWeight: FontWeight.w700)),
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: KdColors.pink100,
+            shape: BoxShape.circle,
+            border: Border.all(color: KdColors.wood900, width: 2.5),
+          ),
+          child: const Icon(Icons.person, size: 26, color: KdColors.pink700),
+        ),
+        const SizedBox(width: 10),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('おかえりなさい！',
+              style: KdTheme.dot(size: 11, color: KdColors.ink900)),
+          Text('デザイン見習いさん',
+              style: KdTheme.dot(size: 15, color: KdColors.heading)
+                  .copyWith(fontWeight: FontWeight.w700)),
+        ]),
         const Spacer(),
         const Icon(Icons.favorite, color: KdColors.pink500, size: 20),
         const SizedBox(width: 4),
@@ -93,6 +189,131 @@ class _StatsBar extends StatelessWidget {
         const SizedBox(width: 3),
         Text('$keys', style: KdTheme.dot(size: 15, color: KdColors.ink900)),
       ]),
+    );
+  }
+}
+
+/// サマリータイル: 大きな数字でひと目で状態がわかる(参考UIのサマリー様式)。
+class _SummaryTile extends StatelessWidget {
+  const _SummaryTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.color,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+  final String unit;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: KdColors.wood900, width: 2),
+        boxShadow: const [
+          BoxShadow(color: KdColors.wood900, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, size: 14, color: KdColors.ink900),
+          const SizedBox(width: 4),
+          Text(label, style: KdTheme.dot(size: 11, color: KdColors.ink900)),
+        ]),
+        const SizedBox(height: 6),
+        Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.ideographic,
+            children: [
+              Text(value,
+                  style: KdTheme.dot(size: 30, color: KdColors.ink900)
+                      .copyWith(fontWeight: FontWeight.w700, height: 1.0)),
+              const SizedBox(width: 3),
+              Text(unit, style: KdTheme.dot(size: 12, color: KdColors.ink900)),
+            ]),
+      ]),
+    );
+  }
+}
+
+/// きょうの依頼の1行(チェックリスト様式)。
+class _QuestRow extends ConsumerWidget {
+  const _QuestRow({
+    required this.quest,
+    required this.index,
+    required this.done,
+    required this.active,
+  });
+  final Quest quest;
+  final int index;
+  final bool done;
+  final bool active;
+
+  static const _chipColors = [
+    KdColors.ocean500,
+    KdColors.pink500,
+    KdColors.grass500,
+    KdColors.gold500,
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return InkWell(
+      onTap: () {
+        if (done || active) {
+          context.push('/quest/${quest.questId}');
+        } else {
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(const SnackBar(
+              content: Text('まずは上の依頼をクリアしよう！一歩ずつでいいの♡'),
+            ));
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(children: [
+          Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: _chipColors[index % _chipColors.length],
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: KdColors.wood900, width: 1.5),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(quest.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          const SizedBox(width: 8),
+          if (done)
+            const Icon(Icons.check_circle, size: 20, color: KdColors.grass500)
+          else if (active)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: KdColors.pink500,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: KdColors.pink700, width: 1.5),
+              ),
+              child: Text('いまここ',
+                  style: KdTheme.dot(size: 10, color: Colors.white)
+                      .copyWith(fontWeight: FontWeight.w700)),
+            )
+          else
+            Icon(Icons.lock, size: 18, color: KdColors.border.withOpacity(0.6)),
+        ]),
+      ),
     );
   }
 }
@@ -180,8 +401,7 @@ class _StageField extends StatelessWidget {
           ),
       ];
 
-      return SingleChildScrollView(
-        child: SizedBox(
+      return SizedBox(
           width: w,
           height: totalH,
           child: Stack(children: [
@@ -202,7 +422,6 @@ class _StageField extends StatelessWidget {
                   chestOpen:
                       nodes[i].kind == _NodeKind.chest && allQuestsDone),
           ]),
-        ),
       );
     });
   }

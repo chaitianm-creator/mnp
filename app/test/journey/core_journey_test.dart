@@ -30,12 +30,13 @@ void main() {
       (tester) async {
     await pumpApp(tester);
 
-    // ── SC-10 ホーム: ステージパスにスタートノードが出る ──
-    expect(find.text('スタート'), findsOneWidget);
+    // ── SC-10 ホーム: きょうの依頼チェックリストが出る ──
+    expect(find.text('きょうの依頼'), findsOneWidget);
     expect(find.text('はじまりの街（みぽりん村）'), findsOneWidget);
+    expect(find.textContaining('もちもち王国パン'), findsOneWidget);
 
-    // タップ1: スタートノード → SC-20 依頼詳細
-    await tapAndSettle(tester, find.text('スタート'));
+    // タップ1: 依頼リストの行 → SC-20 依頼詳細
+    await tapAndSettle(tester, find.textContaining('もちもち王国パン'));
     expect(find.text('この仕事を引き受ける'), findsOneWidget);
 
     // タップ2: 受注 → SC-21 ヒアリング(US-E2-01: 2タップで仕事が始まる)
@@ -109,18 +110,21 @@ void main() {
     expect(find.text('きょうのまとめ'), findsOneWidget);
     expect(find.text('あと1クエストだけやる（3分）'), findsNothing);
 
-    // ホームへ: 予約バナー + 全ステージ納品済み(挑戦ノードなし)
+    // ホームへ: 予約バナー + 依頼リスト2件ともチェック済み
     await tapAndSettle(tester, find.text('きょうはここまで！ホームへ'));
+    // シェルのIndexedStackでホームは生存し続けるため、スクロール位置を先頭へ戻す
+    await tester.scrollUntilVisible(find.textContaining('予約したお仕事'), -200);
+    await tester.pumpAndSettle();
     expect(find.textContaining('予約したお仕事'), findsOneWidget);
-    expect(find.text('スタート'), findsNothing);
+    expect(find.byIcon(Icons.check_circle), findsNWidgets(3)); // サマリー1 + 依頼2
   });
 
   testWidgets('中断確認ダイアログは1タップで抜けられる(Phase 4 §7-2)', (tester) async {
     await pumpApp(tester);
-    await tapAndSettle(tester, find.text('スタート'));
+    await tapAndSettle(tester, find.textContaining('もちもち王国パン'));
     await tapAndSettle(tester, find.byIcon(Icons.close));
     expect(find.text('ここまでにする？'), findsOneWidget);
     await tapAndSettle(tester, find.text('あとで'));
-    expect(find.text('スタート'), findsOneWidget); // ホームへ戻れた
+    expect(find.text('きょうの依頼'), findsOneWidget); // ホームへ戻れた
   });
 }
