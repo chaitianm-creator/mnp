@@ -167,7 +167,9 @@ class WorldMapPage extends ConsumerWidget {
           area: area,
           unlocked: unlocked,
           stage: stage,
-          onTap: () => context.push('/area/${area.id}'),
+          // エリア①は村の中へ、その他はエリアガイドへ
+          onTap: () => context.push(
+              area.order == 1 ? '/village' : '/area/${area.id}'),
         ),
       ),
     );

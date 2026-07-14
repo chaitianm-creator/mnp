@@ -44,9 +44,9 @@ class HomePage extends ConsumerWidget {
               children: [
                 _Header(streak: progress.streak, keys: progress.keys),
                 const SizedBox(height: 8),
-                // タップでエリア紹介(SC-31)へ
+                // タップでみぽりん村の町ビュー(SC-31)へ
                 GestureDetector(
-                  onTap: () => context.push('/area/area_01_hajimari'),
+                  onTap: () => context.push('/village'),
                   child: const _AreaBand(
                     areaLabel: 'エリア①',
                     title: 'はじまりの街（みぽりん村）',

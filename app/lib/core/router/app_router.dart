@@ -7,6 +7,7 @@ import "../../features/onboarding/presentation/goal_page.dart";
 import "../../features/onboarding/presentation/welcome_page.dart";
 import "../../features/quest/presentation/pages/quest_play_page.dart";
 import "../../features/settings/presentation/settings_page.dart";
+import "../../features/world/presentation/village_page.dart";
 import "../../features/world/presentation/world_map_page.dart";
 import "../theme/kd_colors.dart";
 
@@ -54,10 +55,15 @@ GoRouter createRouter({required bool onboardingDone}) => GoRouter(
               QuestPlayPage(questId: state.pathParameters["id"]!),
         ),
         GoRoute(
-          path: "/area/:id", // SC-31
+          path: "/area/:id", // SC-31(エリアガイド)
           parentNavigatorKey: rootNavigatorKey,
           builder: (_, state) =>
               AreaDetailPage(areaId: state.pathParameters["id"]!),
+        ),
+        GoRoute(
+          path: "/village", // SC-31(みぽりん村の町ビュー)
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, __) => const VillagePage(),
         ),
         GoRoute(
           path: "/settings", // SC-53/54
