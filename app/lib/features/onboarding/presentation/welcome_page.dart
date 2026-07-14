@@ -32,8 +32,8 @@ class _WelcomePageState extends State<WelcomePage> {
       '「あなたなら ぜったいできるよ！\n一歩ずつでいいの。」',
     ),
     (
-      Icons.work,
-      'あなたはデザイン見習い',
+      Icons.groups,
+      'あなたを仲間がサポート',
       '住民の仕事をクリアして経験を積み、\n「王国認定デザイナー」を目指そう！',
     ),
   ];
