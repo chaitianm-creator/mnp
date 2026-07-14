@@ -4,6 +4,7 @@ import "package:go_router/go_router.dart";
 import "../../features/growth/placeholder_pages.dart";
 import "../../features/home/presentation/home_page.dart";
 import "../../features/onboarding/presentation/goal_page.dart";
+import "../../features/onboarding/presentation/guild_page.dart";
 import "../../features/onboarding/presentation/welcome_page.dart";
 import "../../features/quest/presentation/pages/quest_play_page.dart";
 import "../../features/settings/presentation/settings_page.dart";
@@ -28,6 +29,11 @@ GoRouter createRouter({required bool onboardingDone}) => GoRouter(
           path: "/goal", // SC-06
           parentNavigatorKey: rootNavigatorKey,
           builder: (_, __) => const GoalPage(),
+        ),
+        GoRoute(
+          path: "/guild", // SC-07 ギルド入団(物語パート)
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, __) => const GuildPage(),
         ),
         // ── 4タブシェル ──
         StatefulShellRoute.indexedStack(

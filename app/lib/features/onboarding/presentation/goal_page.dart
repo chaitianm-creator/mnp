@@ -35,8 +35,8 @@ class _GoalPageState extends ConsumerState<GoalPage> {
     await prefs.setInt('daily_minutes', _minutes!);
     await prefs.setBool('onboarding_done', true);
     if (!mounted) return;
-    // 初日の生命線: そのまま最初の依頼へ(15分以内に初納品 = E1受け入れ基準)
-    context.go('/quest/q_marco_01');
+    // 初日の生命線: ギルド入団(練習+成功体験) → はじめてのお客様へ
+    context.go('/guild');
   }
 
   @override
@@ -87,7 +87,7 @@ class _GoalPageState extends ConsumerState<GoalPage> {
             ),
             const SizedBox(height: 16),
             KdPrimaryButton(
-              label: 'さいしょの依頼を受けてみる',
+              label: 'みぽりん先生に会いに行く',
               onPressed: (_goal != null && _minutes != null) ? _start : null,
             ),
             const SizedBox(height: 12),

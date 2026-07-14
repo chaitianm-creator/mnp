@@ -88,6 +88,9 @@ class UserProgressNotifier extends Notifier<UserProgress> {
     );
   }
 
+  /// ギルド入団ボーナス(SC-07: 練習クエスト成功時に一度だけ)
+  void grantGuildBonus() => state = state.copyWith(xp: state.xp + 20);
+
   /// 受注予約(US-E1-07 / US-E6-02)。同時に1件のみ。
   void reserve(String questId, String teaser) =>
       state = state.copyWith(reservedQuestId: questId, reservedTeaser: teaser);
