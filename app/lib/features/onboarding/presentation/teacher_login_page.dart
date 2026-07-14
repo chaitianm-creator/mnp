@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:design_kingdom/core/config/enrollment_config.dart';
 import 'package:design_kingdom/core/state/account.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
@@ -9,7 +10,8 @@ import 'package:design_kingdom/core/widgets/kd_scenery.dart';
 import 'package:design_kingdom/core/widgets/kd_widgets.dart';
 
 /// 先生・スタッフ用ログイン。
-/// DEMO: 先生コード(sensei)一致でローカルに teacher アカウントを作成する。
+/// DEMO: 先生コード(enrollment_config.dart の kTeacherCode)一致で
+/// ローカルに teacher アカウントを作成する。コードは画面に表示しない。
 /// 本番は Firebase Auth + custom claims(role=teacher) に差し替え —
 /// role をクライアント入力だけで確定しない(firestore.rules 側で強制)。
 class TeacherLoginPage extends ConsumerStatefulWidget {
@@ -24,8 +26,6 @@ class _TeacherLoginPageState extends ConsumerState<TeacherLoginPage> {
   final _code = TextEditingController();
   String? _error;
 
-  static const _demoTeacherCode = 'sensei';
-
   @override
   void dispose() {
     _name.dispose();
@@ -34,7 +34,7 @@ class _TeacherLoginPageState extends ConsumerState<TeacherLoginPage> {
   }
 
   Future<void> _login() async {
-    if (_code.text.trim() != _demoTeacherCode) {
+    if (_code.text.trim() != kTeacherCode) {
       setState(() => _error = '先生コードがちがうみたい。もう一度確認してね。');
       return;
     }
@@ -86,7 +86,7 @@ class _TeacherLoginPageState extends ConsumerState<TeacherLoginPage> {
                       obscureText: true,
                       onChanged: (_) => setState(() => _error = null),
                       decoration: const InputDecoration(
-                        hintText: '先生コード（DEMO: sensei）',
+                        hintText: '先生コード',
                         prefixIcon: Icon(Icons.vpn_key, size: 20),
                         filled: true,
                         fillColor: Colors.white,
