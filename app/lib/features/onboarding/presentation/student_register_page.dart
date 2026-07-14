@@ -36,9 +36,6 @@ class _StudentRegisterPageState extends ConsumerState<StudentRegisterPage> {
   bool _passwordVerified = false;
   String? _passwordError = _passwordEmptyMessage;
   bool _showPassword = false;
-  // メールもDEMOでは伏字が基本(教室でのデモ・画面共有でPIIを映さない)。
-  // 目のアイコンで一時的に表示して入力内容を確認できる。
-  bool _showEmail = false;
   int _verifySeq = 0; // 連打時に古い照合結果で上書きしないための通し番号
 
   static const _experiences = [
@@ -66,9 +63,17 @@ class _StudentRegisterPageState extends ConsumerState<StudentRegisterPage> {
     super.dispose();
   }
 
+  /// メールはDEMOでは任意。入力した場合のみ形式(@を含む)をチェックする。
+  /// 本番(Firebase Auth)では必須に戻す。
+  bool get _emailOk =>
+      _email.text.trim().isEmpty || _email.text.contains('@');
+
+  String? get _emailError =>
+      _emailOk ? null : 'メールアドレスの形式を確認してね';
+
   bool get _canSubmit =>
       _nickname.text.trim().isNotEmpty &&
-      _email.text.contains('@') &&
+      _emailOk &&
       _passwordVerified &&
       _strong != null &&
       _weak != null &&
@@ -155,29 +160,11 @@ class _StudentRegisterPageState extends ConsumerState<StudentRegisterPage> {
                     const SizedBox(height: 8),
                     _field(
                       controller: _email,
-                      hint: 'メールアドレス',
+                      hint: 'メールアドレス（DEMOでは入力しなくてOK）',
                       icon: Icons.mail_outline,
                       keyboardType: TextInputType.emailAddress,
-                      obscure: !_showEmail,
-                      suffix: IconButton(
-                        tooltip: _showEmail ? 'メールを隠す' : 'メールを表示',
-                        icon: Icon(
-                          _showEmail ? Icons.visibility_off : Icons.visibility,
-                          size: 20,
-                          color: KdColors.wood700,
-                        ),
-                        onPressed: () =>
-                            setState(() => _showEmail = !_showEmail),
-                      ),
+                      errorText: _emailError,
                     ),
-                    if (_email.text.trim().isNotEmpty && !_showEmail)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6, left: 4),
-                        child: Text(
-                          '入力中: ${maskEmail(_email.text.trim())}',
-                          style: KdTheme.dot(size: 10, color: KdColors.wood700),
-                        ),
-                      ),
                     const SizedBox(height: 10),
                     _field(
                       controller: _password,

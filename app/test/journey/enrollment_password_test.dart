@@ -48,10 +48,14 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// 配布パスワード以外の必須項目をすべて埋める
-    Future<void> fillOtherRequiredFields(WidgetTester tester) async {
+    /// 配布パスワード以外の必須項目をすべて埋める(メールはDEMOでは任意)
+    Future<void> fillOtherRequiredFields(WidgetTester tester,
+        {bool withEmail = true}) async {
       await tester.enterText(find.byType(TextField).at(0), 'てすとちゃん');
-      await tester.enterText(find.byType(TextField).at(1), 'test@example.com');
+      if (withEmail) {
+        await tester.enterText(
+            find.byType(TextField).at(1), 'test@example.com');
+      }
       await tapAndSettle(tester, find.text('戦士').first);
       await tapAndSettle(tester, find.text('商人').last);
       await tapAndSettle(tester, find.text('デザインは はじめて'));
@@ -145,36 +149,40 @@ void main() {
           tester.widget<TextField>(find.byType(TextField).at(2));
 
       expect(passwordField().obscureText, isTrue, reason: '初期状態は伏字');
-      // 目アイコンはメール欄とパスワード欄の2つ(パスワード欄=2つ目)
-      await tapAndSettle(tester, find.byIcon(Icons.visibility).last);
+      await tapAndSettle(tester, find.byIcon(Icons.visibility));
       expect(passwordField().obscureText, isFalse, reason: '目アイコンで表示');
       await tapAndSettle(tester, find.byIcon(Icons.visibility_off));
       expect(passwordField().obscureText, isTrue, reason: 'もう一度押すと伏字に戻る');
     });
 
-    testWidgets('メールも伏字表示で、マスク表示と目のアイコンで内容を確認できる',
-        (tester) async {
+    testWidgets('メールはDEMOでは任意: 空欄のままでも入団できる', (tester) async {
       await pumpRegister(tester);
 
-      TextField emailField() =>
-          tester.widget<TextField>(find.byType(TextField).at(1));
-
-      expect(emailField().obscureText, isTrue, reason: '初期状態は伏字');
-
-      // 伏字のままでもマスク表示(s***@example.com)で内容を確認できる
-      await tester.enterText(find.byType(TextField).at(1), 'sakura@example.com');
+      await tester.enterText(find.byType(TextField).at(2), '2026');
       await tester.pumpAndSettle();
-      expect(find.text('入力中: s***@example.com'), findsOneWidget);
+      await fillOtherRequiredFields(tester, withEmail: false);
 
-      // 目アイコンで平文表示に切り替え(マスク表示は消える)
-      await tapAndSettle(tester, find.byIcon(Icons.visibility).first);
-      expect(emailField().obscureText, isFalse);
-      expect(find.text('入力中: s***@example.com'), findsNothing);
+      await tester.ensureVisible(find.text('この内容で入団する'));
+      await tester.pumpAndSettle();
+      expect(submitEnabled(tester), isTrue, reason: 'メール空欄でも入団可能');
 
-      // 戻すと再び伏字+マスク表示
-      await tapAndSettle(tester, find.byIcon(Icons.visibility_off).first);
-      expect(emailField().obscureText, isTrue);
-      expect(find.text('入力中: s***@example.com'), findsOneWidget);
+      await tapAndSettle(tester, find.text('この内容で入団する'));
+      expect(find.textContaining('入団が完了しました'), findsOneWidget);
+    });
+
+    testWidgets('メールを入力した場合は形式(@)をチェックする', (tester) async {
+      await pumpRegister(tester);
+
+      await tester.enterText(find.byType(TextField).at(2), '2026');
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(1), 'abc');
+      await tester.pumpAndSettle();
+      expect(find.text('メールアドレスの形式を確認してね'), findsOneWidget);
+
+      await fillOtherRequiredFields(tester, withEmail: false);
+      await tester.ensureVisible(find.text('この内容で入団する'));
+      await tester.pumpAndSettle();
+      expect(submitEnabled(tester), isFalse, reason: '形式不正なら無効');
     });
   });
 }
