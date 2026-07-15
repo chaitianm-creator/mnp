@@ -1,0 +1,7 @@
+# Netlify (nmp-creative-trust-os.netlify.app) 用の設定。
+# このリポジトリをNetlifyに接続すると、creative-trust-os/ 配下の
+# 静的サイトがビルド不要でそのまま公開される。
+# （MokuTomo本体のVercelデプロイには影響しない）
+[build]
+  publish = "creative-trust-os"
+  command = "true"

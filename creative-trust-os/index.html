@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creative Trust OS — AIと信頼でつながる、フリーランスデザイナーチームの制作インフラ</title>
+<meta name="description" content="実績と実力のあるフリーランスデザイナーをつなぎ、AIで最適なチームを編成し、信頼と成果を生み出す仕組み。システム設計図（全体アーキテクチャ）。">
+<style>
+/* ============================================================
+   Design tokens
+   ============================================================ */
+:root{
+  --navy-900:#141d3d;
+  --navy-800:#1b2650;
+  --navy-700:#243266;
+  --blue-600:#2563eb;
+  --blue-500:#3b82f6;
+  --blue-100:#dbeafe;
+  --blue-50:#eff6ff;
+  --indigo-500:#6366f1;
+  --green-600:#059669;
+  --green-100:#d1fae5;
+  --green-50:#ecfdf5;
+  --orange-600:#ea580c;
+  --orange-100:#ffedd5;
+  --orange-50:#fff7ed;
+  --purple-600:#7c3aed;
+  --purple-100:#ede9fe;
+  --purple-50:#f5f3ff;
+  --pink-600:#db2777;
+  --pink-100:#fce7f3;
+  --pink-50:#fdf2f8;
+  --gray-900:#111827;
+  --gray-700:#374151;
+  --gray-600:#4b5563;
+  --gray-500:#6b7280;
+  --gray-400:#9ca3af;
+  --gray-300:#d1d5db;
+  --gray-200:#e5e7eb;
+  --gray-100:#f3f4f6;
+  --gray-50:#f9fafb;
+  --bg:#f4f6fb;
+  --card:#ffffff;
+  --radius:16px;
+  --radius-sm:10px;
+  --shadow:0 1px 3px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
+  --shadow-sm:0 1px 2px rgba(16,24,40,.05);
+  --maxw:1180px;
+  --font:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic Medium","YuGothic",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{font-family:var(--font);background:var(--bg);color:var(--gray-900);line-height:1.75;font-size:15px;-webkit-font-smoothing:antialiased}
+img{max-width:100%}
+a{color:inherit;text-decoration:none}
+ul{list-style:none}
+strong{font-weight:700}
+
+.container{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+/* ============================================================
+   Header / nav
+   ============================================================ */
+.site-header{position:sticky;top:0;z-index:100;background:rgba(20,29,61,.92);backdrop-filter:blur(10px);color:#fff;border-bottom:1px solid rgba(255,255,255,.08)}
+.site-header .inner{max-width:var(--maxw);margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:60px;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:.02em;white-space:nowrap}
+.brand .logo-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:grid;place-items:center;font-size:15px;flex:none}
+.global-nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.global-nav::-webkit-scrollbar{display:none}
+.global-nav a{padding:7px 12px;border-radius:8px;font-size:13px;color:rgba(255,255,255,.75);white-space:nowrap;transition:background .15s,color .15s}
+.global-nav a:hover{background:rgba(255,255,255,.1);color:#fff}
+.global-nav a.active{background:rgba(59,130,246,.35);color:#fff;font-weight:600}
+
+/* ============================================================
+   Hero
+   ============================================================ */
+.hero{background:linear-gradient(160deg,var(--navy-900) 0%,var(--navy-800) 55%,#233a7a 100%);color:#fff;padding:72px 0 64px;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(ellipse 60% 50% at 85% 10%,rgba(99,102,241,.25),transparent),
+  radial-gradient(ellipse 50% 40% at 10% 90%,rgba(59,130,246,.2),transparent)}
+.hero .container{position:relative}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;letter-spacing:.05em;color:#a5c4ff;background:rgba(59,130,246,.15);border:1px solid rgba(147,197,253,.3);padding:6px 16px;border-radius:999px;margin-bottom:20px}
+.hero h1{font-size:clamp(38px,6vw,60px);font-weight:800;letter-spacing:.01em;line-height:1.15;font-family:Georgia,"Times New Roman",var(--font)}
+.hero .hero-sub{font-size:clamp(15px,2.2vw,19px);font-weight:700;color:#c7d6ff;margin-top:10px;letter-spacing:.15em}
+.hero .hero-desc{max-width:640px;margin-top:24px;font-size:15.5px;color:rgba(255,255,255,.85)}
+.hero .hero-desc strong{color:#fff}
+
+/* 目指す世界 pillars */
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px}
+.pillar{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:var(--radius);padding:22px 20px;backdrop-filter:blur(4px)}
+.pillar .icon{font-size:26px;margin-bottom:10px}
+.pillar h3{font-size:16px;font-weight:800;margin-bottom:6px;color:#fff}
+.pillar p{font-size:13.5px;color:rgba(255,255,255,.78);line-height:1.7}
+
+/* ============================================================
+   Sections
+   ============================================================ */
+section.block{padding:72px 0}
+section.block.alt{background:#fff}
+.section-head{text-align:center;max-width:720px;margin:0 auto 44px}
+.section-num{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;letter-spacing:.08em;color:var(--blue-600);background:var(--blue-50);border:1px solid var(--blue-100);padding:5px 14px;border-radius:999px;margin-bottom:14px}
+.section-head h2{font-size:clamp(24px,3.6vw,32px);font-weight:800;letter-spacing:.01em;line-height:1.35}
+.section-head .lede{margin-top:12px;color:var(--gray-600);font-size:15px}
+
+/* reveal animation */
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+.reveal.on{opacity:1;transform:none}
+
+/* ============================================================
+   1. Production flow — 6 steps
+   ============================================================ */
+.flow-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.step-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;border-top:4px solid var(--step);display:flex;flex-direction:column;position:relative}
+.step-card[data-step="1"],.step-card[data-step="2"]{--step:var(--blue-500);--step-bg:var(--blue-50);--step-fg:var(--blue-600)}
+.step-card[data-step="3"]{--step:var(--green-600);--step-bg:var(--green-50);--step-fg:var(--green-600)}
+.step-card[data-step="4"]{--step:var(--orange-600);--step-bg:var(--orange-50);--step-fg:var(--orange-600)}
+.step-card[data-step="5"]{--step:var(--purple-600);--step-bg:var(--purple-50);--step-fg:var(--purple-600)}
+.step-card[data-step="6"]{--step:var(--pink-600);--step-bg:var(--pink-50);--step-fg:var(--pink-600)}
+.step-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.step-no{width:34px;height:34px;border-radius:50%;background:var(--step);color:#fff;font-weight:800;font-size:15px;display:grid;place-items:center;flex:none}
+.step-title{font-size:16px;font-weight:800;line-height:1.4}
+.ai-tag{display:inline-block;font-size:10.5px;font-weight:700;color:var(--step-fg);background:var(--step-bg);border:1px solid currentColor;border-radius:6px;padding:1px 7px;margin-left:6px;vertical-align:2px;letter-spacing:.05em}
+.step-desc{font-size:13.5px;color:var(--gray-600);margin-bottom:14px}
+.step-detail{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:14px 16px;margin-top:auto}
+.step-detail li{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--gray-700);padding:3px 0}
+.step-detail li::before{content:"✓";color:var(--step-fg);font-weight:800;flex:none}
+.step-detail li.plain::before{content:"・";color:var(--gray-400)}
+/* step 4 designer card */
+.designer-reco{background:var(--orange-50);border:1px solid var(--orange-100);border-radius:var(--radius-sm);padding:14px 16px;margin-top:auto}
+.designer-reco .label{font-size:11.5px;font-weight:700;color:var(--orange-600);margin-bottom:8px}
+.designer-reco .row{display:flex;align-items:center;gap:12px}
+.avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f97316);display:grid;place-items:center;font-size:22px;flex:none}
+.designer-reco .name{font-weight:800;font-size:14.5px}
+.designer-reco .match{font-size:12.5px;color:var(--gray-600)}
+.designer-reco .match b{color:var(--orange-600);font-size:15px}
+.designer-reco .meta{font-size:12px;color:var(--gray-600);margin-top:8px;line-height:1.6}
+/* step 5 scores */
+.score-list{background:var(--purple-50);border:1px solid var(--purple-100);border-radius:var(--radius-sm);padding:14px 16px;margin-top:auto}
+.score-row{display:flex;align-items:center;gap:10px;padding:4px 0;font-size:12.5px;color:var(--gray-700)}
+.score-row .sname{width:9em;flex:none}
+.score-bar{flex:1;height:7px;background:#e4defc;border-radius:99px;overflow:hidden}
+.score-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#8b5cf6,#6366f1)}
+.score-row .sval{font-weight:800;color:var(--purple-600);width:4.4em;text-align:right;flex:none;font-variant-numeric:tabular-nums}
+/* step 6 KPI */
+.kpi-list{background:var(--pink-50);border:1px solid var(--pink-100);border-radius:var(--radius-sm);padding:14px 16px;margin-top:auto}
+.kpi-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px dashed var(--pink-100)}
+.kpi-row:last-child{border-bottom:0}
+.kpi-row .kname{color:var(--gray-700)}
+.kpi-row .kval{font-weight:800;color:var(--pink-600);font-variant-numeric:tabular-nums}
+.kpi-row .kval .up{color:var(--green-600)}
+/* feedback loop banner */
+.loop-banner{margin-top:28px;display:flex;align-items:center;justify-content:center;gap:12px;background:linear-gradient(90deg,var(--blue-50),var(--purple-50));border:1.5px dashed var(--blue-500);color:var(--navy-800);font-weight:700;font-size:14.5px;border-radius:999px;padding:14px 28px}
+.loop-banner .arrow{font-size:18px;color:var(--blue-600)}
+
+/* ============================================================
+   2. Architecture
+   ============================================================ */
+.arch-wrap{display:grid;grid-template-columns:190px 1fr 210px;gap:18px;align-items:stretch}
+.arch-col-title{font-size:12.5px;font-weight:800;letter-spacing:.06em;color:var(--gray-500);text-transform:uppercase;text-align:center;margin-bottom:12px}
+.arch-side{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 14px}
+.user-item{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:14px 8px;border-radius:var(--radius-sm)}
+.user-item + .user-item{border-top:1px dashed var(--gray-200)}
+.user-item .icon{font-size:24px}
+.user-item .role{font-weight:800;font-size:13.5px}
+.user-item .note{font-size:11.5px;color:var(--gray-500)}
+.arch-core{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;border:2px solid var(--blue-100)}
+.arch-core-title{text-align:center;font-weight:800;font-size:16px;color:var(--navy-800);margin-bottom:18px}
+.arch-layer{border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:12px}
+.arch-layer:last-child{margin-bottom:0}
+.arch-layer .layer-name{font-size:12.5px;font-weight:800;letter-spacing:.04em;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.arch-layer.ai{background:var(--blue-50);border:1px solid var(--blue-100)}
+.arch-layer.ai .layer-name{color:var(--blue-600)}
+.arch-layer.app{background:var(--orange-50);border:1px solid var(--orange-100)}
+.arch-layer.app .layer-name{color:var(--orange-600)}
+.arch-layer.data{background:var(--green-50);border:1px solid var(--green-100)}
+.arch-layer.data .layer-name{color:var(--green-600)}
+.chip-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.chip{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.5;box-shadow:var(--shadow-sm)}
+.chip b{display:block;font-size:12.5px;color:var(--gray-900)}
+.chip span{color:var(--gray-500);font-size:11px;display:block}
+.arch-bus{background:var(--navy-800);color:#fff;text-align:center;font-size:12.5px;font-weight:700;border-radius:8px;padding:9px;margin-top:12px;letter-spacing:.03em}
+.arch-bus.sec{background:var(--gray-700);margin-top:8px}
+.infra-item{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:11px 13px;font-size:12.5px;line-height:1.55}
+.infra-item + .infra-item{margin-top:9px}
+.infra-item b{display:block;font-size:13px}
+.infra-item span{color:var(--gray-500);font-size:11.5px}
+.arch-legend{margin-top:16px;text-align:center;font-size:12.5px;color:var(--gray-500)}
+
+/* ============================================================
+   3. ER model
+   ============================================================ */
+.er-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.entity{background:var(--card);border-radius:var(--radius-sm);box-shadow:var(--shadow);overflow:hidden;border:1px solid var(--gray-200)}
+.entity-head{padding:10px 14px;font-weight:800;font-size:14px;color:#fff;display:flex;justify-content:space-between;align-items:center}
+.entity-head small{font-weight:600;font-size:11px;opacity:.85}
+.entity.c-purple .entity-head{background:linear-gradient(135deg,#7c3aed,#6d28d9)}
+.entity.c-blue .entity-head{background:linear-gradient(135deg,#2563eb,#1d4ed8)}
+.entity.c-orange .entity-head{background:linear-gradient(135deg,#ea580c,#c2410c)}
+.entity.c-teal .entity-head{background:linear-gradient(135deg,#0d9488,#0f766e)}
+.entity.c-navy .entity-head{background:linear-gradient(135deg,#334155,#1e293b)}
+.entity.c-green .entity-head{background:linear-gradient(135deg,#059669,#047857)}
+.entity.c-pink .entity-head{background:linear-gradient(135deg,#db2777,#be185d)}
+.entity.c-indigo .entity-head{background:linear-gradient(135deg,#4f46e5,#4338ca)}
+.entity ul{padding:8px 0}
+.entity li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3.5px 14px;font-size:12px;color:var(--gray-700);font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.entity li:nth-child(odd){background:var(--gray-50)}
+.key{font-size:9.5px;font-weight:800;border-radius:5px;padding:1px 6px;letter-spacing:.05em;flex:none;font-family:var(--font)}
+.key.pk{background:#fef3c7;color:#b45309}
+.key.fk{background:var(--blue-100);color:var(--blue-600)}
+.er-relations{margin-top:28px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 26px}
+.er-relations h3{font-size:14.5px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.rel-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 32px}
+.rel-grid li{font-size:13px;color:var(--gray-700);display:flex;align-items:center;gap:8px;padding:4px 0}
+.rel-grid li .card-note{color:var(--gray-500);font-size:12px}
+.rel-grid b{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12.5px;background:var(--gray-100);border-radius:6px;padding:1px 7px}
+.rel-grid .r-arrow{color:var(--blue-500);font-weight:800;flex:none}
+
+/* ============================================================
+   4. Data flow
+   ============================================================ */
+.dataflow-scroller{overflow-x:auto;padding-bottom:8px}
+.dataflow{display:grid;grid-auto-flow:column;grid-auto-columns:150px;gap:0;min-width:min-content;align-items:stretch}
+.df-step{position:relative;padding:0 10px}
+.df-step:not(:last-child)::after{content:"→";position:absolute;right:-9px;top:52px;font-size:17px;color:var(--blue-500);font-weight:800;z-index:2}
+.df-node{background:var(--card);border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);padding:14px 10px;text-align:center;height:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.df-node .icon{font-size:22px}
+.df-node .name{font-size:12.5px;font-weight:800;line-height:1.45}
+.df-db{margin-top:12px;text-align:center;position:relative}
+.df-db::before{content:"";position:absolute;top:-12px;left:50%;height:12px;border-left:1.5px dashed var(--gray-300)}
+.df-db span{display:inline-block;font-size:11px;font-weight:700;background:var(--green-50);color:var(--green-600);border:1px solid var(--green-100);border-radius:7px;padding:4px 8px;line-height:1.4}
+.df-note{margin-top:24px;text-align:center;font-size:13.5px;font-weight:700;color:var(--navy-800);background:var(--blue-50);border:1.5px dashed var(--blue-500);border-radius:999px;padding:12px 24px;max-width:640px;margin-left:auto;margin-right:auto}
+
+/* ============================================================
+   5. Screens
+   ============================================================ */
+.screens-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.screen-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.mock{background:var(--gray-100);padding:16px 16px 0;border-bottom:1px solid var(--gray-200)}
+.mock-window{background:#fff;border-radius:10px 10px 0 0;border:1px solid var(--gray-200);border-bottom:0;overflow:hidden;box-shadow:0 -1px 0 rgba(0,0,0,.02)}
+.mock-bar{display:flex;gap:5px;padding:8px 10px;background:var(--gray-50);border-bottom:1px solid var(--gray-200)}
+.mock-bar i{width:8px;height:8px;border-radius:50%;background:var(--gray-300)}
+.mock-bar i:first-child{background:#fca5a5}.mock-bar i:nth-child(2){background:#fcd34d}.mock-bar i:nth-child(3){background:#86efac}
+.mock-body{padding:12px;display:grid;gap:8px;height:112px}
+.mb{border-radius:6px}
+.mb.line{height:9px;background:var(--gray-200)}
+.mb.line.w60{width:60%}
+.mb.block{background:var(--blue-100)}
+.mb.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mb.row .mb{height:100%;min-height:28px}
+.mb.bars{display:flex;align-items:flex-end;gap:5px;background:var(--gray-50);border:1px solid var(--gray-200);padding:6px}
+.mb.bars i{flex:1;background:var(--blue-500);border-radius:3px 3px 0 0;opacity:.75}
+.mb.people{display:flex;gap:6px;align-items:center}
+.mb.people i{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#93c5fd,#818cf8);flex:none}
+.mb.people .mb.line{flex:1}
+.mb.score-mock{display:flex;align-items:center;gap:8px}
+.mb.score-mock em{font-style:normal;font-weight:800;font-size:16px;color:var(--purple-600);font-family:var(--font)}
+.mb.score-mock .track{flex:1;height:8px;background:var(--purple-100);border-radius:99px;overflow:hidden}
+.mb.score-mock .track i{display:block;height:100%;width:88%;background:var(--purple-600);border-radius:99px}
+.mb.tags{display:flex;gap:6px;flex-wrap:wrap}
+.mb.tags i{height:16px;flex:1;min-width:40px;background:var(--green-100);border-radius:99px}
+.screen-body{padding:18px 20px 20px;flex:1;display:flex;flex-direction:column}
+.screen-body h3{font-size:15.5px;font-weight:800;margin-bottom:4px}
+.screen-body .who{font-size:12px;color:var(--gray-500);margin-bottom:10px}
+.screen-body ul{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+.screen-body li{font-size:12.5px;color:var(--gray-700);display:flex;gap:6px;align-items:baseline}
+.screen-body li::before{content:"✓";color:var(--blue-600);font-weight:800;flex:none;font-size:11px}
+
+/* ============================================================
+   6. Integrations + security
+   ============================================================ */
+.split-2{display:grid;grid-template-columns:1.4fr 1fr;gap:24px;align-items:start}
+.panel{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px}
+.panel > h3{font-size:17px;font-weight:800;margin-bottom:18px;display:flex;align-items:center;gap:9px}
+.tools-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.tool{display:flex;gap:12px;align-items:flex-start;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:13px 14px}
+.tool .t-icon{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;font-size:18px;flex:none;color:#fff;font-weight:800}
+.tool b{display:block;font-size:13.5px}
+.tool span{font-size:12px;color:var(--gray-500);line-height:1.5;display:block}
+.sec-list li{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px dashed var(--gray-200)}
+.sec-list li:last-child{border-bottom:0}
+.sec-list .s-icon{width:34px;height:34px;border-radius:9px;background:var(--navy-800);color:#fff;display:grid;place-items:center;font-size:15px;flex:none}
+.sec-list b{display:block;font-size:13.5px}
+.sec-list span{font-size:12px;color:var(--gray-500)}
+
+/* ============================================================
+   7. Value
+   ============================================================ */
+.value-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.value-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px;border-top:4px solid var(--vc)}
+.value-card.v-client{--vc:var(--blue-500);--vc-bg:var(--blue-50)}
+.value-card.v-designer{--vc:var(--green-600);--vc-bg:var(--green-50)}
+.value-card.v-team{--vc:var(--purple-600);--vc-bg:var(--purple-50)}
+.value-card .v-icon{width:46px;height:46px;border-radius:12px;background:var(--vc-bg);display:grid;place-items:center;font-size:22px;margin-bottom:14px}
+.value-card h3{font-size:16px;font-weight:800;margin-bottom:12px}
+.value-card li{display:flex;gap:9px;align-items:baseline;font-size:13.5px;color:var(--gray-700);padding:5px 0}
+.value-card li::before{content:"✓";color:var(--vc);font-weight:800;flex:none}
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.site-footer{background:linear-gradient(160deg,var(--navy-900),var(--navy-800));color:#fff;padding:64px 0 40px;margin-top:0}
+.footer-msg{max-width:680px;margin:0 auto;text-align:center}
+.footer-msg p{font-size:clamp(15.5px,2.4vw,18px);font-weight:700;line-height:2.1}
+.footer-slogan{margin-top:26px;text-align:center;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:clamp(22px,4vw,32px);color:#fbbf24;letter-spacing:.02em}
+.footer-fine{margin-top:40px;text-align:center;font-size:12px;color:rgba(255,255,255,.45)}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width:980px){
+  .flow-grid{grid-template-columns:repeat(2,1fr)}
+  .arch-wrap{grid-template-columns:1fr}
+  .arch-side .user-item{padding:10px 8px}
+  .arch-side.users{display:block}
+  .arch-side.users .user-list{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .arch-side.users .user-item + .user-item{border-top:0}
+  .er-grid{grid-template-columns:repeat(2,1fr)}
+  .screens-grid{grid-template-columns:repeat(2,1fr)}
+  .split-2{grid-template-columns:1fr}
+  .value-grid{grid-template-columns:1fr}
+  .rel-grid{grid-template-columns:1fr}
+}
+@media (max-width:620px){
+  .pillars{grid-template-columns:1fr}
+  .flow-grid{grid-template-columns:1fr}
+  .er-grid{grid-template-columns:1fr}
+  .screens-grid{grid-template-columns:1fr}
+  .tools-grid{grid-template-columns:1fr}
+  .chip-grid{grid-template-columns:repeat(2,1fr)}
+  section.block{padding:52px 0}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ Header ============ -->
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="#top">
+      <span class="logo-mark">🤝</span>
+      Creative Trust OS
+    </a>
+    <nav class="global-nav" aria-label="ページ内ナビゲーション">
+      <a href="#flow">制作フロー</a>
+      <a href="#architecture">アーキテクチャ</a>
+      <a href="#er">データモデル</a>
+      <a href="#dataflow">データフロー</a>
+      <a href="#screens">主要画面</a>
+      <a href="#integrations">連携・セキュリティ</a>
+      <a href="#value">実現する価値</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ Hero ============ -->
+<div class="hero" id="top">
+  <div class="container">
+    <span class="hero-eyebrow">✦ AIと信頼でつながる、フリーランスデザイナーチームの制作インフラ</span>
+    <h1>Creative Trust OS</h1>
+    <p class="hero-sub">システム設計図（全体アーキテクチャ）</p>
+    <p class="hero-desc">
+      実績と実力のあるフリーランスデザイナーをつなぎ、<strong>AIで最適なチームを編成</strong>し、
+      <strong>信頼と成果を生み出す</strong>仕組みです。
+    </p>
+
+    <div class="pillars">
+      <div class="pillar reveal">
+        <div class="icon">🧠</div>
+        <h3>AIが支える</h3>
+        <p>判断・提案・レビューをAIが強力にサポート。人は創造に集中できる。</p>
+      </div>
+      <div class="pillar reveal">
+        <div class="icon">🤝</div>
+        <h3>信頼でつながる</h3>
+        <p>実績・対応力・相性を可視化し、安心して任せられるチームに。</p>
+      </div>
+      <div class="pillar reveal">
+        <div class="icon">📈</div>
+        <h3>成果が再現される</h3>
+        <p>ナレッジが蓄積され、チーム全体の力が向上する。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 1. Flow ============ -->
+<section class="block" id="flow">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-num">SECTION 01</span>
+      <h2>制作フロー全体像（6つのステップ）</h2>
+      <p class="lede">依頼から納品・改善提案まで、AIが各工程を支援。工程を経るたびにナレッジが蓄積され、次の制作がさらに賢くなります。</p>
+    </div>
+
+    <div class="flow-grid">
+      <!-- Step 1 -->
+      <article class="step-card reveal" data-step="1">
+        <div class="step-top">
+          <span class="step-no">1</span>
+          <h3 class="step-title">依頼・ヒアリング<span class="ai-tag">AI</span></h3>
+        </div>
+        <p class="step-desc">AIがヒアリング内容を整理し、目的・課題・ターゲットを明確化します。</p>
+        <ul class="step-detail">
+          <li>目的</li>
+          <li>ターゲット</li>
+          <li>課題</li>
+          <li>納期・予算</li>
+          <li>参考サイト</li>
+        </ul>
+      </article>
+
+      <!-- Step 2 -->
+      <article class="step-card reveal" data-step="2">
+        <div class="step-top">
+          <span class="step-no">2</span>
+          <h3 class="step-title">戦略設計<span class="ai-tag">AI</span></h3>
+        </div>
+        <p class="step-desc">競合分析・市場調査・成功パターンを分析し、最適な戦略を提案します。</p>
+        <ul class="step-detail">
+          <li>競合分析</li>
+          <li>市場調査</li>
+          <li>成功パターンの分析</li>
+          <li>戦略・方向性の提案</li>
+        </ul>
+      </article>
+
+      <!-- Step 3 -->
+      <article class="step-card reveal" data-step="3">
+        <div class="step-top">
+          <span class="step-no">3</span>
+          <h3 class="step-title">制作ガイド生成<span class="ai-tag">AI</span></h3>
+        </div>
+        <p class="step-desc">構成・ワイヤー・コピー・デザイン方針を自動生成します。</p>
+        <ul class="step-detail">
+          <li>ワイヤーフレーム</li>
+          <li>構成案</li>
+          <li>コピー案</li>
+          <li>デザイン方針</li>
+          <li>トンマナ・ルール</li>
+        </ul>
+      </article>
+
+      <!-- Step 4 -->
+      <article class="step-card reveal" data-step="4">
+        <div class="step-top">
+          <span class="step-no">4</span>
+          <h3 class="step-title">最適なデザイナーへアサイン<span class="ai-tag">AI</span></h3>
+        </div>
+        <p class="step-desc">案件内容とデザイナーの実績・強み・相性を元に、最適な人材を提案します。</p>
+        <div class="designer-reco">
+          <div class="label">おすすめデザイナー</div>
+          <div class="row">
+            <span class="avatar">👩‍🎨</span>
+            <div>
+              <div class="name">かなこ</div>
+              <div class="match">マッチ度 <b>94%</b></div>
+            </div>
+          </div>
+          <p class="meta">得意：LP / 女性向けデザイン<br>Studio利用 / 提案力が高い</p>
+        </div>
+      </article>
+
+      <!-- Step 5 -->
+      <article class="step-card reveal" data-step="5">
+        <div class="step-top">
+          <span class="step-no">5</span>
+          <h3 class="step-title">AIレビュー・品質保証<span class="ai-tag">AI</span></h3>
+        </div>
+        <p class="step-desc">AIが多角的にチェックし、品質とユーザー体験を向上させます。</p>
+        <div class="score-list">
+          <div class="score-row"><span class="sname">デザインチェック</span><span class="score-bar"><i style="width:92%"></i></span><span class="sval">92<small>/100</small></span></div>
+          <div class="score-row"><span class="sname">導線チェック</span><span class="score-bar"><i style="width:90%"></i></span><span class="sval">90<small>/100</small></span></div>
+          <div class="score-row"><span class="sname">コピー・表現</span><span class="score-bar"><i style="width:88%"></i></span><span class="sval">88<small>/100</small></span></div>
+          <div class="score-row"><span class="sname">アクセシビリティ</span><span class="score-bar"><i style="width:90%"></i></span><span class="sval">90<small>/100</small></span></div>
+        </div>
+      </article>
+
+      <!-- Step 6 -->
+      <article class="step-card reveal" data-step="6">
+        <div class="step-top">
+          <span class="step-no">6</span>
+          <h3 class="step-title">納品・効果測定・改善提案</h3>
+        </div>
+        <p class="step-desc">成果を可視化し、ナレッジを更新。次の制作に活かします。</p>
+        <div class="kpi-list">
+          <div class="kpi-row"><span class="kname">CVR</span><span class="kval">3.2% <span class="up">→ 4.8%</span></span></div>
+          <div class="kpi-row"><span class="kname">お問い合わせ数</span><span class="kval"><span class="up">120%</span></span></div>
+          <div class="kpi-row"><span class="kname">直帰率</span><span class="kval"><span class="up">−18%</span></span></div>
+        </div>
+      </article>
+    </div>
+
+    <div class="loop-banner reveal">
+      <span class="arrow">↻</span>
+      ナレッジが蓄積され、AIがさらに賢くなる
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. Architecture ============ -->
+<section class="block alt" id="architecture">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-num">SECTION 02</span>
+      <h2>システム全体アーキテクチャ図</h2>
+      <p class="lede">ユーザー層・プラットフォーム（AIエンジン層／業務アプリケーション層／データ層）・インフラ／外部連携層の3ブロックで構成されます。</p>
+    </div>
+
+    <div class="arch-wrap reveal">
+      <!-- Users -->
+      <div class="arch-side users">
+        <div class="arch-col-title">ユーザー層</div>
+        <div class="user-list">
+          <div class="user-item"><span class="icon">🏢</span><span class="role">クライアント</span><span class="note">企業</span></div>
+          <div class="user-item"><span class="icon">🧑‍💼</span><span class="role">ディレクター</span><span class="note">社内担当者</span></div>
+          <div class="user-item"><span class="icon">🎨</span><span class="role">デザイナー</span><span class="note">フリーランス</span></div>
+          <div class="user-item"><span class="icon">🛠️</span><span class="role">システム管理者</span><span class="note">運営</span></div>
+        </div>
+      </div>
+
+      <!-- Core platform -->
+      <div class="arch-core">
+        <div class="arch-core-title">Creative Trust OS プラットフォーム</div>
+
+        <div class="arch-layer ai">
+          <div class="layer-name">🧠 AIエンジン層</div>
+          <div class="chip-grid">
+            <div class="chip"><b>ヒアリングAI</b></div>
+            <div class="chip"><b>戦略分析AI</b></div>
+            <div class="chip"><b>構成生成AI</b></div>
+            <div class="chip"><b>デザイナー推薦AI</b></div>
+            <div class="chip"><b>レビューAI</b></div>
+            <div class="chip"><b>ナレッジ抽出AI</b></div>
+          </div>
+        </div>
+
+        <div class="arch-layer app">
+          <div class="layer-name">🗂️ 業務アプリケーション層</div>
+          <div class="chip-grid">
+            <div class="chip"><b>Project OS</b><span>案件・プロジェクト管理</span></div>
+            <div class="chip"><b>Knowledge OS</b><span>ナレッジ管理</span></div>
+            <div class="chip"><b>Talent OS</b><span>デザイナー管理・評価</span></div>
+            <div class="chip"><b>Review OS</b><span>レビュー・品質管理</span></div>
+            <div class="chip"><b>Relationship OS</b><span>相性・信頼関係管理</span></div>
+            <div class="chip"><b>Dashboard</b><span>分析・可視化</span></div>
+          </div>
+        </div>
+
+        <div class="arch-layer data">
+          <div class="layer-name">🗄️ データ層（データベース）</div>
+          <div class="chip-grid">
+            <div class="chip"><b>Project DB</b><span>案件・タスク・進捗</span></div>
+            <div class="chip"><b>Knowledge DB</b><span>ナレッジ・テンプレート・成功事例・ルール</span></div>
+            <div class="chip"><b>Talent DB</b><span>デザイナー情報・実績・スキル・稼働状況</span></div>
+            <div class="chip"><b>Review DB</b><span>レビュー履歴・評価・改善ポイント</span></div>
+            <div class="chip"><b>Relationship DB</b><span>クライアント相性・過去の対応履歴</span></div>
+            <div class="chip"><b>Analytics DB</b><span>成果データ・指標</span></div>
+          </div>
+        </div>
+
+        <div class="arch-bus">⇄ データ連携基盤（API / イベントストリーム）</div>
+        <div class="arch-bus sec">🔒 セキュリティ基盤（暗号化・アクセス制御・監査ログ）</div>
+      </div>
+
+      <!-- Infra -->
+      <div class="arch-side">
+        <div class="arch-col-title">インフラ・外部連携層</div>
+        <div class="infra-item"><b>認証・権限管理</b><span>Auth（SSO / 2FA）</span></div>
+        <div class="infra-item"><b>通知・コミュニケーション</b><span>Slack / メール</span></div>
+        <div class="infra-item"><b>ファイル管理</b><span>S3 / Drive</span></div>
+        <div class="infra-item"><b>外部サービス連携</b><span>Figma / Notion 等</span></div>
+        <div class="infra-item"><b>AI基盤</b><span>Claude / 他LLM</span></div>
+      </div>
+    </div>
+    <p class="arch-legend reveal">各ユーザーはプラットフォームを介して連携し、すべてのデータはデータ連携基盤とセキュリティ基盤の上でやり取りされます。</p>
+  </div>
+</section>
+
+<!-- ============ 3. ER model ============ -->
+<section class="block" id="er">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-num">SECTION 03</span>
+      <h2>主要データモデル（ER図）</h2>
+      <p class="lede">案件・人材・レビュー・ナレッジ・関係性を8つのエンティティで管理します。</p>
+    </div>
+
+    <div class="er-grid">
+      <div class="entity c-purple reveal">
+        <div class="entity-head">Client <small>クライアント</small></div>
+        <ul>
+          <li>ClientID <span class="key pk">PK</span></li>
+          <li>CompanyName</li>
+          <li>Industry</li>
+          <li>ContactPerson</li>
+          <li>PreferStyle</li>
+          <li>CommunicationStyle</li>
+          <li>CreatedAt</li>
+        </ul>
+      </div>
+
+      <div class="entity c-blue reveal">
+        <div class="entity-head">Project <small>案件</small></div>
+        <ul>
+          <li>ProjectID <span class="key pk">PK</span></li>
+          <li>ClientID <span class="key fk">FK</span></li>
+          <li>Title</li>
+          <li>Purpose</li>
+          <li>Target</li>
+          <li>Budget</li>
+          <li>Deadline</li>
+          <li>Status</li>
+          <li>CreatedAt</li>
+        </ul>
+      </div>
+
+      <div class="entity c-orange reveal">
+        <div class="entity-head">Task <small>タスク</small></div>
+        <ul>
+          <li>TaskID <span class="key pk">PK</span></li>
+          <li>ProjectID <span class="key fk">FK</span></li>
+          <li>Title</li>
+          <li>Description</li>
+          <li>Type</li>
+          <li>Status</li>
+          <li>DueDate</li>
+          <li>Priority</li>
+        </ul>
+      </div>
+
+      <div class="entity c-teal reveal">
+        <div class="entity-head">Designer <small>デザイナー</small></div>
+        <ul>
+          <li>DesignerID <span class="key pk">PK</span></li>
+          <li>Name</li>
+          <li>Profile</li>
+          <li>Skills</li>
+          <li>Specialty</li>
+          <li>Tools</li>
+          <li>Experience</li>
+          <li>Rate</li>
+          <li>Status</li>
+        </ul>
+      </div>
+
+      <div class="entity c-navy reveal">
+        <div class="entity-head">Assignment <small>アサイン</small></div>
+        <ul>
+          <li>AssignID <span class="key pk">PK</span></li>
+          <li>ProjectID <span class="key fk">FK</span></li>
+          <li>DesignerID <span class="key fk">FK</span></li>
+          <li>Role</li>
+          <li>StartDate</li>
+          <li>EndDate</li>
+          <li>Status</li>
+        </ul>
+      </div>
+
+      <div class="entity c-pink reveal">
+        <div class="entity-head">Review <small>レビュー</small></div>
+        <ul>
+          <li>ReviewID <span class="key pk">PK</span></li>
+          <li>ProjectID <span class="key fk">FK</span></li>
+          <li>TaskID <span class="key fk">FK</span></li>
+          <li>ReviewerType</li>
+          <li>Score</li>
+          <li>Comment</li>
+          <li>Point</li>
+          <li>CreatedAt</li>
+        </ul>
+      </div>
+
+      <div class="entity c-green reveal">
+        <div class="entity-head">Knowledge <small>ナレッジ</small></div>
+        <ul>
+          <li>KnowledgeID <span class="key pk">PK</span></li>
+          <li>Category</li>
+          <li>Title</li>
+          <li>Content</li>
+          <li>Type</li>
+          <li>Score</li>
+          <li>Source</li>
+          <li>Tags</li>
+          <li>CreatedAt</li>
+          <li>UpdatedAt</li>
+        </ul>
+      </div>
+
+      <div class="entity c-indigo reveal">
+        <div class="entity-head">Relationship <small>関係性・相性</small></div>
+        <ul>
+          <li>RelationID <span class="key pk">PK</span></li>
+          <li>ClientID <span class="key fk">FK</span></li>
+          <li>DesignerID <span class="key fk">FK</span></li>
+          <li>Score</li>
+          <li>Reason</li>
+          <li>History</li>
+          <li>UpdatedAt</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="er-relations reveal">
+      <h3>🔗 エンティティ間のリレーション</h3>
+      <ul class="rel-grid">
+        <li><b>Client</b><span class="r-arrow">1 ─ N</span><b>Project</b><span class="card-note">1社のクライアントが複数の案件を持つ</span></li>
+        <li><b>Project</b><span class="r-arrow">1 ─ N</span><b>Task</b><span class="card-note">案件は複数のタスクに分解される</span></li>
+        <li><b>Project</b><span class="r-arrow">1 ─ N</span><b>Assignment</b><span class="card-note">案件ごとにデザイナーをアサイン</span></li>
+        <li><b>Designer</b><span class="r-arrow">1 ─ N</span><b>Assignment</b><span class="card-note">デザイナーは複数案件を担当できる</span></li>
+        <li><b>Project / Task</b><span class="r-arrow">1 ─ N</span><b>Review</b><span class="card-note">成果物ごとにレビューを記録</span></li>
+        <li><b>Client × Designer</b><span class="r-arrow">N ─ N</span><b>Relationship</b><span class="card-note">相性・信頼関係をスコアで管理</span></li>
+        <li><b>Review / Project</b><span class="r-arrow">→ 抽出</span><b>Knowledge</b><span class="card-note">実績・レビューからナレッジ化</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. Data flow ============ -->
+<section class="block alt" id="dataflow">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-num">SECTION 04</span>
+      <h2>詳細データフロー</h2>
+      <p class="lede">例：案件開始からナレッジ蓄積まで。各工程のデータがどのDBに保存・参照されるかを示します。（横スクロールできます）</p>
+    </div>
+
+    <div class="dataflow-scroller reveal">
+      <div class="dataflow">
+        <div class="df-step">
+          <div class="df-node"><span class="icon">📄</span><span class="name">案件依頼</span></div>
+          <div class="df-db"><span>Project DB<br>に保存</span></div>
+        </div>
+        <div class="df-step">
+          <div class="df-node"><span class="icon">🤖</span><span class="name">AIヒアリング</span></div>
+          <div class="df-db"><span>Project DB<br>更新</span></div>
+        </div>
+        <div class="df-step">
+          <div class="df-node"><span class="icon">📊</span><span class="name">戦略設計</span></div>
+          <div class="df-db"><span>Knowledge DB<br>参照</span></div>
+        </div>
+        <div class="df-step">
+          <div class="df-node"><span class="icon">📐</span><span class="name">制作ガイド生成</span></div>
+          <div class="df-db"><span>Project DB /<br>Knowledge DB 参照</span></div>
+        </div>
+        <div class="df-step">
+          <div class="df-node"><span class="icon">🧑‍🎨</span><span class="name">デザイナー<br>推薦・アサイン</span></div>
+          <div class="df-db"><span>Assignment<br>DBに保存</span></div>
+        </div>
+        <div class="df-step">
+          <div class="df-node"><span class="icon">🖥️</span><span class="name">制作・進行</span></div>
+          <div class="df-db"><span>Task DB<br>更新</span></div>
+        </div>
+        <div class="df-step">
+          <div class="df-node"><span class="icon">✅</span><span class="name">AIレビュー</span></div>
+          <div class="df-db"><span>Review DB<br>に保存</span></div>
+        </div>
+        <div class="df-step">
+          <div class="df-node"><span class="icon">📦</span><span class="name">納品・効果測定</span></div>
+          <div class="df-db"><span>Analytics DB<br>に保存</span></div>
+        </div>
+        <div class="df-step">
+          <div class="df-node"><span class="icon">📚</span><span class="name">ナレッジ<br>抽出・更新</span></div>
+          <div class="df-db"><span>Knowledge DB<br>に更新</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="df-note reveal">💡 AIが各工程でデータを学習・改善し、次回の提案精度が向上します</div>
+  </div>
+</section>
+
+<!-- ============ 5. Screens ============ -->
+<section class="block" id="screens">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-num">SECTION 05</span>
+      <h2>主要画面イメージ</h2>
+      <p class="lede">日々の運用は5つの画面を中心に行います。</p>
+    </div>
+
+    <div class="screens-grid">
+      <!-- Dashboard -->
+      <article class="screen-card reveal">
+        <div class="mock">
+          <div class="mock-window">
+            <div class="mock-bar"><i></i><i></i><i></i></div>
+            <div class="mock-body">
+              <div class="mb line w60"></div>
+              <div class="mb row"><span class="mb block"></span><span class="mb block"></span><span class="mb block"></span></div>
+              <div class="mb bars"><i style="height:40%"></i><i style="height:65%"></i><i style="height:50%"></i><i style="height:80%"></i><i style="height:60%"></i><i style="height:95%"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-body">
+          <h3>📊 ダッシュボード</h3>
+          <p class="who">全体の状況をひと目で把握</p>
+          <ul>
+            <li>案件サマリー</li>
+            <li>進捗状況</li>
+            <li>パフォーマンス指標</li>
+            <li>アラート・通知</li>
+          </ul>
+        </div>
+      </article>
+
+      <!-- Project detail -->
+      <article class="screen-card reveal">
+        <div class="mock">
+          <div class="mock-window">
+            <div class="mock-bar"><i></i><i></i><i></i></div>
+            <div class="mock-body">
+              <div class="mb line w60"></div>
+              <div class="mb line"></div>
+              <div class="mb row"><span class="mb block"></span><span class="mb block" style="background:var(--green-100)"></span><span class="mb block" style="background:var(--orange-100)"></span></div>
+              <div class="mb line"></div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-body">
+          <h3>📁 案件詳細画面</h3>
+          <p class="who">1案件の情報を集約</p>
+          <ul>
+            <li>ヒアリング内容</li>
+            <li>戦略・進捗</li>
+            <li>タスク・進捗</li>
+            <li>成果指標</li>
+          </ul>
+        </div>
+      </article>
+
+      <!-- Designer search -->
+      <article class="screen-card reveal">
+        <div class="mock">
+          <div class="mock-window">
+            <div class="mock-bar"><i></i><i></i><i></i></div>
+            <div class="mock-body">
+              <div class="mb people"><i></i><span class="mb line" style="flex:1"></span></div>
+              <div class="mb people"><i></i><span class="mb line" style="flex:1"></span></div>
+              <div class="mb people"><i></i><span class="mb line" style="flex:1"></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-body">
+          <h3>🔍 デザイナー検索・推薦画面</h3>
+          <p class="who">AIが最適な人材を提案</p>
+          <ul>
+            <li>AIおすすめデザイナー</li>
+            <li>スキル・実績</li>
+            <li>信頼スコア</li>
+            <li>稼働状況</li>
+          </ul>
+        </div>
+      </article>
+
+      <!-- Review -->
+      <article class="screen-card reveal">
+        <div class="mock">
+          <div class="mock-window">
+            <div class="mock-bar"><i></i><i></i><i></i></div>
+            <div class="mock-body">
+              <div class="mb score-mock"><em>92</em><span class="track"><i></i></span></div>
+              <div class="mb line"></div>
+              <div class="mb line w60"></div>
+              <div class="mb line"></div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-body">
+          <h3>✅ レビュー画面</h3>
+          <p class="who">品質をスコアで見える化</p>
+          <ul>
+            <li>AIチェック結果</li>
+            <li>改善提案</li>
+            <li>スコア・評価</li>
+            <li>履歴管理</li>
+          </ul>
+        </div>
+      </article>
+
+      <!-- Knowledge -->
+      <article class="screen-card reveal">
+        <div class="mock">
+          <div class="mock-window">
+            <div class="mock-bar"><i></i><i></i><i></i></div>
+            <div class="mock-body">
+              <div class="mb tags"><i></i><i></i><i></i><i></i></div>
+              <div class="mb line"></div>
+              <div class="mb line w60"></div>
+              <div class="mb line"></div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-body">
+          <h3>📚 ナレッジ画面</h3>
+          <p class="who">チームの知見を資産化</p>
+          <ul>
+            <li>カテゴリ検索</li>
+            <li>テンプレート</li>
+            <li>成功事例</li>
+            <li>ルールブック</li>
+          </ul>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6. Integrations + security ============ -->
+<section class="block alt" id="integrations">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-num">SECTION 06</span>
+      <h2>外部ツール連携とセキュリティ設計</h2>
+      <p class="lede">普段使いのツールとつながり、安全な基盤の上で運用します。</p>
+    </div>
+
+    <div class="split-2">
+      <div class="panel reveal">
+        <h3>🔌 外部ツール・サービス連携</h3>
+        <div class="tools-grid">
+          <div class="tool"><span class="t-icon" style="background:#a259ff">F</span><div><b>Figma</b><span>デザイン連携・ファイル取得</span></div></div>
+          <div class="tool"><span class="t-icon" style="background:#111827">N</span><div><b>Notion</b><span>ドキュメント・ナレッジ連携</span></div></div>
+          <div class="tool"><span class="t-icon" style="background:#611f69">S</span><div><b>Slack</b><span>通知・コミュニケーション</span></div></div>
+          <div class="tool"><span class="t-icon" style="background:#059669">D</span><div><b>Google Drive</b><span>ファイル共有・保存</span></div></div>
+          <div class="tool"><span class="t-icon" style="background:#24292f">G</span><div><b>GitHub</b><span>ナレッジ・テンプレートのバージョン管理</span></div></div>
+          <div class="tool"><span class="t-icon" style="background:#d97706">C</span><div><b>Claude / LLM</b><span>AIエンジン提供（分析・生成）</span></div></div>
+          <div class="tool"><span class="t-icon" style="background:#2563eb">B</span><div><b>Backlog / Asana</b><span>タスク管理連携</span></div></div>
+          <div class="tool"><span class="t-icon" style="background:#ea580c">A</span><div><b>Google Analytics</b><span>効果測定データ取得</span></div></div>
+        </div>
+      </div>
+
+      <div class="panel reveal">
+        <h3>🛡️ セキュリティ設計</h3>
+        <ul class="sec-list">
+          <li><span class="s-icon">🔑</span><div><b>認証・認可</b><span>SSO / 2FA</span></div></li>
+          <li><span class="s-icon">🔐</span><div><b>データ暗号化</b><span>保存時・通信時</span></div></li>
+          <li><span class="s-icon">🚪</span><div><b>アクセス制御</b><span>RBAC（役割ベース）</span></div></li>
+          <li><span class="s-icon">📋</span><div><b>監査ログ</b><span>操作・変更履歴</span></div></li>
+          <li><span class="s-icon">💾</span><div><b>バックアップ</b><span>自動・世代管理</span></div></li>
+          <li><span class="s-icon">🩺</span><div><b>セキュリティ診断</b><span>定期実施</span></div></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7. Value ============ -->
+<section class="block" id="value">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-num">SECTION 07</span>
+      <h2>この仕組みで実現する価値</h2>
+      <p class="lede">クライアント・デザイナー・チーム、三者すべてにとっての価値を生み出します。</p>
+    </div>
+
+    <div class="value-grid">
+      <article class="value-card v-client reveal">
+        <div class="v-icon">🏢</div>
+        <h3>クライアント（企業）にとって</h3>
+        <ul>
+          <li>品質が安定する</li>
+          <li>制作スピードが向上する</li>
+          <li>ナレッジが継続的に蓄積される</li>
+          <li>成果が可視化され改善できる</li>
+        </ul>
+      </article>
+
+      <article class="value-card v-designer reveal">
+        <div class="v-icon">🎨</div>
+        <h3>デザイナーにとって</h3>
+        <ul>
+          <li>得意な案件が届く</li>
+          <li>実力が正当に評価される</li>
+          <li>ナレッジが自分の資産になる</li>
+          <li>チームで学び、成長できる</li>
+        </ul>
+      </article>
+
+      <article class="value-card v-team reveal">
+        <div class="v-icon">🤝</div>
+        <h3>チームにとって</h3>
+        <ul>
+          <li>信頼でつながる強いチームになる</li>
+          <li>属人化を防ぎ、再現性が高まる</li>
+          <li>AIと人の分担で生産性が上がる</li>
+          <li>持続的な成長ができる</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Footer ============ -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-msg reveal">
+      <p>
+        一人のデザイナーの経験が、チームの力になり、クライアントの成果につながる。<br>
+        それが、私たちの目指す新しい制作のかたちです。
+      </p>
+    </div>
+    <div class="footer-slogan reveal">Create Together, Grow Together.</div>
+    <p class="footer-fine">Creative Trust OS — システム設計図（全体アーキテクチャ）</p>
+  </div>
+</footer>
+
+<script>
+// Reveal on scroll
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); } });
+}, { threshold: 0.08 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+// Scroll-spy for global nav
+const navLinks = [...document.querySelectorAll('.global-nav a')];
+const sections = navLinks.map(a => document.querySelector(a.getAttribute('href')));
+const spy = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id));
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => s && spy.observe(s));
+</script>
+</body>
+</html>
