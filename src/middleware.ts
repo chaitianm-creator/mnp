@@ -17,6 +17,7 @@ const PROTECTED_PREFIXES = [
   '/report',
   '/onboarding',
   '/admin',
+  '/debug',
 ];
 
 export async function middleware(request: NextRequest) {

@@ -116,6 +116,14 @@ begin
   select count(*) into n from public.admin_audit_logs;
   if n <> 0 then raise exception 'FAIL: admin_audit_logsが見えている'; end if;
 
+  -- 12. study_rooms / room_participants のSELECTが再帰エラーにならない
+  --     (自分が参加した部屋の行のみ返る)
+  select count(*) into n from public.study_rooms;
+  select count(*) into n from public.room_participants
+  where user_id <> '11111111-1111-1111-1111-111111111111';
+  -- 参加していない部屋の他人の行は見えない(シードでは同室経験がないため0)
+  if n <> 0 then raise exception 'FAIL: 同室でない他人のroom_participantsが見えている'; end if;
+
   raise notice 'PASS: 一般ユーザー(さくら)の権限チェック OK';
 end $$;
 

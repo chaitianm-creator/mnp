@@ -1,0 +1,10 @@
+{
+  "name": "mokutomo-e2e-stack",
+  "private": true,
+  "description": "Docker不要のE2E用ローカルSupabase互換スタック (REST/Auth/Realtimeエミュレータ)。本番では使用しない。",
+  "type": "module",
+  "dependencies": {
+    "pg": "^8.13.0",
+    "ws": "^8.18.0"
+  }
+}

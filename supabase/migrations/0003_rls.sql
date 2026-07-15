@@ -42,13 +42,22 @@ create policy "study_goals: self all" on public.study_goals
 create policy "study_goals: admin select" on public.study_goals
   for select to authenticated using (public.is_admin());
 
+-- ---------- 同室判定 (SECURITY DEFINER) ----------
+-- ポリシー内でroom_participantsを直接参照すると、room_participants自身の
+-- ポリシー評価と相互参照になり「infinite recursion detected」になるため、
+-- RLSをバイパスする定義者権限の関数で判定する。
+create or replace function public.is_room_member(p_room_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.room_participants
+    where room_id = p_room_id and user_id = auth.uid()
+  );
+$$;
+
 -- ---------- study_rooms (参加した部屋のみ閲覧可。作成/更新はRPC) ----------
 create policy "study_rooms: participant select" on public.study_rooms
   for select to authenticated using (
-    public.is_admin() or exists (
-      select 1 from public.room_participants rp
-      where rp.room_id = study_rooms.id and rp.user_id = auth.uid()
-    )
+    public.is_admin() or public.is_room_member(id)
   );
 
 -- ---------- study_sessions (書込はRPCのみ) ----------
@@ -60,10 +69,7 @@ create policy "room_participants: room member select" on public.room_participant
   for select to authenticated using (
     public.is_admin()
     or user_id = auth.uid()
-    or exists (
-      select 1 from public.room_participants me
-      where me.room_id = room_participants.room_id and me.user_id = auth.uid()
-    )
+    or public.is_room_member(room_id)
   );
 
 -- ---------- reservations ----------

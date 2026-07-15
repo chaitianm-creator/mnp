@@ -78,7 +78,9 @@ begin
   while i < 30 loop
     v_uid := v_users[(i % 3) + 1];
     v_minutes := (array[25,25,25,50,15])[(i % 5) + 1];
-    v_start := date_trunc('hour', now()) - make_interval(days => (i % 14), hours => (i % 4) + 8);
+    -- 履歴は「昨日〜14日前」に分散させる (本日分を作らないことで、
+    -- 無料プランの1日2コマ制限のテストが予測可能になる)
+    v_start := date_trunc('hour', now()) - make_interval(days => (i % 14) + 1, hours => (i % 4) + 8);
     v_status := case when i % 6 = 5 then 'left_early' else 'completed' end;
     v_attended := case when v_status = 'completed' then v_minutes * 60 else (v_minutes * 60) / 3 end;
 

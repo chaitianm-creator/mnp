@@ -57,6 +57,7 @@ export default function RoomPage() {
   const [peers, setPeers] = useState<RemotePeer[]>([]);
   const [cameraOn, setCameraOn] = useState(true);
   const [fatal, setFatal] = useState('');
+  const [realtimeDown, setRealtimeDown] = useState(false);
   const [duplicate, setDuplicate] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -119,7 +120,9 @@ export default function RoomPage() {
         return;
       }
       if (new Date(roomData.ends_at).getTime() < Date.now()) {
-        router.replace('/home');
+        // タイマー終了後にリロードした場合: セッションはactiveのまま残っているので
+        // 完了処理へ進める (finish_sessionがサーバー時刻で検証する)
+        router.replace(`/session/${session.id}/complete`);
         return;
       }
       if (cancelled) return;
@@ -145,20 +148,43 @@ export default function RoomPage() {
           void localVideoRef.current.play().catch(() => {});
         }
 
-        const mesh = new MeshRoom({
-          supabase,
-          roomId,
-          userId: user.id,
-          localStream: pipeline.stream,
-          onPeersChanged: (p) => {
-            setPeers(p);
-            void refreshMembers();
-          },
-          onDuplicateConnection: () => setDuplicate(true),
-        });
-        meshRef.current = mesh;
-        await mesh.join();
-        mesh.onMemberState(() => void refreshMembers());
+        // メッシュ接続。Realtimeがダウンしていてもセッション自体は継続する
+        // (タイマーはサーバー時刻ベースのため単独でも成立する)
+        const connectMesh = async () => {
+          const mesh = new MeshRoom({
+            supabase,
+            roomId,
+            userId: user.id,
+            localStream: pipelineRef.current?.stream ?? pipeline.stream,
+            onPeersChanged: (p) => {
+              setPeers(p);
+              void refreshMembers();
+            },
+            onDuplicateConnection: () => setDuplicate(true),
+          });
+          await mesh.join();
+          meshRef.current = mesh;
+          mesh.onMemberState(() => void refreshMembers());
+          setRealtimeDown(false);
+        };
+        try {
+          await connectMesh();
+        } catch {
+          setRealtimeDown(true);
+          // 30秒おきに再接続を試みる
+          const retry = window.setInterval(async () => {
+            if (cancelled || meshRef.current) {
+              window.clearInterval(retry);
+              return;
+            }
+            try {
+              await connectMesh();
+              window.clearInterval(retry);
+            } catch {
+              /* 次のリトライまで待つ */
+            }
+          }, 30_000);
+        }
         void refreshMembers();
       } catch (e) {
         setFatal(
@@ -229,9 +255,11 @@ export default function RoomPage() {
 
   const leave = async () => {
     if (!sessionId) return;
+    // 先にDBへ退出を記録してからメッシュを切断する
+    // (presenceの切断通知を受けた同室者が、left_at反映済みの参加者一覧を取得できるようにする)
+    await supabase.rpc('leave_session', { p_session_id: sessionId });
     meshRef.current?.leave();
     pipelineRef.current?.stop();
-    await supabase.rpc('leave_session', { p_session_id: sessionId });
     router.replace('/home');
   };
 
@@ -334,6 +362,14 @@ export default function RoomPage() {
           style={{ width: `${(timer?.progress ?? 0) * 100}%` }}
         />
       </div>
+
+      {realtimeDown && (
+        <div className="mx-auto mt-3 max-w-md px-4">
+          <Alert tone="warning">
+            他の参加者との接続を確立できていません(自動で再試行します)。タイマーと記録はこのまま有効です。
+          </Alert>
+        </div>
+      )}
 
       {/* 開始前メッセージ */}
       {timer?.phase === 'countdown' && (

@@ -19,6 +19,9 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         launchOptions: {
+          // この実行環境にプリインストールされたChromiumを使用
+          // (通常環境では PLAYWRIGHT_CHROMIUM_PATH を未設定のままでよい)
+          executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
           args: [
             '--use-fake-ui-for-media-stream', // カメラ許可ダイアログを自動許可
             '--use-fake-device-for-media-stream', // 仮想カメラ映像

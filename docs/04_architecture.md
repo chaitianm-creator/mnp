@@ -61,6 +61,27 @@ flowchart LR
    追加インフラ・追加契約が不要。
 4. 外部ビデオSaaSのAPIキー管理・課金管理が不要で、個人でも運用できる。
 
+### TURNサーバーについて(重要)
+
+**現状の既定設定はSTUNのみ**(`stun:stun.l.google.com:19302`)であり、
+**本番利用には不十分**。同一LANや多くの家庭用NATでは接続できるが、
+対称NAT(一部の企業ネットワーク・モバイル回線)同士ではP2P接続が確立できない。
+本番公開前に、以下のいずれかでTURNを用意し `NEXT_PUBLIC_TURN_*` を設定すること。
+
+| サービス | 無料枠 | 料金(超過) | 特徴 | 備考 |
+|---------|--------|------------|------|------|
+| **Metered (Open Relay)** | 20GB/月 | $0.4/GB〜 | 設定が最も簡単。APIで一時credential発行可 | MVPに最有力 |
+| Cloudflare Calls (TURN) | 1TB/月 | $0.05/GB | 安価・世界規模のエッジ | credentialはAPIで動的発行 |
+| Twilio NTS | なし | $0.40/GB〜 | 老舗で安定。時限credential標準 | ドキュメント充実 |
+| 自前coturn | サーバー代のみ | VPS費用(月$5〜) | 完全自己管理・データ主権 | 運用負荷あり |
+| LiveKit Cloud | 月50GB相当の無料枠 | 従量 | TURN内蔵。ただしSFU移行が前提 | 正式版移行先 |
+| Daily / Agora | 月10,000分程度 | 従量(分課金) | TURN含むフルマネージド | SDK移行が前提 |
+
+注意: TURNのusername/credentialは`NEXT_PUBLIC_`変数としてクライアントに露出する。
+**長期固定のcredentialを設定せず**、時限credential(Metered/Cloudflare/TwilioのAPIで発行)を
+使うか、露出を許容できる専用アカウントを使うこと。正式版では
+サーバー側APIで時限credentialを発行する方式(/api/turn-credentials)への移行を推奨。
+
 **制約と正式版での移行:**
 
 - NAT越え失敗時のためにTURNサーバー(coturn自前 or Twilio/Metered等)の設定を

@@ -1,4 +1,4 @@
-# テスト結果 (2026-07-14 実施)
+# テスト結果 (最終更新: 2026-07-15)
 
 ## 1. ユニットテスト (Vitest) — ✅ 実行済み・全パス
 
@@ -12,60 +12,82 @@ Test Files  4 passed (4)
 ✓ tests/validation.test.ts (12)  Zodスキーマ (登録/予約/通報/招待)
 ```
 
-実行コマンド: `npm test`
-
 ## 2. 本番ビルド — ✅ 実行済み・成功
 
-`npm run build` (Next.js 14.2.35) — 全39ルートのコンパイル・型チェック成功。
-静的ページ(LP/規約/認証)はプリレンダリング、アプリ画面はダイナミックレンダリング。
+`npm run build`(Next.js 14.2.35)全40ルート、CSP/セキュリティヘッダ付きで成功。
 
-## 3. データベース・RLSテスト — ✅ 実行済み・全パス
+## 3. E2Eテスト (Playwright + 実ブラウザChromium) — ✅ 実行済み・10/10 全パス
 
-Docker(Supabase CLIのローカルスタック)は本開発環境のネットワークポリシーで
-イメージ取得が拒否されたため、**素のPostgreSQL 16 + Supabase互換シム**
-(auth.users / auth.uid() / realtime.messages / anon・authenticatedロールを再現)
-上で全マイグレーション・シード・RLSを実行して検証した。
-
-```
-OK: supabase/migrations/0001_schema.sql   (17テーブル+トリガ)
-OK: supabase/migrations/0002_functions.sql (RPC 18関数)
-OK: supabase/migrations/0003_rls.sql       (全テーブルRLS+Realtime認可)
-OK: supabase/seed.sql                      (4ユーザー+履歴30件+予約+通報 ほか)
-
-supabase/tests/rls.test.sql:
-  PASS: 一般ユーザー(さくら)の権限チェック OK
-        - 他人のprofiles/study_sessions/reservations/user_stats/supporters: 0行(閲覧不可)
-        - user_statsのXP直接更新: 拒否 / study_sessions直接INSERT: 拒否
-        - user_achievements直接INSERT: 拒否 / subscriptionsのplan直接変更: 拒否
-        - 自分のroleをadminへ昇格: 拒否 / admin_stats実行: 拒否 / 監査ログ閲覧: 不可
-  PASS: 管理者の権限チェック OK (全profiles閲覧・reports閲覧・admin_stats実行)
-  PASS: 未認証ユーザーの権限チェック OK (全テーブル0行・問い合わせのみ投稿可)
-  → RLS TESTS PASSED
-```
-
-## 4. サーバーサイドRPCの動作テスト — ✅ 実行済み・全パス
+Supabase CLI(Docker)が本環境のネットワークポリシーで使用不可のため、
+`e2e-stack/`(素のPostgreSQL 16 + Supabase互換エミュレータ)上で
+**実アプリ・実RLS・実RPC・実WebRTC** を動かして実行した。
+カメラはPlaywrightのfake media device(合成映像)を使用。
 
 ```
-PASS: join_room 初回入室で部屋が自動作成される (rejoined=false)
-PASS: 同一ユーザーの再joinは同じセッションへ再入室 (rejoined=true / 多重入室防止)
-PASS: ブロック関係のユーザーとは別部屋に割り当てられる
-PASS: 早すぎるfinish_sessionは拒否 (session_not_finished_yet)
-PASS: leave_session で途中退出が記録される
-PASS: 無料プラン1日2コマ制限 (free_plan_daily_limit)
-PASS: 無料プラン予約3件制限 (4件目で拒否)
-PASS: 繰り返し予約はプレミアム限定 (premium_required)
-PASS: プレミアムの繰り返し予約がsync_reservationsで実体化 (1→5件)
-PASS: 完了処理 xp_awarded=60 (25分×2+10) / レベル・streak更新 / user_stats整合
-PASS: 二重完了は拒否 (session_already_finished)
+10 passed (32.0s)
+
+ 1. ランディングページが表示される
+ 2. 新規登録画面が表示され、実際に登録できる(→オンボーディング)
+ 3. ログインしてホームが表示される
+ 4. カメラ拒否時に原因と設定方法の案内が表示される
+ 5. カメラ許可時にぼかしプレビューが表示される(カメラテスト)
+ 6. 入室→タイマー表示→退出確認→途中退出できる
+ 7. セッション完了→自己評価→履歴に保存される
+ 8. 予約の作成・編集・削除ができる
+ 9. 一般ユーザーは管理者画面に入れない / 管理者は入れる
+10. 2ブラウザが同じ自習室に入り、ぼかし映像を相互共有しタイマーが同期する
+    - 2つの独立したブラウザコンテキスト(さくら/めい)が同じルームに自動割当
+    - 相互の表示名がリアルタイム表示
+    - 両ページで2本以上のvideoにフレーム到達(自分+相手の実WebRTC映像)
+    - 受信映像の解像度が320×240以下(=ぼかしパイプライン済み映像そのもの)
+    - 全videoの音声トラック合計 0本
+    - 残り時間の差が2秒以内(サーバー時刻同期)
+    - リロード後に同じルームへ復帰
+    - 同一ユーザーの別タブは「多重入室はできません」でブロック(既存タブは継続)
+    - 片方の退出が相手側に「退出しました」と反映
 ```
 
-## 5. 未検証項目 (環境制約により実行できなかったもの)
+## 4. データベース・RLS・RPCテスト — ✅ 実行済み・全パス
+
+PostgreSQL 16 + Supabase互換シム上で全マイグレーション・シードを適用し検証。
+
+```
+supabase/tests/rls.test.sql: RLS TESTS PASSED
+  - 他人のprofiles/study_sessions/reservations/user_stats/supporters: 閲覧不可
+  - XP直接更新・セッション偽造INSERT・バッジ偽造・プラン偽装・role昇格: すべて拒否
+  - study_rooms/room_participantsの再帰なし参照(今回修正した不具合の回帰テスト)
+  - 管理者: 全件閲覧・admin_stats実行可 / anon: 全テーブル0行
+
+RPC動作テスト:
+  PASS: 部屋の自動作成 / 再入室(多重入室防止) / ブロック相手と別部屋
+  PASS: 早すぎる完了の拒否 / 途中退出記録 / 二重完了の拒否
+  PASS: 1日2コマ制限 / 予約3件制限 / 繰り返し予約のプレミアム限定と実体化
+  PASS: 完了処理 (25分→60XP、レベル・streak・user_stats整合)
+```
+
+## 5. `supabase db lint` 相当 — ✅ 実行済み・指摘ゼロ
+
+CLIの`db lint`はDocker必須のため接続不可。同等の実体である
+**plpgsql_check** をPostgreSQL 16上で全plpgsql関数(トリガ関数含む)に実行し、
+`NO ISSUES`(警告・エラーなし)を確認した。
+
+## 6. E2Eで発見し修正した不具合 (実行したからこそ見つかったもの)
+
+| # | 不具合 | 修正 |
+|---|--------|------|
+| 1 | RLSポリシーの無限再帰: `room_participants`のポリシーが自テーブルを参照しており、入室後の部屋情報取得が全件エラー(本番Supabaseでも発生したはず) | `is_room_member()`(SECURITY DEFINER)を導入 |
+| 2 | 多重入室検知が既存タブ側もブロックしてしまう | joinedAtの新旧比較で「新しい接続のみ」をブロック |
+| 3 | タイマー終了後にリロードすると完了処理されずホームへ飛ぶ | 終了済みルームのactiveセッションは完了ページへ誘導 |
+| 4 | 退出時にpresence切断がDB書込より先に届き、相手側の「退出しました」が出ないことがある | leave_session完了後にメッシュ切断する順序へ変更 |
+| 5 | Safari 17以前で`ctx.filter`未実装のためぼかしが効かない(重大) | 縮小→拡大方式を主方式に変更(全ブラウザで物理的に不可逆) |
+
+## 7. 未検証項目 (環境制約により本セッションで実行できなかったもの)
 
 | 項目 | 理由 | 実施方法 |
 |------|------|---------|
-| E2Eテスト (Playwright, `e2e/smoke.spec.ts`) | ローカルSupabase(Auth/Realtime)がDocker取得不可で起動できず | `supabase start` 可能な環境で `npm run test:e2e` |
-| 2ブラウザでの同室WebRTC接続・映像相互表示 | 同上 + 実カメラ・実ネットワークが必要 | デプロイ後に2端末で手動確認 (手順: docs/09) |
-| 通信切断・再接続の実機挙動 | 同上 | 同上 |
-| メール送信 (Resend) / Stripe決済 | APIキーが必要 | テストモードキー設定後に確認 |
-| Vercel本番デプロイ・公開URL | デプロイ先アカウントが必要 | docs/09_operations.md の手順で実施 |
-| スマートフォン実機表示 | 実機なし (レスポンシブCSSは実装済み) | デプロイ後に実機確認 |
+| 公開URLでの動作 | Vercel/Supabaseの認証情報が本環境にない | `docs/12_deploy_guide.md`(約30分) |
+| 本物のSupabase(GoTrue/Realtime本体)との結合 | 同上+Docker不可。エミュレータはプロトコル互換だが本物ではない | デプロイ後に手動確認+E2EのbaseURL切替 |
+| Safari/Firefox実機・スマートフォン実機 | 実機なし(E2EはChromiumのみ) | READMEの手動テスト手順 |
+| Wi-Fi⇔モバイル回線などNAT越え・TURN relay接続 | 単一ホスト内のためhost candidateで完結 | TURN設定後に実機確認 |
+| メール実送信(Resend)/ Stripe決済 | APIキーなし | キー設定後にテストモードで確認 |
+| 6人同時接続の負荷 | E2Eは2クライアントまで。理論帯域は docs/04 に記載 | 本番で6タブ/6端末テスト |

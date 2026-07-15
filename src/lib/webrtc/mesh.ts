@@ -52,6 +52,7 @@ export class MeshRoom {
   private peers = new Map<string, { pc: RTCPeerConnection; info: RemotePeer }>();
   private closed = false;
   private connectionId = Math.random().toString(36).slice(2);
+  private joinedAt = Date.now();
   private currentTrack: MediaStreamTrack | null;
 
   constructor(private opts: MeshRoomOptions) {
@@ -83,7 +84,8 @@ export class MeshRoom {
     await new Promise<void>((resolve, reject) => {
       this.channel!.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await this.channel!.track({ connectionId: this.connectionId, joinedAt: Date.now() });
+          this.joinedAt = Date.now();
+          await this.channel!.track({ connectionId: this.connectionId, joinedAt: this.joinedAt });
           resolve();
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           reject(new Error(`realtime_${status}`));
@@ -96,9 +98,19 @@ export class MeshRoom {
     if (!this.channel || this.closed) return;
     const state = this.channel.presenceState<{ connectionId: string }>();
 
-    // 多重入室検知: 自分のキーに別connectionIdの presence がある
-    const mine = state[this.opts.userId] ?? [];
-    if (mine.some((m) => m.connectionId !== this.connectionId)) {
+    // 多重入室検知: 自分のキーに「自分より先に接続していた」別connectionIdがあれば、
+    // この(新しい)接続側だけをブロックする。既存タブは影響を受けない。
+    const mine = (state[this.opts.userId] ?? []) as Array<{
+      connectionId: string;
+      joinedAt?: number;
+    }>;
+    const older = mine.some(
+      (m) =>
+        m.connectionId !== this.connectionId &&
+        ((m.joinedAt ?? 0) < this.joinedAt ||
+          ((m.joinedAt ?? 0) === this.joinedAt && m.connectionId < this.connectionId))
+    );
+    if (older) {
       this.opts.onDuplicateConnection?.();
     }
 

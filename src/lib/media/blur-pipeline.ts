@@ -81,18 +81,36 @@ export async function createBlurPipeline(deviceId?: string): Promise<BlurPipelin
   canvas.height = OUTPUT_HEIGHT;
   const ctx = canvas.getContext('2d')!;
 
+  // 【重要】ぼかしの主方式は「極小キャンバスへ縮小→拡大」。
+  // ctx.filter='blur()' はSafari 17以前のCanvas 2Dで未実装(無視される)ため、
+  // filterだけに頼ると旧Safariで鮮明な映像が送信されてしまう。
+  // 縮小→拡大は全ブラウザで物理的に情報を失わせるため、確実に判別不能になる。
+  // 対応ブラウザでは ctx.filter を「追加の」平滑化として併用する。
+  const tiny = document.createElement('canvas');
+  tiny.width = 32; // 320x240を32x24へ縮小 = 1/10。顔・文字は復元不能
+  tiny.height = 24;
+  const tinyCtx = tiny.getContext('2d')!;
+  const filterSupported = typeof ctx.filter === 'string';
+
   // 初期フレーム(黒)を描いてからキャプチャ開始
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const draw = () => {
     if (video.readyState < 2) return;
+    // 1段目: 極小へ縮小 (情報の破壊 = ぼかしの本体)
+    tinyCtx.drawImage(video, 0, 0, tiny.width, tiny.height);
+    // 2段目: 平滑化しながら拡大 + 対応ブラウザではblurフィルタを追加適用
     ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    if (filterSupported) {
+      ctx.filter = `blur(${BLUR_PX}px)`;
+    }
     // ぼかしのエッジ(透明縁)が出ないよう少し拡大して描画する
-    ctx.filter = `blur(${BLUR_PX}px)`;
-    const overdraw = BLUR_PX * 2;
+    const overdraw = BLUR_PX;
     ctx.drawImage(
-      video,
+      tiny,
       -overdraw,
       -overdraw,
       canvas.width + overdraw * 2,

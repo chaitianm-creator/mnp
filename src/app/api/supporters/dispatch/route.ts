@@ -23,24 +23,26 @@ export async function POST() {
   // 自分の応援者の未送信通知(RLSで自分の分のみ)
   const { data: pending } = await supabase
     .from('supporter_notifications')
-    .select('id, type, payload, supporters!inner(supporter_email, supporter_name, status, user_id)')
+    .select('id, type, payload, supporter_id')
     .is('sent_at', null)
     .eq('channel', 'email')
     .limit(20);
 
   if (!pending || pending.length === 0) return NextResponse.json({ sent: 0 });
 
+  const supporterIds = Array.from(new Set(pending.map((n) => n.supporter_id)));
+  const { data: supporterRows } = await supabase
+    .from('supporters')
+    .select('id, supporter_email, supporter_name, status, user_id')
+    .in('id', supporterIds);
+  const supporterMap = new Map((supporterRows ?? []).map((s) => [s.id, s]));
+
   const admin = createAdminClient();
   let sent = 0;
 
   for (const n of pending) {
-    const supporter = n.supporters as unknown as {
-      supporter_email: string;
-      supporter_name: string;
-      status: string;
-      user_id: string;
-    };
-    if (supporter.status !== 'accepted' || supporter.user_id !== user.id) continue;
+    const supporter = supporterMap.get(n.supporter_id);
+    if (!supporter || supporter.status !== 'accepted' || supporter.user_id !== user.id) continue;
 
     const payload = (n.payload ?? {}) as { minutes?: number; topic?: string };
     const name = profile?.display_name ?? 'ユーザー';

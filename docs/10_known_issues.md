@@ -31,8 +31,7 @@
 
 ## 未検証項目
 
-docs/11_test_results.md の「5. 未検証項目」を参照。
-主要なもの: E2E(Playwright)、実ブラウザ2台でのWebRTC相互接続、メール実送信、
-Stripe決済フロー、Vercel本番デプロイ、スマートフォン実機。
-いずれも環境(Docker不可・APIキーなし・デプロイ先なし)による制約で、
-コードとしては実装済み。
+docs/11_test_results.md の「7. 未検証項目」を参照。
+E2E(10テスト・2ブラウザWebRTC相互接続を含む)はローカル実行スタックで**実行済み・全パス**。
+残る未検証は: 公開URL(Vercel/Supabase本番)、Safari/スマホ実機、
+NAT越え(TURN relay)、メール実送信、Stripe決済、6人同時接続。
