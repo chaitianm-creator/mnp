@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Creative Trust OS — AIと信頼でつながる、フリーランスデザイナーチームの制作インフラ</title>
 <meta name="description" content="実績と実力のあるフリーランスデザイナーをつなぎ、AIで最適なチームを編成し、信頼と成果を生み出す仕組み。システム設計図（全体アーキテクチャ）。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Creative Trust OS — システム設計図（全体アーキテクチャ）">
+<meta property="og:description" content="AIと信頼でつながる、フリーランスデザイナーチームの制作インフラ。制作フロー・アーキテクチャ・データモデル・実現する価値を1ページに。">
+<meta property="og:url" content="https://nmp-creative-trust-os.netlify.app/">
+<meta property="og:site_name" content="Creative Trust OS">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#141d3d">
+<link rel="canonical" href="https://nmp-creative-trust-os.netlify.app/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23141d3d'/%3E%3Cpath d='M32 14c-9.9 0-18 8.1-18 18s8.1 18 18 18c5 0 9.5-2 12.7-5.3l-5-5A11 11 0 1 1 32 21c3 0 5.8 1.2 7.8 3.2l5-5A17.9 17.9 0 0 0 32 14z' fill='%233b82f6'/%3E%3Ccircle cx='44' cy='32' r='6' fill='%23fbbf24'/%3E%3C/svg%3E">
 <style>
 /* ============================================================
    Design tokens
@@ -105,6 +115,11 @@ section.block.alt{background:#fff}
 /* reveal animation */
 .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
 .reveal.on{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
+
+/* card hover */
+.step-card,.screen-card,.value-card,.entity{transition:transform .25s ease,box-shadow .25s ease}
+.step-card:hover,.screen-card:hover,.value-card:hover,.entity:hover{transform:translateY(-3px);box-shadow:0 4px 8px rgba(16,24,40,.06),0 16px 36px rgba(16,24,40,.1)}
 
 /* ============================================================
    1. Production flow — 6 steps
