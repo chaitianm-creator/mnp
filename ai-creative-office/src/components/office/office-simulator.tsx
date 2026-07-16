@@ -1,13 +1,12 @@
 'use client';
 
 // ============================================================
-// 箱庭型AI会社シミュレーター(見下ろし型オフィス)
-// - 参考イメージ準拠: 木の温もり+パステル+丸アバター+こげ茶ルームタグ
-// - 見た目はゲーム品質、裏側は既存のZustandストアをそのまま使用
-// - 部屋・家具はSVGで描画(外部画像なし)
-// - AI社員は状態(status/zone)に応じて座標間を「歩いて」移動
-// - 仕事の受け渡し/会話吹き出し/時間帯照明/休憩/会議/CEO報告/
-//   成果物完成のお祝い演出
+// 箱庭型AI会社シミュレーター v3(生きている会社)
+// - 2.5頭身のチビキャラ(頭・体・手足・歩行サイクル・待機モーション)
+// - 部屋ごとの生活感家具(トロフィー/コピー機/冷蔵庫/ホログラム等)
+// - 足跡・キラキラ・メール・拍手・花火などの控えめエフェクト
+// - 見た目はゲーム品質、裏側は既存Zustandストアをそのまま使用
+//   (このファイルは描画のみ。状態管理ロジックには一切触れない)
 // ============================================================
 import { agentZone, currentPeriod, type DayPeriod } from '@/lib/office';
 import { AGENT_STATUS } from '@/lib/labels';
@@ -20,7 +19,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const VB = { w: 1280, h: 880 };
 
-// 参考イメージのパレット(木・パステル)
 const P = {
   bgOuter: '#efe6d4',
   bgInner: '#f6efe0',
@@ -33,6 +31,11 @@ const P = {
   windowFrame: '#ffffff',
   night: '#4b4b73',
   nightPlank: '#3f3f63',
+  skin: '#ffe3c9',
+  paper: '#fdfaf3',
+  woodDark: '#a87f4d',
+  wood: '#c89b66',
+  woodLight: '#d9b27e',
 };
 
 interface Room {
@@ -42,15 +45,15 @@ interface Room {
   y: number;
   w: number;
   h: number;
-  night?: boolean; // サーバールーム=夜勤テーマ
-  windows?: number; // 上壁の窓の数
+  night?: boolean;
+  windows?: number;
 }
 
 const ROOMS: Room[] = [
   { id: 'president', label: '社長室', x: 20, y: 20, w: 280, h: 190, windows: 2 },
   { id: 'ceo', label: 'CEO席(経営部)', x: 320, y: 20, w: 320, h: 190, windows: 2 },
   { id: 'secretary', label: '秘書席', x: 660, y: 20, w: 180, h: 190, windows: 1 },
-  { id: 'server', label: 'サーバールーム(夜勤)', x: 860, y: 20, w: 180, h: 190, night: true },
+  { id: 'server', label: 'AI研究室(夜勤)', x: 860, y: 20, w: 180, h: 190, night: true },
   { id: 'break', label: '休憩室', x: 1060, y: 20, w: 200, h: 190, windows: 1 },
   { id: 'sales', label: '営業部', x: 20, y: 240, w: 500, h: 280, windows: 3 },
   { id: 'production', label: '制作部', x: 540, y: 240, w: 500, h: 280, windows: 3 },
@@ -61,7 +64,6 @@ const ROOMS: Room[] = [
   { id: 'approval', label: '承認待ちスペース', x: 1020, y: 550, w: 240, h: 240, windows: 1 },
 ];
 
-// AI社員の自席(デスク)座標
 const DESKS: Record<string, { x: number; y: number }> = {
   ceo: { x: 480, y: 140 },
   secretary: { x: 750, y: 140 },
@@ -73,12 +75,16 @@ const DESKS: Record<string, { x: number; y: number }> = {
   accountant: { x: 140, y: 630 }, ops_admin: { x: 140, y: 730 },
 };
 
-// ゾーンごとの席(会議・プロジェクト・承認待ち・サーバー・休憩)
 const seatsAround = (cx: number, cy: number, rx: number, ry: number, n: number) =>
   Array.from({ length: n }, (_, i) => {
     const a = (i / n) * Math.PI * 2 - Math.PI / 2;
     return { x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry };
   });
+
+const ZONE_CENTERS: Record<string, { x: number; y: number }> = {
+  meeting: { x: 470, y: 675 },
+  project: { x: 840, y: 675 },
+};
 
 const ZONE_SEATS: Record<Exclude<OfficeZone, 'desk'>, { x: number; y: number }[]> = {
   meeting: seatsAround(470, 675, 130, 70, 8),
@@ -91,7 +97,6 @@ const ZONE_SEATS: Record<Exclude<OfficeZone, 'desk'>, { x: number; y: number }[]
   break: [{ x: 1105, y: 125 }, { x: 1215, y: 125 }, { x: 1110, y: 172 }, { x: 1210, y: 172 }],
 };
 
-/** 全AI社員の現在座標を解決(ゾーン内は順番に着席・重なり防止) */
 function resolvePositions(agents: Agent[]): Map<string, { x: number; y: number }> {
   const map = new Map<string, { x: number; y: number }>();
   const zoneCount: Record<string, number> = {};
@@ -110,37 +115,44 @@ function resolvePositions(agents: Agent[]): Map<string, { x: number; y: number }
   return map;
 }
 
-// ---------- 家具(SVG・パステル木調) ----------
+// ============================================================
+// 家具(SVG・パステル木調)
+// ============================================================
 
 function Desk({ x, y, glow }: { x: number; y: number; glow: boolean }) {
   return (
     <g>
-      <rect x={x - 34} y={y - 52} width={68} height={30} rx={7} fill="#c89b66" stroke="#a87f4d" strokeWidth={2} />
+      <rect x={x - 34} y={y - 52} width={68} height={30} rx={7} fill={P.wood} stroke={P.woodDark} strokeWidth={2} />
       <rect x={x - 30} y={y - 48} width={60} height={4} rx={2} fill="#ffffff" opacity={0.25} />
-      {/* モニター(作業中は点灯) */}
       <rect x={x - 14} y={y - 50} width={28} height={17} rx={3} fill={glow ? '#cfe6f7' : '#5b6472'} stroke="#47505e" strokeWidth={1.5}>
         {glow && <animate attributeName="fill" values="#cfe6f7;#a8d2f0;#cfe6f7" dur="2.4s" repeatCount="indefinite" />}
       </rect>
       <rect x={x - 3} y={y - 33} width={6} height={4} fill="#8a8f99" />
       {glow && <circle cx={x} cy={y - 42} r={18} fill="#7cb8e8" opacity={0.14} />}
-      {/* 椅子 */}
-      <circle cx={x} cy={y - 4} r={9} fill="#b9c4a3" stroke="#9dab84" strokeWidth={1.2} opacity={0.8} />
+      {/* 書類とマグ */}
+      <rect x={x + 18} y={y - 46} width={11} height={8} rx={1} fill={P.paper} stroke="#e0d4b8" strokeWidth={0.8} transform={`rotate(6 ${x + 23} ${y - 42})`} />
+      <circle cx={x - 24} cy={y - 40} r={3.5} fill="#f2b0c1" stroke="#e094ab" strokeWidth={1} />
     </g>
   );
 }
 
-function Bookshelf({ x, y, w = 70 }: { x: number; y: number; w?: number }) {
+function Bookshelf({ x, y, w = 70, trophy }: { x: number; y: number; w?: number; trophy?: boolean }) {
   const colors = ['#e08a8a', '#8ab0e0', '#8ecf9d', '#e6c46b', '#c39ad6'];
   return (
     <g>
       <rect x={x} y={y} width={w} height={34} rx={4} fill="#b98d5c" stroke="#9a7345" strokeWidth={2} />
       {[0, 1].map((row) => (
         <g key={row}>
-          {Array.from({ length: Math.floor((w - 12) / 9) }, (_, i) => (
-            <rect key={i} x={x + 6 + i * 9} y={y + 4 + row * 15} width={6} height={11} rx={1} fill={colors[(i + row) % colors.length]} opacity={0.9} />
-          ))}
+          {Array.from({ length: Math.floor((w - 12) / 9) }, (_, i) =>
+            trophy && row === 0 && i === Math.floor((w - 12) / 18) ? null : (
+              <rect key={i} x={x + 6 + i * 9} y={y + 4 + row * 15} width={6} height={11} rx={1} fill={colors[(i + row) % colors.length]} opacity={0.9} />
+            ),
+          )}
         </g>
       ))}
+      {trophy && (
+        <text x={x + w / 2} y={y + 13} textAnchor="middle" fontSize={11}>🏆</text>
+      )}
     </g>
   );
 }
@@ -149,8 +161,230 @@ function Clock({ x, y }: { x: number; y: number }) {
   return (
     <g>
       <circle cx={x} cy={y} r={9} fill="#ffffff" stroke="#8a6a4a" strokeWidth={2} />
-      <line x1={x} y1={y} x2={x} y2={y - 5} stroke="#6f5b43" strokeWidth={1.5} strokeLinecap="round" />
-      <line x1={x} y1={y} x2={x + 4} y2={y + 1} stroke="#6f5b43" strokeWidth={1.5} strokeLinecap="round" />
+      <line x1={x} y1={y} x2={x} y2={y - 5} stroke={P.tag} strokeWidth={1.5} strokeLinecap="round" />
+      <line x1={x} y1={y} x2={x + 4} y2={y + 1} stroke={P.tag} strokeWidth={1.5} strokeLinecap="round" />
+    </g>
+  );
+}
+
+function Poster({ x, y, color }: { x: number; y: number; color: string }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={26} height={34} rx={3} fill="#ffffff" stroke="#d9c9a8" strokeWidth={1.5} />
+      <rect x={x + 4} y={y + 4} width={18} height={14} rx={2} fill={color} opacity={0.55} />
+      <line x1={x + 4} y1={y + 23} x2={x + 22} y2={y + 23} stroke="#d9c9a8" strokeWidth={2} strokeLinecap="round" />
+      <line x1={x + 4} y1={y + 28} x2={x + 17} y2={y + 28} stroke="#e8ddc8" strokeWidth={2} strokeLinecap="round" />
+    </g>
+  );
+}
+
+function Whiteboard({ x, y, w = 92 }: { x: number; y: number; w?: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={42} rx={5} fill="#ffffff" stroke={P.wall} strokeWidth={2} />
+      <line x1={x + 10} y1={y + 13} x2={x + w * 0.75} y2={y + 13} stroke="#8ecf9d" strokeWidth={3} strokeLinecap="round" />
+      <line x1={x + 10} y1={y + 24} x2={x + w * 0.6} y2={y + 24} stroke="#d9c9a8" strokeWidth={2.5} strokeLinecap="round" />
+      <line x1={x + 10} y1={y + 33} x2={x + w * 0.68} y2={y + 33} stroke="#f2b0c1" strokeWidth={2.5} strokeLinecap="round" />
+    </g>
+  );
+}
+
+function Phone({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x - 8} y={y - 5} width={16} height={10} rx={2.5} fill="#8ab0e0" stroke="#6b93c9" strokeWidth={1.2} />
+      <rect x={x - 10} y={y - 9} width={20} height={5} rx={2.5} fill="#6b93c9" />
+    </g>
+  );
+}
+
+function CardRack({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={26} height={14} rx={2} fill={P.woodLight} stroke={P.woodDark} strokeWidth={1.2} />
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={x + 3 + i * 8} y={y - 4} width={6} height={9} rx={1} fill={P.paper} stroke="#d9c9a8" strokeWidth={0.7} />
+      ))}
+    </g>
+  );
+}
+
+function BigMonitor({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x - 24} y={y - 16} width={48} height={28} rx={3.5} fill="#47505e" stroke="#333b47" strokeWidth={2} />
+      <rect x={x - 20} y={y - 12} width={40} height={20} rx={2} fill="#a8d2f0">
+        <animate attributeName="fill" values="#a8d2f0;#c5e3f7;#a8d2f0" dur="3.2s" repeatCount="indefinite" />
+      </rect>
+      <rect x={x - 5} y={y + 12} width={10} height={4} fill="#5b6472" />
+    </g>
+  );
+}
+
+function PenTab({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={22} height={15} rx={2.5} fill="#e8e2d4" stroke="#c9bda0" strokeWidth={1.2} />
+      <rect x={x + 3} y={y + 3} width={16} height={9} rx={1.5} fill="#ffffff" />
+      <line x1={x + 26} y1={y + 2} x2={x + 32} y2={y + 12} stroke="#6f5b43" strokeWidth={2} strokeLinecap="round" />
+    </g>
+  );
+}
+
+function Palette({ x, y }: { x: number; y: number }) {
+  const colors = ['#f2a9bd', '#f5d76e', '#8ecf9d', '#8ab0e0'];
+  return (
+    <g>
+      <ellipse cx={x} cy={y} rx={13} ry={10} fill={P.paper} stroke="#d9c9a8" strokeWidth={1.2} />
+      {colors.map((c, i) => (
+        <circle key={i} cx={x - 6 + (i % 2) * 10} cy={y - 3 + Math.floor(i / 2) * 7} r={2.6} fill={c} />
+      ))}
+    </g>
+  );
+}
+
+function Cabinet({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={30} height={46} rx={4} fill="#c9b28a" stroke="#a8905f" strokeWidth={2} />
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <rect x={x + 4} y={y + 5 + i * 14} width={22} height={10} rx={2} fill="#e3d3ae" stroke="#c4ab7d" strokeWidth={1} />
+          <rect x={x + 12} y={y + 9 + i * 14} width={6} height={2} rx={1} fill="#8a744c" />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+function Copier({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={38} height={30} rx={4} fill="#e8e2d4" stroke="#c9bda0" strokeWidth={2} />
+      <rect x={x + 4} y={y - 4} width={30} height={7} rx={2} fill="#d4ccba" stroke="#b8ae97" strokeWidth={1} />
+      <rect x={x + 8} y={y + 8} width={14} height={4} rx={1} fill="#8ab0e0" />
+      <circle cx={x + 31} cy={y + 10} r={2} fill="#8ecf9d">
+        <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" />
+      </circle>
+      <rect x={x + 6} y={y + 18} width={26} height={7} rx={1.5} fill={P.paper} stroke="#d9c9a8" strokeWidth={0.8} />
+    </g>
+  );
+}
+
+function Fridge({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={26} height={44} rx={5} fill="#ffffff" stroke="#cfc4ab" strokeWidth={2} />
+      <line x1={x + 2} y1={y + 16} x2={x + 24} y2={y + 16} stroke="#cfc4ab" strokeWidth={1.5} />
+      <rect x={x + 19} y={y + 6} width={3} height={7} rx={1.5} fill="#b8ae97" />
+      <rect x={x + 19} y={y + 20} width={3} height={9} rx={1.5} fill="#b8ae97" />
+      <circle cx={x + 8} cy={y + 8} r={2.5} fill="#f2a9bd" />
+    </g>
+  );
+}
+
+function Microwave({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={30} height={18} rx={3} fill="#d8d2c2" stroke="#b8ae97" strokeWidth={1.5} />
+      <rect x={x + 3} y={y + 3} width={17} height={12} rx={2} fill="#6f6a5c" />
+      <circle cx={x + 25} cy={y + 6} r={1.6} fill="#e08a8a" />
+      <circle cx={x + 25} cy={y + 12} r={1.6} fill="#8ecf9d" />
+    </g>
+  );
+}
+
+function Snacks({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={20} height={12} rx={3} fill="#f5d76e" stroke="#dcb845" strokeWidth={1.2} />
+      <text x={x + 10} y={y + 9} textAnchor="middle" fontSize={7}>🍪</text>
+      <rect x={x + 24} y={y - 2} width={10} height={14} rx={2} fill="#f2a9bd" stroke="#e094ab" strokeWidth={1} />
+    </g>
+  );
+}
+
+function CoffeeMachine({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={20} height={24} rx={3} fill="#8a744c" stroke="#6f5b43" strokeWidth={1.5} />
+      <rect x={x + 4} y={y + 4} width={12} height={6} rx={1.5} fill="#e3d3ae" />
+      <rect x={x + 7} y={y + 14} width={6} height={6} rx={1} fill="#ffffff" />
+      <circle cx={x + 10} cy={y + 12} r={1} fill="#6ee7b7">
+        <animate attributeName="opacity" values="1;0.3;1" dur="1.8s" repeatCount="indefinite" />
+      </circle>
+    </g>
+  );
+}
+
+function WallScreen({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={64} height={36} rx={4} fill="#47505e" stroke="#333b47" strokeWidth={2} />
+      <rect x={x + 4} y={y + 4} width={56} height={28} rx={2.5} fill="#cfe6f7" />
+      <rect x={x + 9} y={y + 9} width={22} height={4} rx={2} fill="#8ab0e0" />
+      <rect x={x + 9} y={y + 17} width={34} height={3} rx={1.5} fill="#c5d8ea" />
+      <rect x={x + 9} y={y + 23} width={28} height={3} rx={1.5} fill="#c5d8ea" />
+    </g>
+  );
+}
+
+function Projector({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={22} height={11} rx={4} fill="#8a8f99" stroke="#6b7280" strokeWidth={1.2} />
+      <circle cx={x + 4} cy={y + 5.5} r={3} fill="#fef3c7" opacity={0.9} />
+      <polygon points={`${x + 1},${y + 5.5} ${x - 26},${y - 6} ${x - 26},${y + 17}`} fill="#fef3c7" opacity={0.18} />
+    </g>
+  );
+}
+
+function Hologram({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <polygon points={`${x - 4},${y} ${x + 4},${y} ${x + 16},${y - 34} ${x - 16},${y - 34}`} fill="#7dd3fc" opacity={0.16}>
+        <animate attributeName="opacity" values="0.1;0.22;0.1" dur="3s" repeatCount="indefinite" />
+      </polygon>
+      <ellipse cx={x} cy={y - 24} rx={12} ry={3.5} fill="none" stroke="#7dd3fc" strokeWidth={1.2} opacity={0.5}>
+        <animate attributeName="cy" values={`${y - 18};${y - 30};${y - 18}`} dur="4s" repeatCount="indefinite" />
+      </ellipse>
+      <text x={x} y={y - 22} textAnchor="middle" fontSize={10} opacity={0.85}>📊</text>
+      <ellipse cx={x} cy={y + 1} rx={7} ry={2.2} fill="#7dd3fc" opacity={0.4} />
+    </g>
+  );
+}
+
+function Tree({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <ellipse cx={x} cy={y + 22} rx={26} ry={7} fill="#8a6a4a" opacity={0.15} />
+      <rect x={x - 4} y={y} width={8} height={22} rx={3} fill="#a87043" />
+      <circle cx={x} cy={y - 16} r={22} fill="#8ecf9d" />
+      <circle cx={x - 16} cy={y - 6} r={14} fill="#6fbf82" />
+      <circle cx={x + 16} cy={y - 6} r={14} fill="#a8dcb2" />
+      <circle cx={x - 6} cy={y - 26} r={3} fill="#f8c3d0" />
+      <circle cx={x + 10} cy={y - 18} r={3} fill="#f8c3d0" />
+    </g>
+  );
+}
+
+function Sofa({ x, y, w = 62, color = '#f2b0c1', stroke = '#e094ab' }: { x: number; y: number; w?: number; color?: string; stroke?: string }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={24} rx={10} fill={color} stroke={stroke} strokeWidth={2} />
+      <rect x={x + 5} y={y - 5} width={w - 10} height={9} rx={4.5} fill={color} stroke={stroke} strokeWidth={1.5} />
+    </g>
+  );
+}
+
+function Calendar({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={22} height={24} rx={3} fill="#ffffff" stroke="#d9c9a8" strokeWidth={1.5} />
+      <rect x={x} y={y} width={22} height={7} rx={3} fill="#e08a8a" />
+      {[0, 1].map((r) =>
+        [0, 1, 2].map((c) => <circle key={`${r}${c}`} cx={x + 5 + c * 6} cy={y + 13 + r * 6} r={1.3} fill="#d9c9a8" />),
+      )}
     </g>
   );
 }
@@ -158,14 +392,15 @@ function Clock({ x, y }: { x: number; y: number }) {
 function MeetingTable() {
   return (
     <g>
-      <ellipse cx={470} cy={679} rx={92} ry={44} fill="#caa06c" stroke="#a87f4d" strokeWidth={2.5} />
-      <ellipse cx={470} cy={675} rx={92} ry={44} fill="#d9b27e" stroke="#b08c5f" strokeWidth={2} />
+      <ellipse cx={470} cy={679} rx={92} ry={44} fill="#caa06c" stroke={P.woodDark} strokeWidth={2.5} />
+      <ellipse cx={470} cy={675} rx={92} ry={44} fill={P.woodLight} stroke="#b08c5f" strokeWidth={2} />
       <ellipse cx={470} cy={675} rx={68} ry={29} fill="#e5c592" />
-      {/* ホワイトボード */}
-      <rect x={300} y={562} width={92} height={42} rx={5} fill="#ffffff" stroke="#a98454" strokeWidth={2} />
-      <line x1={310} y1={575} x2={372} y2={575} stroke="#8ecf9d" strokeWidth={3} strokeLinecap="round" />
-      <line x1={310} y1={586} x2={356} y2={586} stroke="#d9c9a8" strokeWidth={2.5} strokeLinecap="round" />
-      <line x1={310} y1={595} x2={364} y2={595} stroke="#d9c9a8" strokeWidth={2.5} strokeLinecap="round" />
+      {/* 会議資料 */}
+      <rect x={448} y={664} width={16} height={11} rx={1.5} fill={P.paper} stroke="#d9c9a8" strokeWidth={0.8} transform="rotate(-8 456 669)" />
+      <rect x={472} y={668} width={16} height={11} rx={1.5} fill={P.paper} stroke="#d9c9a8" strokeWidth={0.8} transform="rotate(6 480 673)" />
+      <Whiteboard x={300} y={562} />
+      <WallScreen x={548} y={560} />
+      <Projector x={500} y={690} />
       <Clock x={630} y={575} />
     </g>
   );
@@ -174,38 +409,36 @@ function MeetingTable() {
 function ProjectTable() {
   return (
     <g>
-      <rect x={758} y={638} width={164} height={74} rx={14} fill="#caa06c" stroke="#a87f4d" strokeWidth={2.5} />
-      <rect x={760} y={636} width={160} height={70} rx={13} fill="#d9b27e" stroke="#b08c5f" strokeWidth={2} />
-      <rect x={775} y={650} width={40} height={26} rx={3} fill="#fdfaf3" stroke="#d9c9a8" />
+      <rect x={758} y={638} width={164} height={74} rx={14} fill="#caa06c" stroke={P.woodDark} strokeWidth={2.5} />
+      <rect x={760} y={636} width={160} height={70} rx={13} fill={P.woodLight} stroke="#b08c5f" strokeWidth={2} />
+      <rect x={775} y={650} width={40} height={26} rx={3} fill={P.paper} stroke="#d9c9a8" />
       <rect x={825} y={656} width={36} height={22} rx={3} fill="#fbeeb8" stroke="#e0c25c" strokeWidth={0.8} />
-      <rect x={872} y={648} width={34} height={28} rx={3} fill="#fdfaf3" stroke="#d9c9a8" />
+      <rect x={872} y={648} width={34} height={28} rx={3} fill={P.paper} stroke="#d9c9a8" />
+      <Poster x={700} y={560} color="#8ab0e0" />
     </g>
   );
 }
 
-function BreakArea() {
+function BreakRoom() {
   return (
     <g>
-      {/* 緑のラグ */}
       <ellipse cx={1160} cy={150} rx={72} ry={38} fill="#bcd9a8" opacity={0.55} />
-      {/* ソファ(ピンク) */}
-      <rect x={1082} y={98} width={62} height={24} rx={10} fill="#f2b0c1" stroke="#e094ab" strokeWidth={2} />
-      <rect x={1192} y={98} width={62} height={24} rx={10} fill="#f2b0c1" stroke="#e094ab" strokeWidth={2} />
-      {/* コーヒーテーブル */}
-      <circle cx={1160} cy={150} r={16} fill="#d9b27e" stroke="#b08c5f" strokeWidth={2} />
+      <Sofa x={1082} y={98} />
+      <Sofa x={1192} y={98} />
+      <circle cx={1160} cy={150} r={16} fill={P.woodLight} stroke="#b08c5f" strokeWidth={2} />
       <text x={1160} y={155} textAnchor="middle" fontSize={12}>☕</text>
-      {/* 自販機(ピンク) */}
-      <rect x={1230} y={138} width={24} height={40} rx={4} fill="#f4a9bd" stroke="#e094ab" strokeWidth={2} />
-      <rect x={1234} y={144} width={16} height={14} rx={2} fill="#fdf1f4" />
-      <rect x={1234} y={162} width={16} height={4} rx={1.5} fill="#fdf1f4" opacity={0.8} />
+      {/* 冷蔵庫・電子レンジ・お菓子・コーヒーマシン */}
+      <Fridge x={1228} y={132} />
+      <Microwave x={1070} y={178} />
+      <Snacks x={1130} y={186} />
+      <CoffeeMachine x={1186} y={178} />
     </g>
   );
 }
 
-function ServerRacks({ hasError }: { hasError: boolean }) {
+function ServerRoom({ hasError }: { hasError: boolean }) {
   return (
     <g>
-      {/* 月と星(夜勤テーマ) */}
       <text x={1015} y={48} textAnchor="middle" fontSize={14}>🌙</text>
       <circle cx={885} cy={45} r={1.5} fill="#fef3c7" opacity={0.9} />
       <circle cx={990} cy={58} r={1.2} fill="#fef3c7" opacity={0.8} />
@@ -221,6 +454,8 @@ function ServerRacks({ hasError }: { hasError: boolean }) {
           </circle>
         </g>
       ))}
+      {/* ホログラム風演出 */}
+      <Hologram x={945} y={178} />
     </g>
   );
 }
@@ -228,14 +463,87 @@ function ServerRacks({ hasError }: { hasError: boolean }) {
 function PresidentRoom() {
   return (
     <g>
-      {/* ピンクのラグ */}
       <ellipse cx={160} cy={150} rx={80} ry={34} fill="#f4c6cf" opacity={0.5} />
-      {/* 社長デスク */}
-      <rect x={60} y={58} width={120} height={46} rx={8} fill="#a87f4d" stroke="#8a6538" strokeWidth={2.5} />
+      <rect x={60} y={58} width={120} height={46} rx={8} fill={P.woodDark} stroke="#8a6538" strokeWidth={2.5} />
       <rect x={64} y={62} width={112} height={5} rx={2.5} fill="#ffffff" opacity={0.2} />
       <rect x={95} y={66} width={42} height={22} rx={3} fill="#5b6472" stroke="#47505e" strokeWidth={1.5} />
-      <Bookshelf x={200} y={56} w={84} />
+      <Bookshelf x={200} y={56} w={84} trophy />
+      <Sofa x={40} y={160} w={56} color="#f7d9b8" stroke="#e0b98a" />
       <Plant x={276} y={168} />
+      <Plant x={40} y={120} />
+    </g>
+  );
+}
+
+function SalesRoom() {
+  return (
+    <g>
+      <Whiteboard x={40} y={262} w={80} />
+      <Phone x={455} y={318} />
+      <CardRack x={150} y={310} />
+      {/* 営業資料の山 */}
+      <g>
+        <rect x={310} y={306} width={16} height={11} rx={1.5} fill={P.paper} stroke="#d9c9a8" strokeWidth={0.8} />
+        <rect x={312} y={303} width={16} height={11} rx={1.5} fill={P.paper} stroke="#d9c9a8" strokeWidth={0.8} />
+      </g>
+      <Plant x={496} y={492} />
+    </g>
+  );
+}
+
+function ProductionRoom() {
+  return (
+    <g>
+      <BigMonitor x={905} y={290} />
+      <PenTab x={968} y={306} />
+      <Palette x={922} y={318} />
+      <Poster x={556} y={258} color="#f2a9bd" />
+      <Poster x={588} y={258} color="#8ecf9d" />
+      {/* デザインサンプル */}
+      <rect x={690} y={300} width={14} height={18} rx={2} fill="#f8e3ec" stroke="#e8c9d8" strokeWidth={1} transform="rotate(-6 697 309)" />
+      <rect x={708} y={302} width={14} height={18} rx={2} fill="#e3ecf8" stroke="#c9d8e8" strokeWidth={1} transform="rotate(5 715 311)" />
+      <Plant x={1020} y={492} />
+    </g>
+  );
+}
+
+function AdminRoom() {
+  return (
+    <g>
+      <Cabinet x={30} y={576} />
+      <Copier x={190} y={586} />
+      <Bookshelf x={70} y={560} w={80} />
+      <Clock x={230} y={568} />
+    </g>
+  );
+}
+
+function SecretaryRoom() {
+  return (
+    <g>
+      <Calendar x={680} y={62} />
+      <FlowerVase x={812} y={90} />
+    </g>
+  );
+}
+
+function FlowerVase({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x - 4} y={y} width={8} height={10} rx={2.5} fill="#bcd9ea" stroke="#9cc0d6" strokeWidth={1} />
+      <circle cx={x - 3} cy={y - 5} r={3} fill="#f2a9bd" />
+      <circle cx={x + 3} cy={y - 6} r={3} fill="#f5d76e" />
+      <circle cx={x} cy={y - 9} r={3} fill="#f8c3d0" />
+    </g>
+  );
+}
+
+function MarketingRoom() {
+  return (
+    <g>
+      <Poster x={1080} y={258} color="#f5d76e" />
+      <text x={1226} y={290} textAnchor="middle" fontSize={13}>📣</text>
+      <Plant x={1080} y={492} />
     </g>
   );
 }
@@ -276,11 +584,13 @@ function WelcomeMat() {
 function ApprovalArea({ pending }: { pending: number }) {
   return (
     <g>
-      <rect x={1060} y={590} width={160} height={16} rx={7} fill="#d9b27e" stroke="#b08c5f" strokeWidth={1.5} />
-      <rect x={1060} y={688} width={160} height={16} rx={7} fill="#d9b27e" stroke="#b08c5f" strokeWidth={1.5} />
-      {/* 書類トレイ */}
-      <rect x={1224} y={585} width={28} height={20} rx={4} fill="#fdfaf3" stroke="#c4a071" strokeWidth={1.5} />
+      <rect x={1060} y={590} width={160} height={16} rx={7} fill={P.woodLight} stroke="#b08c5f" strokeWidth={1.5} />
+      <rect x={1060} y={688} width={160} height={16} rx={7} fill={P.woodLight} stroke="#b08c5f" strokeWidth={1.5} />
+      <rect x={1224} y={585} width={28} height={20} rx={4} fill={P.paper} stroke="#c4a071" strokeWidth={1.5} />
       <rect x={1228} y={581} width={20} height={4} rx={2} fill="#f5d76e" />
+      {/* 承認スタンプ */}
+      <circle cx={1046} cy={594} r={5} fill="#e08a8a" stroke="#c96b6b" strokeWidth={1.2} />
+      <rect x={1043} y={586} width={6} height={5} rx={1.5} fill="#c96b6b" />
       <text x={1238} y={576} textAnchor="middle" fontSize={11} fill="#b45309" fontWeight={700}>
         {pending > 0 ? `${pending}件` : ''}
       </text>
@@ -297,27 +607,81 @@ const LIGHTING: Record<DayPeriod, { fill: string; opacity: number; label: string
   night: { fill: '#2a2a4a', opacity: 0.32, label: '夜間は一部AIのみ稼働中', emoji: '🌙' },
 };
 
-// ---------- AI社員スプライト ----------
+// ============================================================
+// 2.5頭身チビキャラクター
+// ============================================================
+
+function ChibiBody({ agent, walking, thinking }: { agent: Agent; walking: boolean; thinking: boolean }) {
+  const paused = agent.status === 'paused';
+  return (
+    <g opacity={paused ? 0.55 : 1}>
+      {/* 足(歩行時は交互に動く) */}
+      <ellipse className={walking ? 'walk-foot-l' : undefined} cx={-5} cy={16} rx={4} ry={3} fill="#8a6a4a" />
+      <ellipse className={walking ? 'walk-foot-r' : undefined} cx={5} cy={16} rx={4} ry={3} fill="#8a6a4a" />
+      {/* 腕 */}
+      <g className={walking ? 'walk-arm-l' : undefined} style={{ transformOrigin: '-9px 2px' }}>
+        <circle cx={-11} cy={7} r={3.2} fill={P.skin} stroke="#eec9a8" strokeWidth={0.8} />
+      </g>
+      <g className={walking ? 'walk-arm-r' : undefined} style={{ transformOrigin: '9px 2px' }}>
+        <circle cx={11} cy={7} r={3.2} fill={P.skin} stroke="#eec9a8" strokeWidth={0.8} />
+      </g>
+      {/* 体(服=エージェントカラーのパステル) */}
+      <rect x={-9} y={0} width={18} height={15} rx={7} fill={agent.color} opacity={0.82} stroke="#00000022" strokeWidth={0.8} />
+      <rect x={-9} y={0} width={18} height={6} rx={3} fill="#ffffff" opacity={0.22} />
+      {/* 役割バッジ(胸元) */}
+      <text y={11} textAnchor="middle" fontSize={8} aria-hidden>
+        {agent.avatar}
+      </text>
+      {/* 頭 */}
+      <circle cy={-9} r={10.5} fill={P.skin} stroke="#eec9a8" strokeWidth={1} />
+      {/* 髪(エージェントカラー) */}
+      <path d="M -10.5 -9 A 10.5 10.5 0 0 1 10.5 -9 L 10.5 -12 A 10.5 8 0 0 0 -10.5 -12 Z" fill={agent.color} opacity={0.9} />
+      <path d="M -10.5 -9 Q -10.5 -17 0 -19 Q 10.5 -17 10.5 -9 Q 5 -14.5 0 -14.5 Q -5 -14.5 -10.5 -9 Z" fill={agent.color} />
+      {/* 目と口 */}
+      <circle cx={-3.6} cy={-8} r={1.3} fill="#4a3b2f" />
+      <circle cx={3.6} cy={-8} r={1.3} fill="#4a3b2f" />
+      <path d="M -2 -4.5 Q 0 -3 2 -4.5" stroke="#4a3b2f" strokeWidth={0.9} fill="none" strokeLinecap="round" />
+      {/* ほっぺ */}
+      <circle cx={-6.5} cy={-5} r={1.6} fill="#f8b8c0" opacity={0.55} />
+      <circle cx={6.5} cy={-5} r={1.6} fill="#f8b8c0" opacity={0.55} />
+      {/* 考え中モーション */}
+      {thinking && (
+        <g opacity={0.85}>
+          <circle cx={13} cy={-20} r={1.6} fill="#b8b3a6" />
+          <circle cx={17} cy={-25} r={2.2} fill="#c9c4b6" />
+          <text x={24} y={-27} textAnchor="middle" fontSize={9}>💭</text>
+        </g>
+      )}
+    </g>
+  );
+}
 
 function AgentSprite({
   agent,
   pos,
   onSelect,
   reduced,
+  tickCount,
+  index,
 }: {
   agent: Agent;
   pos: { x: number; y: number };
   onSelect: (a: Agent) => void;
   reduced: boolean;
+  tickCount: number;
+  index: number;
 }) {
   const st = AGENT_STATUS[agent.status];
   const busy = ['working', 'checking', 'delegating'].includes(agent.status);
   const unread = useOffice((s) => s.unread[agent.id] ?? 0);
   const [walking, setWalking] = useState(false);
+  const [facing, setFacing] = useState(1);
   const prev = useRef(pos);
 
   useEffect(() => {
     if (prev.current.x !== pos.x || prev.current.y !== pos.y) {
+      // 進行方向を向く
+      if (pos.x !== prev.current.x) setFacing(pos.x > prev.current.x ? 1 : -1);
       prev.current = pos;
       setWalking(true);
       const t = setTimeout(() => setWalking(false), 1700);
@@ -325,8 +689,20 @@ function AgentSprite({
     }
   }, [pos.x, pos.y]);
 
+  // 会議・プロジェクト中はテーブル中心を向く
+  const zone = agentZone(agent);
+  const zoneCenter = ZONE_CENTERS[zone];
+  const seatedFacing = zoneCenter ? (zoneCenter.x >= pos.x ? 1 : -1) : null;
+
+  // 待機モーション(決定的な擬似ランダム: tick+indexで揺らす)
+  const idleSeed = (tickCount + index * 5) % 29;
+  const thinking = !walking && agent.status === 'idle' && idleSeed < 4;
+  const turned = !walking && agent.status === 'idle' && idleSeed >= 14 && idleSeed < 19; // 振り向き
+  const effectiveFacing = seatedFacing ?? (turned ? -facing : facing);
+  const talking = agent.statusNote.startsWith('💬');
+
   const showBubble =
-    agent.statusNote.startsWith('💬') ||
+    talking ||
     ['waiting_approval', 'error', 'done', 'meeting'].includes(agent.status) ||
     (busy && agent.progress > 0);
   const bubbleText = agent.statusNote.replace(/^💬 ?/, '').slice(0, 14) + (agent.statusNote.length > 15 ? '…' : '');
@@ -346,51 +722,63 @@ function AgentSprite({
       aria-label={`${agent.name}(${st.label})の詳細を開く`}
       style={{ cursor: 'pointer', outline: 'none' }}
     >
-      <g className={walking && !reduced ? 'sim-bob' : undefined}>
+      <g className={walking && !reduced ? 'sim-bob' : !reduced && agent.status !== 'paused' ? 'idle-sway' : undefined}>
         {/* 影 */}
-        <ellipse cx={0} cy={13} rx={14} ry={4.5} fill="#8a6a4a" opacity={0.18} />
-        {/* 体(白丸+カラーリング — 参考イメージの丸アバター) */}
-        <circle r={16.5} fill="#ffffff" stroke="#e8ddc8" strokeWidth={1} opacity={agent.status === 'paused' ? 0.6 : 1} />
-        <circle r={16.5} fill="none" stroke={agent.color} strokeWidth={2.6} opacity={agent.status === 'paused' ? 0.4 : 0.9} />
-        <text y={6} textAnchor="middle" fontSize={16} aria-hidden>
-          {agent.avatar}
-        </text>
-        {/* 状態ドット(右下・参考イメージ準拠) */}
-        <circle cx={11.5} cy={11.5} r={4.5} fill={dotColor} stroke="#fff" strokeWidth={1.6}>
+        <ellipse cx={0} cy={17} rx={13} ry={4} fill="#8a6a4a" opacity={0.18} />
+        {/* キャラ本体(向きで反転) */}
+        <g transform={`scale(${effectiveFacing}, 1)`}>
+          <ChibiBody agent={agent} walking={walking && !reduced} thinking={thinking} />
+        </g>
+        {/* 会話インジケーター */}
+        {talking && (
+          <g opacity={0.9}>
+            <circle cx={-3} cy={-26} r={1.4} fill="#8a6a4a">
+              <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" begin="0s" repeatCount="indefinite" />
+            </circle>
+            <circle cx={1} cy={-26} r={1.4} fill="#8a6a4a">
+              <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" begin="0.2s" repeatCount="indefinite" />
+            </circle>
+            <circle cx={5} cy={-26} r={1.4} fill="#8a6a4a">
+              <animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" begin="0.4s" repeatCount="indefinite" />
+            </circle>
+          </g>
+        )}
+        {/* 状態ドット */}
+        <circle cx={12} cy={12} r={4.5} fill={dotColor} stroke="#fff" strokeWidth={1.6}>
           {busy && !reduced && <animate attributeName="opacity" values="1;0.4;1" dur="1.6s" repeatCount="indefinite" />}
         </circle>
         {/* 完了フラッシュ */}
         {agent.status === 'done' && (
-          <motion.circle r={16.5} fill="none" stroke="#10b981" strokeWidth={2.5} initial={{ opacity: 0.9, scale: 1 }} animate={{ opacity: 0, scale: 1.9 }} transition={{ duration: 1.4, repeat: 2 }} />
+          <motion.circle r={17} fill="none" stroke="#10b981" strokeWidth={2.5} initial={{ opacity: 0.9, scale: 1 }} animate={{ opacity: 0, scale: 1.9 }} transition={{ duration: 1.4, repeat: 2 }} />
         )}
         {/* 未読バッジ */}
         {unread > 0 && (
           <g>
-            <circle cx={-12} cy={-12} r={6.5} fill="#4f46e5" stroke="#fff" strokeWidth={1.4} />
-            <text x={-12} y={-9} textAnchor="middle" fontSize={8.5} fill="#fff" fontWeight={700}>
+            <circle cx={-13} cy={-16} r={6.5} fill="#4f46e5" stroke="#fff" strokeWidth={1.4} />
+            <text x={-13} y={-13} textAnchor="middle" fontSize={8.5} fill="#fff" fontWeight={700}>
               {unread}
             </text>
           </g>
         )}
-        {/* 名札(白ピル・参考イメージ準拠) */}
-        <rect x={-36} y={19} width={72} height={15} rx={7.5} fill="#ffffff" stroke="#e3d7bd" strokeWidth={1.2} />
-        <text y={29.5} textAnchor="middle" fontSize={9} fill="#6f5b43" fontWeight={700}>
+        {/* 名札 */}
+        <rect x={-36} y={21} width={72} height={15} rx={7.5} fill="#ffffff" stroke="#e3d7bd" strokeWidth={1.2} />
+        <text y={31.5} textAnchor="middle" fontSize={9} fill={P.tag} fontWeight={700}>
           {agent.name.slice(0, 9)}
         </text>
         {/* 進捗ミニバー */}
         {busy && agent.progress > 0 && (
           <g>
-            <rect x={-16} y={37} width={32} height={3.5} rx={1.75} fill="#e8ddc8" />
-            <rect x={-16} y={37} width={(32 * agent.progress) / 100} height={3.5} rx={1.75} fill={agent.color} />
+            <rect x={-16} y={39} width={32} height={3.5} rx={1.75} fill="#e8ddc8" />
+            <rect x={-16} y={39} width={(32 * agent.progress) / 100} height={3.5} rx={1.75} fill={agent.color} />
           </g>
         )}
         {/* 吹き出し */}
         <AnimatePresence>
           {showBubble && bubbleText && (
             <motion.g initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-              <rect x={-bubbleText.length * 4.6 - 8} y={-48} width={bubbleText.length * 9.2 + 16} height={20} rx={10} fill="#ffffff" stroke="#e3d7bd" strokeWidth={1.2} opacity={0.97} />
-              <path d="M -4 -29 L 0 -22 L 4 -29 Z" fill="#ffffff" stroke="#e3d7bd" strokeWidth={0.8} />
-              <text y={-34.5} textAnchor="middle" fontSize={9.5} fill="#5c4c38">
+              <rect x={-bubbleText.length * 4.6 - 8} y={-52} width={bubbleText.length * 9.2 + 16} height={20} rx={10} fill="#ffffff" stroke="#e3d7bd" strokeWidth={1.2} opacity={0.97} />
+              <path d="M -4 -33 L 0 -26 L 4 -33 Z" fill="#ffffff" stroke="#e3d7bd" strokeWidth={0.8} />
+              <text y={-38.5} textAnchor="middle" fontSize={9.5} fill="#5c4c38">
                 {bubbleText}
               </text>
             </motion.g>
@@ -401,7 +789,48 @@ function AgentSprite({
   );
 }
 
-// ---------- 受け渡し演出(書類が飛ぶ) ----------
+// ---------- 足跡レイヤー ----------
+
+interface Trail {
+  id: string;
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+}
+
+function TrailLayer({ trails }: { trails: Trail[] }) {
+  return (
+    <g pointerEvents="none">
+      <AnimatePresence>
+        {trails.map((trail) => (
+          <motion.g key={trail.id} initial={{ opacity: 0.5 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} transition={{ duration: 2 }}>
+            {[0.25, 0.45, 0.65, 0.85].map((t, i) => (
+              <ellipse
+                key={i}
+                cx={trail.from.x + (trail.to.x - trail.from.x) * t + (i % 2 === 0 ? -3 : 3)}
+                cy={trail.from.y + (trail.to.y - trail.from.y) * t + 14}
+                rx={2.5}
+                ry={1.4}
+                fill="#8a6a4a"
+                opacity={0.4}
+              />
+            ))}
+          </motion.g>
+        ))}
+      </AnimatePresence>
+    </g>
+  );
+}
+
+// ---------- 受け渡し演出 ----------
+
+function eventIcon(label: string, kind: string): string {
+  if (label.includes('メール') || label.includes('送信')) return '✉️';
+  if (label.includes('レビュー') || label.includes('チェック') || label.includes('確認')) return '🔍';
+  if (kind === 'complete' || label.includes('納品')) return '✅';
+  if (kind === 'error') return '⚠️';
+  if (label.includes('報告')) return '📈';
+  return '📄';
+}
 
 function HandoffLayer({ positions }: { positions: Map<string, { x: number; y: number }> }) {
   const events = useOffice((s) => s.officeEvents);
@@ -421,10 +850,10 @@ function HandoffLayer({ positions }: { positions: Map<string, { x: number; y: nu
             <motion.g key={e.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={color} strokeWidth={1.5} strokeDasharray="5 6" opacity={0.5} />
               {!reduced && (
-                <motion.g initial={{ x: from.x, y: from.y, scale: 0.6 }} animate={{ x: to.x, y: to.y, scale: 1 }} transition={{ duration: 1.5, ease: 'easeInOut' }}>
+                <motion.g initial={{ x: from.x, y: from.y, scale: 0.6, rotate: -8 }} animate={{ x: to.x, y: to.y, scale: 1, rotate: 8 }} transition={{ duration: 1.5, ease: 'easeInOut' }}>
                   <circle r={10} fill="#ffffff" stroke={color} strokeWidth={1.8} />
                   <text y={4} textAnchor="middle" fontSize={10}>
-                    {e.kind === 'complete' ? '✅' : e.kind === 'error' ? '⚠️' : '📄'}
+                    {eventIcon(e.label, e.kind)}
                   </text>
                 </motion.g>
               )}
@@ -442,7 +871,7 @@ function HandoffLayer({ positions }: { positions: Map<string, { x: number; y: nu
   );
 }
 
-// ---------- 成果物完成のお祝い演出 ----------
+// ---------- お祝い演出(キラキラ・紙吹雪・拍手・花火) ----------
 
 function CelebrationLayer({ positions }: { positions: Map<string, { x: number; y: number }> }) {
   const achievements = useOffice((s) => s.achievements);
@@ -475,33 +904,67 @@ function CelebrationLayer({ positions }: { positions: Map<string, { x: number; y
 
   useEffect(() => {
     if (bursts.length === 0) return;
-    const t = setTimeout(() => setBursts((b) => b.slice(1)), 2600);
+    const t = setTimeout(() => setBursts((b) => b.slice(1)), 2800);
     return () => clearTimeout(t);
   }, [bursts]);
 
   if (reduced) return null;
+  const confetti = ['#f2a9bd', '#f5d76e', '#8ecf9d', '#8ab0e0', '#c39ad6'];
   return (
     <g pointerEvents="none">
       <AnimatePresence>
         {bursts.map((burst) => (
           <motion.g key={burst.id} initial={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            {Array.from({ length: burst.big ? 10 : 6 }, (_, i) => {
-              const a = (i / (burst.big ? 10 : 6)) * Math.PI * 2;
-              const dist = burst.big ? 46 : 30;
-              const colors = ['#f2a9bd', '#f5d76e', '#8ecf9d', '#8ab0e0', '#c39ad6'];
-              return (
+            {/* 紙吹雪(大)/キラキラ(小) */}
+            {Array.from({ length: burst.big ? 14 : 6 }, (_, i) => {
+              const a = (i / (burst.big ? 14 : 6)) * Math.PI * 2;
+              const dist = burst.big ? 52 : 30;
+              return burst.big && i % 2 === 0 ? (
+                <motion.rect
+                  key={i}
+                  initial={{ x: burst.x, y: burst.y, opacity: 1, rotate: 0 }}
+                  animate={{ x: burst.x + Math.cos(a) * dist, y: burst.y + Math.sin(a) * dist + 16, opacity: 0, rotate: 200 }}
+                  transition={{ duration: 1.9, ease: 'easeOut' }}
+                  width={5}
+                  height={3}
+                  rx={1}
+                  fill={confetti[i % confetti.length]}
+                />
+              ) : (
                 <motion.circle
                   key={i}
                   initial={{ cx: burst.x, cy: burst.y, r: burst.big ? 4 : 3, opacity: 1 }}
                   animate={{ cx: burst.x + Math.cos(a) * dist, cy: burst.y + Math.sin(a) * dist - 12, r: 0.6, opacity: 0 }}
                   transition={{ duration: 1.5, ease: 'easeOut' }}
-                  fill={colors[i % colors.length]}
+                  fill={confetti[i % confetti.length]}
                 />
               );
             })}
+            {/* 花火(大のみ・上空に控えめ) */}
+            {burst.big &&
+              [0, 1].map((f) => (
+                <g key={f}>
+                  {Array.from({ length: 8 }, (_, i) => {
+                    const a = (i / 8) * Math.PI * 2;
+                    const fx = burst.x + (f === 0 ? -70 : 70);
+                    const fy = burst.y - 60;
+                    return (
+                      <motion.line
+                        key={i}
+                        initial={{ x1: fx, y1: fy, x2: fx, y2: fy, opacity: 0.9 }}
+                        animate={{ x2: fx + Math.cos(a) * 20, y2: fy + Math.sin(a) * 20, opacity: 0 }}
+                        transition={{ duration: 1.1, delay: 0.3 + f * 0.35, ease: 'easeOut' }}
+                        stroke={confetti[(i + f) % confetti.length]}
+                        strokeWidth={1.6}
+                        strokeLinecap="round"
+                      />
+                    );
+                  })}
+                </g>
+              ))}
             <motion.text
               initial={{ x: burst.x, y: burst.y - 20, opacity: 0, scale: 0.6 }}
-              animate={{ y: burst.y - (burst.big ? 52 : 40), opacity: [0, 1, 1, 0], scale: 1 }}
+              animate={{ y: burst.y - (burst.big ? 56 : 42), opacity: [0, 1, 1, 0], scale: 1 }}
               transition={{ duration: 2.2 }}
               textAnchor="middle"
               fontSize={burst.big ? 22 : 15}
@@ -509,11 +972,18 @@ function CelebrationLayer({ positions }: { positions: Map<string, { x: number; y
               {burst.big ? '🎉' : '✨'}
             </motion.text>
             {burst.big && (
-              <motion.g initial={{ opacity: 0, y: 6 }} animate={{ opacity: [0, 1, 1, 0] }} transition={{ duration: 2.4 }}>
-                <rect x={burst.x - 62} y={burst.y - 92} width={124} height={20} rx={10} fill="#10b981" opacity={0.95} />
-                <text x={burst.x} y={burst.y - 78} textAnchor="middle" fontSize={10.5} fill="#fff" fontWeight={700}>
+              <motion.g initial={{ opacity: 0, y: 6 }} animate={{ opacity: [0, 1, 1, 0] }} transition={{ duration: 2.6 }}>
+                <rect x={burst.x - 62} y={burst.y - 96} width={124} height={20} rx={10} fill="#10b981" opacity={0.95} />
+                <text x={burst.x} y={burst.y - 82} textAnchor="middle" fontSize={10.5} fill="#fff" fontWeight={700}>
                   成果物が完成しました!
                 </text>
+                {/* 拍手 */}
+                <motion.text initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 2, delay: 0.4 }} x={burst.x - 82} y={burst.y - 82} fontSize={13}>
+                  👏
+                </motion.text>
+                <motion.text initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 2, delay: 0.7 }} x={burst.x + 70} y={burst.y - 82} fontSize={13}>
+                  👏
+                </motion.text>
               </motion.g>
             )}
           </motion.g>
@@ -523,7 +993,9 @@ function CelebrationLayer({ positions }: { positions: Map<string, { x: number; y
   );
 }
 
-// ---------- 本体 ----------
+// ============================================================
+// 本体
+// ============================================================
 
 export function OfficeSimulator({ onSelect }: { onSelect: (a: Agent) => void }) {
   const agents = useOffice((s) => s.agents);
@@ -534,6 +1006,8 @@ export function OfficeSimulator({ onSelect }: { onSelect: (a: Agent) => void }) 
   const tickCount = useOffice((s) => s.tickCount);
   const reduced = useReducedMotion() ?? false;
   const [realPeriod, setRealPeriod] = useState<DayPeriod>(() => currentPeriod());
+  const [trails, setTrails] = useState<Trail[]>([]);
+  const prevPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   useEffect(() => {
     const id = setInterval(() => setRealPeriod(currentPeriod()), 60_000);
@@ -548,6 +1022,24 @@ export function OfficeSimulator({ onSelect }: { onSelect: (a: Agent) => void }) 
   const light = LIGHTING[period];
 
   const positions = useMemo(() => resolvePositions(agents), [agents]);
+
+  // 足跡: 座標が変わった社員の移動経路を記録(2秒でフェード)
+  useEffect(() => {
+    const newTrails: Trail[] = [];
+    positions.forEach((pos, id) => {
+      const prev = prevPositions.current.get(id);
+      if (prev && (prev.x !== pos.x || prev.y !== pos.y)) {
+        newTrails.push({ id: `${id}-${Date.now()}`, from: prev, to: pos });
+      }
+    });
+    prevPositions.current = positions;
+    if (newTrails.length > 0 && !reduced) {
+      setTrails((t) => [...t.slice(-6), ...newTrails]);
+      const timer = setTimeout(() => setTrails((t) => t.slice(newTrails.length)), 2200);
+      return () => clearTimeout(timer);
+    }
+  }, [positions, reduced]);
+
   const meetingInUse = agents.some((a) => agentZone(a) === 'meeting');
   const hasError = agents.some((a) => a.status === 'error');
   const workingIds = new Set(agents.filter((a) => ['working', 'checking', 'delegating'].includes(a.status) && agentZone(a) === 'desk').map((a) => a.id));
@@ -565,7 +1057,6 @@ export function OfficeSimulator({ onSelect }: { onSelect: (a: Agent) => void }) 
           aria-label="バーチャルオフィスの見取り図。AI社員をクリックすると詳細を開けます"
         >
           <defs>
-            {/* 木の床(縦板) */}
             <pattern id="planks" width={26} height={26} patternUnits="userSpaceOnUse">
               <rect width={26} height={26} fill="none" />
               <line x1={0} y1={0} x2={0} y2={26} stroke={P.plank} strokeOpacity={0.5} strokeWidth={1.4} />
@@ -577,18 +1068,15 @@ export function OfficeSimulator({ onSelect }: { onSelect: (a: Agent) => void }) 
             </pattern>
           </defs>
 
-          {/* 建物の外枠と廊下 */}
           <rect x={0} y={0} width={VB.w} height={VB.h} rx={22} fill={P.bgOuter} />
           <rect x={8} y={8} width={VB.w - 16} height={VB.h - 16} rx={18} fill={P.bgInner} />
 
-          {/* 部屋 */}
           {ROOMS.map((room) => (
             <g key={room.id}>
-              {/* 壁(木枠)と床 */}
+              <rect x={room.x - 2} y={room.y + 2} width={room.w + 8} height={room.h + 8} rx={16} fill="#c9b48c" opacity={0.5} />
               <rect x={room.x - 4} y={room.y - 4} width={room.w + 8} height={room.h + 8} rx={16} fill={P.wall} />
               <rect x={room.x} y={room.y} width={room.w} height={room.h} rx={12} fill={room.night ? P.night : P.floorWood} />
               <rect x={room.x} y={room.y} width={room.w} height={room.h} rx={12} fill={`url(#${room.night ? 'planksNight' : 'planks'})`} />
-              {/* 窓(上壁・青) */}
               {!room.night &&
                 Array.from({ length: room.windows ?? 0 }, (_, i) => {
                   const wx = room.x + room.w - 34 - i * 42;
@@ -599,14 +1087,11 @@ export function OfficeSimulator({ onSelect }: { onSelect: (a: Agent) => void }) 
                     </g>
                   );
                 })}
-              {/* ドア(下壁) */}
               <rect x={room.x + room.w / 2 - 16} y={room.y + room.h - 4} width={32} height={8} rx={4} fill={P.bgInner} stroke={P.wallLight} strokeWidth={1} />
-              {/* 部屋ラベル(こげ茶タグ・参考イメージ準拠) */}
               <rect x={room.x + 6} y={room.y + 6} width={room.label.length * 11 + 16} height={20} rx={6} fill={P.tag} opacity={0.95} />
-              <text x={room.x + 14} y={room.y + 20} fontSize={11} fill="#fdfaf3" fontWeight={700}>
+              <text x={room.x + 14} y={room.y + 20} fontSize={11} fill={P.paper} fontWeight={700}>
                 {room.label}
               </text>
-              {/* 会議室の使用中ランプ */}
               {room.id === 'meeting' && (
                 <g>
                   <circle cx={room.x + room.w - 22} cy={room.y + 16} r={4} fill={meetingInUse ? '#ef4444' : '#34c759'}>
@@ -620,51 +1105,69 @@ export function OfficeSimulator({ onSelect }: { onSelect: (a: Agent) => void }) 
             </g>
           ))}
 
-          {/* 家具 */}
+          {/* 家具(部屋ごとの生活感) */}
           <PresidentRoom />
+          <SecretaryRoom />
+          <SalesRoom />
+          <ProductionRoom />
+          <MarketingRoom />
+          <AdminRoom />
           {Object.entries(DESKS).map(([id, d]) => (
             <Desk key={id} x={d.x} y={d.y} glow={workingIds.has(id)} />
           ))}
           <MeetingTable />
           <ProjectTable />
-          <BreakArea />
-          <ServerRacks hasError={hasError} />
+          <BreakRoom />
+          <ServerRoom hasError={hasError} />
           <ApprovalArea pending={pending} />
-          <Bookshelf x={130} y={560} w={100} />
-          <Clock x={60} y={600} />
           <Plant x={40} y={226} />
           <Plant x={1240} y={534} />
           <Plant x={648} y={226} />
+          <Tree x={650} y={770} />
           <FlowerPot x={550} y={824} />
           <FlowerPot x={750} y={824} />
           <WelcomeMat />
 
           {/* 社長(あなた) */}
           <g role="img" aria-label={`${ceoName}(あなた)の席`}>
-            <ellipse cx={120} cy={144} rx={14} ry={4.5} fill="#8a6a4a" opacity={0.18} />
-            <circle cx={120} cy={130} r={16.5} fill="#fff" stroke="#e8ddc8" strokeWidth={1} />
-            <circle cx={120} cy={130} r={16.5} fill="none" stroke="#6366f1" strokeWidth={2.6} opacity={0.9} />
-            <text x={120} y={136} textAnchor="middle" fontSize={16}>🧑‍💼</text>
-            <rect x={84} y={149} width={72} height={15} rx={7.5} fill="#ffffff" stroke="#e3d7bd" strokeWidth={1.2} />
-            <text x={120} y={159.5} textAnchor="middle" fontSize={9} fill="#6f5b43" fontWeight={700}>
+            <ellipse cx={120} cy={147} rx={13} ry={4} fill="#8a6a4a" opacity={0.18} />
+            <g transform="translate(120 130)">
+              <ellipse cx={-5} cy={16} rx={4} ry={3} fill="#8a6a4a" />
+              <ellipse cx={5} cy={16} rx={4} ry={3} fill="#8a6a4a" />
+              <circle cx={-11} cy={7} r={3.2} fill={P.skin} stroke="#eec9a8" strokeWidth={0.8} />
+              <circle cx={11} cy={7} r={3.2} fill={P.skin} stroke="#eec9a8" strokeWidth={0.8} />
+              <rect x={-9} y={0} width={18} height={15} rx={7} fill="#6f5b43" opacity={0.9} />
+              <rect x={-3} y={2} width={6} height={9} rx={2} fill="#e08a8a" />
+              <circle cy={-9} r={10.5} fill={P.skin} stroke="#eec9a8" strokeWidth={1} />
+              <path d="M -10.5 -9 Q -10.5 -17 0 -19 Q 10.5 -17 10.5 -9 Q 5 -14.5 0 -14.5 Q -5 -14.5 -10.5 -9 Z" fill="#5c4c38" />
+              <circle cx={-3.6} cy={-8} r={1.3} fill="#4a3b2f" />
+              <circle cx={3.6} cy={-8} r={1.3} fill="#4a3b2f" />
+              <path d="M -2 -4.5 Q 0 -3 2 -4.5" stroke="#4a3b2f" strokeWidth={0.9} fill="none" strokeLinecap="round" />
+            </g>
+            <rect x={84} y={152} width={72} height={15} rx={7.5} fill="#ffffff" stroke="#e3d7bd" strokeWidth={1.2} />
+            <text x={120} y={162.5} textAnchor="middle" fontSize={9} fill={P.tag} fontWeight={700}>
               {ceoName}(社長)
             </text>
           </g>
 
-          {/* 時間帯の照明オーバーレイ */}
           {light.opacity > 0 && <rect x={0} y={0} width={VB.w} height={VB.h} rx={22} fill={light.fill} opacity={light.opacity} pointerEvents="none" />}
           {period === 'night' &&
             Object.entries(DESKS).map(([id, d]) =>
               workingIds.has(id) ? <circle key={id} cx={d.x} cy={d.y - 42} r={30} fill="#fbbf24" opacity={0.16} pointerEvents="none" /> : null,
             )}
 
+          {/* 足跡 */}
+          <TrailLayer trails={trails} />
+
           {/* 受け渡し演出 */}
           <HandoffLayer positions={positions} />
 
-          {/* AI社員 */}
-          {agents.map((agent) => {
+          {/* AI社員(チビキャラ) */}
+          {agents.map((agent, index) => {
             const pos = positions.get(agent.id)!;
-            return <AgentSprite key={agent.id} agent={agent} pos={pos} onSelect={onSelect} reduced={reduced} />;
+            return (
+              <AgentSprite key={agent.id} agent={agent} pos={pos} onSelect={onSelect} reduced={reduced} tickCount={tickCount} index={index} />
+            );
           })}
 
           {/* お祝い演出 */}

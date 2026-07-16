@@ -60,6 +60,83 @@ body {
   }
 }
 
+/* 箱庭シミュレーター: 歩行中の足の交互ステップ */
+@keyframes walk-foot-l {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.2px);
+  }
+}
+@keyframes walk-foot-r {
+  0%,
+  100% {
+    transform: translateY(-2.2px);
+  }
+  50% {
+    transform: translateY(0);
+  }
+}
+.walk-foot-l {
+  animation: walk-foot-l 0.32s ease-in-out infinite;
+}
+.walk-foot-r {
+  animation: walk-foot-r 0.32s ease-in-out infinite;
+}
+
+/* 箱庭シミュレーター: 歩行中の腕の小さな振り */
+@keyframes walk-arm-l {
+  0%,
+  100% {
+    transform: rotate(10deg);
+  }
+  50% {
+    transform: rotate(-10deg);
+  }
+}
+@keyframes walk-arm-r {
+  0%,
+  100% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+.walk-arm-l {
+  animation: walk-arm-l 0.32s ease-in-out infinite;
+}
+.walk-arm-r {
+  animation: walk-arm-r 0.32s ease-in-out infinite;
+}
+
+/* 箱庭シミュレーター: 待機中のゆっくりした揺れ */
+@keyframes idle-sway {
+  0%,
+  100% {
+    transform: rotate(-1.2deg);
+  }
+  50% {
+    transform: rotate(1.2deg);
+  }
+}
+.idle-sway {
+  animation: idle-sway 3.2s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .walk-foot-l,
+  .walk-foot-r,
+  .walk-arm-l,
+  .walk-arm-r,
+  .idle-sway {
+    animation: none;
+  }
+}
+
 /* AI思考中の3点ドット(静かな点滅) */
 @keyframes think {
   0%,
