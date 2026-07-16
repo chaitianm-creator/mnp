@@ -55,9 +55,13 @@ const AgentDesk = memo(function AgentDesk({
       layout
       data-agent-chip={agent.id}
       onClick={() => onSelect(agent)}
-      whileHover={reduced ? undefined : { scale: 1.03 }}
-      whileTap={reduced ? undefined : { scale: 0.97 }}
-      transition={reduced ? { duration: 0 } : { type: 'spring', damping: 22, stiffness: 170 }}
+      whileHover={reduced ? undefined : { scale: 1.02 }}
+      whileTap={reduced ? undefined : { scale: 0.98 }}
+      transition={{
+        // 移動(layout)は歩くようにゆっくり、ホバーは即座に反応させる
+        layout: reduced ? { duration: 0 } : { type: 'tween', duration: 1.2, ease: [0.22, 1, 0.36, 1] },
+        scale: { type: 'spring', stiffness: 420, damping: 32 },
+      }}
       aria-label={`${agent.name}(${st.label})の詳細を開く`}
       className={cn(
         'relative w-full rounded-lg border bg-white px-2.5 py-2 text-left shadow-sm outline-none transition-colors',
@@ -103,7 +107,16 @@ const AgentDesk = memo(function AgentDesk({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[11px] font-bold tracking-tight text-slate-800">{agent.name}</p>
-          <p className={cn('truncate text-[10px] font-medium', st.color)}>{st.label}</p>
+          <p className={cn('flex items-center gap-1 truncate text-[10px] font-medium', st.color)}>
+            {st.label}
+            {busy && (
+              <span className="inline-flex gap-0.5" aria-hidden>
+                <span className="think-dot h-0.5 w-0.5 rounded-full bg-current" />
+                <span className="think-dot h-0.5 w-0.5 rounded-full bg-current" style={{ animationDelay: '0.2s' }} />
+                <span className="think-dot h-0.5 w-0.5 rounded-full bg-current" style={{ animationDelay: '0.4s' }} />
+              </span>
+            )}
+          </p>
         </div>
       </div>
       {/* 吹き出し(状態メモ) */}

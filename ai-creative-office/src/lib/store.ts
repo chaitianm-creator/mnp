@@ -83,6 +83,7 @@ interface OfficeState {
   officeEvents: OfficeEvent[];
   announcements: Announcement[];
   tickCount: number;
+  relayQueue: { from: string; to: string; label: string; log: string }[];
 
   setHydrated: (v: boolean) => void;
   tick: () => void;
@@ -167,18 +168,62 @@ const ANNOUNCE_POOL: ((counts: { pending: number; running: number; errors: numbe
 ];
 
 const TICK_LOGS: [string, string, ActivityLog['status']][] = [
-  ['list', '営業リストに新しい企業を追加しました。', 'info'],
-  ['email_sales', '営業メールの開封を確認しました。', 'info'],
-  ['writer', '原稿の推敲が1本完了しました。', 'success'],
-  ['coder', 'コンポーネント1件の実装が完了しました。', 'success'],
-  ['reviewer', 'レビュー指摘1件の修正を確認しました。', 'success'],
-  ['seo', 'キーワード順位の変動を記録しました。', 'info'],
-  ['sns', '投稿下書きを1本更新しました。', 'info'],
-  ['secretary', 'リマインドを1件送信しました。', 'info'],
-  ['deal_mgr', '商談ステータスを更新しました。', 'info'],
-  ['designer', 'ワイヤーフレームのセクションを追加しました。', 'info'],
-  ['accountant', 'トークン利用量を記録しました。', 'info'],
-  ['ceo', '各部署の進捗を確認しました。', 'info'],
+  ['list', '営業リストに新しい企業を3社追加しました(製造業・愛知県)。', 'info'],
+  ['list', 'ミナト精密工業様の企業情報を最新化しました。', 'info'],
+  ['email_sales', 'ワタナベ税理士法人様がメールを開封しました。', 'info'],
+  ['email_sales', 'アーバン不動産様向けの件名をA/Bテスト用に2案作成しました。', 'info'],
+  ['form_sales', 'タカハシ電設様の送信文案を業種向けに調整しました。', 'info'],
+  ['writer', '佐藤工務店様「お客様の声」原稿の推敲が完了しました。', 'success'],
+  ['writer', '採用コピーの表現を3パターン作成しました。', 'info'],
+  ['coder', 'ヘッダーコンポーネントの実装が完了しました。', 'success'],
+  ['coder', '施工事例ギャラリーのレスポンシブ調整を反映しました。', 'info'],
+  ['reviewer', 'トップページの指摘1件(リンク切れ)の修正を確認しました。', 'success'],
+  ['reviewer', '田中製作所様サイトのアクセシビリティ検査を実行中です。', 'info'],
+  ['seo', '「ホームページ リニューアル 費用」の競合3ページを分析しました。', 'info'],
+  ['seo', '「工務店 ホームページ 事例」が7位→5位に上昇しました。', 'success'],
+  ['sns', 'Instagram投稿「制作実績紹介」の画像構成を更新しました。', 'info'],
+  ['secretary', 'ミナト精密工業様へ商談リマインドの下書きを作成しました。', 'info'],
+  ['secretary', '明日の予定2件を各担当AIへ通知しました。', 'info'],
+  ['deal_mgr', 'クローバー美容室様の商談メモを要約しました。', 'info'],
+  ['deal_mgr', 'ハルカゼ商事様の案件化可能性を68%と判定しました。', 'info'],
+  ['designer', 'トップページヒーローセクションの配色案を2点追加しました。', 'info'],
+  ['designer', 'デザイナーAIがレビュアーAIへデザイン確認を依頼しました。', 'info'],
+  ['accountant', '本日のトークン利用量を集計し、帳簿へ記録しました。', 'info'],
+  ['infra', 'ステージング環境のビルドが72秒で成功しました。', 'success'],
+  ['ceo', '各部署の進捗を確認し、優先順位を再調整しました。', 'info'],
+  ['ops_admin', '操作ログ48件を監査しました。異常はありません。', 'info'],
+];
+
+// 会議中のAI社員が交わす会話(吹き出し演出用)
+const MEETING_TALK = [
+  '💬 進捗は予定どおりです',
+  '💬 コピーはB案が良さそうですね',
+  '💬 明日までに初稿を出します',
+  '💬 返信率が改善しています',
+  '💬 リスクは共有済みです',
+  '💬 次の工程に進めましょう',
+  '💬 顧客確認は木曜が良さそうです',
+];
+
+// 仕事のリレー演出: 営業→秘書→CEO→制作 と依頼が流れていく
+const RELAY_CHAINS: { from: string; to: string; label: string; log: string }[][] = [
+  [
+    { from: 'list', to: 'email_sales', label: 'リスト28社を引き渡し', log: 'リスト作成AIがメール営業AIへ新規リスト28社を引き渡しました。' },
+    { from: 'email_sales', to: 'secretary', label: '商談日程の調整を依頼', log: 'メール営業AIが秘書AIへ商談日程の調整を依頼しました。' },
+    { from: 'secretary', to: 'ceo', label: '商談予定を報告', log: '秘書AIがCEO AIへ来週の商談予定を報告しました。' },
+    { from: 'ceo', to: 'director', label: '制作準備を指示', log: 'CEO AIがディレクターAIへ受注見込み案件の制作準備を指示しました。' },
+  ],
+  [
+    { from: 'reception', to: 'deal_mgr', label: '問い合わせを引き継ぎ', log: '受付AIが商談管理AIへ新規問い合わせを引き継ぎました。' },
+    { from: 'deal_mgr', to: 'ceo', label: '商談化を報告', log: '商談管理AIがCEO AIへ商談化1件を報告しました。' },
+    { from: 'ceo', to: 'writer', label: '提案資料の作成を指示', log: 'CEO AIがライターAIへ提案資料の作成を指示しました。' },
+  ],
+  [
+    { from: 'director', to: 'designer', label: 'ワイヤー作成を依頼', log: 'ディレクターAIがデザイナーAIへワイヤーフレーム作成を依頼しました。' },
+    { from: 'designer', to: 'coder', label: 'デザイン指示書を引き渡し', log: 'デザイナーAIがコーダーAIへデザイン指示書を引き渡しました。' },
+    { from: 'coder', to: 'reviewer', label: 'レビューを依頼', log: 'コーダーAIがレビュアーAIへ実装レビューを依頼しました。' },
+    { from: 'reviewer', to: 'infra', label: '公開前チェックを依頼', log: 'レビュアーAIがインフラAIへ公開前チェックを依頼しました。' },
+  ],
 ];
 
 function nowIso() {
@@ -316,6 +361,7 @@ export const useOffice = create<OfficeState>()(
       officeEvents: [],
       announcements: [],
       tickCount: 0,
+      relayQueue: [],
 
       setHydrated: (v) => set({ hydrated: v }),
 
@@ -336,6 +382,36 @@ export const useOffice = create<OfficeState>()(
         const completedAssignees = new Set<string>();
         let tasks = [...s.tasks];
         let approvals = s.approvals;
+
+        // 集中度・疲労度のゆらぎ(0-100にクランプしつつ目標値へ緩やかに寄せる)
+        const drift = (v: number | undefined, target: number, spread: number) => {
+          const cur = v ?? target;
+          return Math.round(Math.max(5, Math.min(100, cur + (target - cur) * 0.15 + (Math.random() - 0.5) * spread)));
+        };
+
+        // 仕事のリレー演出: キューに積まれた依頼を2tickごとに1本ずつ流す
+        let relayQueue = s.relayQueue;
+        if (relayQueue.length > 0 && tickCount % 2 === 0) {
+          const [step, ...rest] = relayQueue;
+          relayQueue = rest;
+          newEvents.push({
+            id: uid('evt'),
+            kind: 'delegate',
+            fromAgentId: step.from,
+            toAgentId: step.to,
+            label: step.label,
+            createdAt: nowIso(),
+          });
+          newLogs.push({
+            id: uid('log'),
+            timestamp: nowIso(),
+            agentId: step.from,
+            message: step.log,
+            taskId: null,
+            projectId: null,
+            status: 'info',
+          });
+        }
 
         // 1) 実行中タスクの進捗を進める
         tasks = tasks.map((task) => {
@@ -455,8 +531,14 @@ export const useOffice = create<OfficeState>()(
 
         // 3) エージェント状態・居場所(zone)を同期・演出
         let agents: Agent[] = s.agents.map((agent) => {
-          // 停止中: 休憩スペースでグレーアウト
-          if (agent.status === 'paused') return { ...agent, zone: 'break' as OfficeZone };
+          // 停止中: 休憩スペースでグレーアウト(疲労が回復していく)
+          if (agent.status === 'paused')
+            return {
+              ...agent,
+              zone: 'break' as OfficeZone,
+              fatigue: drift(agent.fatigue, 5, 2),
+              focus: drift(agent.focus, 60, 3),
+            };
           // エラー中: サーバールームで復旧作業。確率で自然復旧する
           if (agent.status === 'error') {
             if (Math.random() < 0.18) {
@@ -514,6 +596,8 @@ export const useOffice = create<OfficeState>()(
               outputTokens: agent.outputTokens + addOut,
               costUsd: agent.costUsd + addCost,
               doneFlashUntil: undefined,
+              focus: drift(agent.focus, 92, 8),
+              fatigue: drift(agent.fatigue, 70, 6),
             };
           }
 
@@ -549,12 +633,16 @@ export const useOffice = create<OfficeState>()(
             return agent;
           }
 
-          // 会議演出: しばらくして席へ戻る
+          // 会議演出: 会話の吹き出しを交わし、しばらくして席へ戻る
           if (agent.status === 'meeting') {
             if (Math.random() < 0.3) {
               return { ...agent, status: 'idle' as AgentStatus, zone: 'desk' as OfficeZone, statusNote: '次の指示を待っています', currentTaskId: null, progress: 0 };
             }
-            return agent;
+            return {
+              ...agent,
+              statusNote: Math.random() < 0.45 ? pickRandom(MEETING_TALK) : agent.statusNote,
+              focus: drift(agent.focus, 75, 5),
+            };
           }
 
           return {
@@ -564,6 +652,8 @@ export const useOffice = create<OfficeState>()(
             statusNote: '次の指示を待っています',
             currentTaskId: null,
             progress: 0,
+            focus: drift(agent.focus, 68, 5),
+            fatigue: drift(agent.fatigue, 15, 4),
           };
         });
 
@@ -628,7 +718,14 @@ export const useOffice = create<OfficeState>()(
 
         // 6) 大イベント(約18秒ごとに1種類だけ発生させ、画面が騒がしくなりすぎないようにする)
         if (tickCount % 6 === 0) {
-          const bigEventKind = ['announce', 'meeting', 'announce', 'error'][(tickCount / 6 - 1) % 4];
+          const bigEventKind = ['announce', 'relay', 'meeting', 'announce', 'relay', 'error'][
+            (tickCount / 6 - 1) % 6
+          ];
+
+          if (bigEventKind === 'relay' && relayQueue.length === 0) {
+            // 営業→秘書→CEO→制作 のように仕事が流れるリレーを開始
+            relayQueue = [...RELAY_CHAINS[Math.floor(tickCount / 6) % RELAY_CHAINS.length]];
+          }
 
           if (bigEventKind === 'announce') {
             const counts = {
@@ -721,6 +818,7 @@ export const useOffice = create<OfficeState>()(
           dailyStats,
           announcements,
           tickCount,
+          relayQueue,
           officeEvents: [...newEvents, ...s.officeEvents].slice(0, 10),
           logs: [...newLogs.reverse(), ...s.logs].slice(0, 400),
         });
@@ -769,21 +867,46 @@ export const useOffice = create<OfficeState>()(
         }
         const decisionLabel =
           decision === 'approved' ? '承認されました。実行を開始します' : decision === 'revision_requested' ? 'に修正依頼が届きました。修正します' : 'は却下されました';
+        const decisionLogs: ActivityLog[] = [
+          {
+            id: uid('log'),
+            timestamp: nowIso(),
+            agentId: approval.requesterId,
+            message: `「${approval.title}」${decisionLabel}。`,
+            taskId: approval.taskId,
+            projectId: null,
+            status: decision === 'approved' ? ('success' as const) : ('warning' as const),
+          },
+        ];
+        if (decision === 'approved') {
+          decisionLogs.unshift({
+            id: uid('log'),
+            timestamp: nowIso(),
+            agentId: 'ceo',
+            message: `社長承認「${approval.title}」を確認しました。担当AIへ実行を指示します。`,
+            taskId: approval.taskId,
+            projectId: null,
+            status: 'info',
+          });
+        }
         set({
           approvals,
           tasks,
-          logs: [
-            {
-              id: uid('log'),
-              timestamp: nowIso(),
-              agentId: approval.requesterId,
-              message: `「${approval.title}」${decisionLabel}。`,
-              taskId: approval.taskId,
-              projectId: null,
-              status: decision === 'approved' ? ('success' as const) : ('warning' as const),
-            },
-            ...s.logs,
-          ].slice(0, 400),
+          officeEvents:
+            decision === 'approved'
+              ? [
+                  {
+                    id: uid('evt'),
+                    kind: 'plan' as const,
+                    fromAgentId: 'ceo',
+                    toAgentId: approval.requesterId,
+                    label: '承認済み・実行を指示',
+                    createdAt: nowIso(),
+                  },
+                  ...s.officeEvents,
+                ].slice(0, 10)
+              : s.officeEvents,
+          logs: [...decisionLogs, ...s.logs].slice(0, 400),
         });
       },
 
@@ -978,18 +1101,19 @@ export const useOffice = create<OfficeState>()(
           ),
         })),
 
-      resetAll: () => set({ ...initialData, officeEvents: [], announcements: [], tickCount: 0 }),
+      resetAll: () =>
+        set({ ...initialData, officeEvents: [], announcements: [], tickCount: 0, relayQueue: [] }),
     }),
     {
       name: 'aco-store-v1',
-      version: 2,
+      version: 3,
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
       },
-      // v1(Phase 1初期)の永続化データにライブオフィス用フィールドを補完する
+      // 旧バージョンの永続化データにライブオフィス用フィールド(個性・集中度など)を補完する
       migrate: (persisted, version) => {
         const state = persisted as Partial<OfficeState>;
-        if (version < 2 && state) {
+        if (version < 3 && state) {
           if (Array.isArray(state.agents)) {
             state.agents = state.agents.map((a) => ({ ...a, ...AGENT_PERSONAS[a.id] }));
           }
@@ -1000,8 +1124,8 @@ export const useOffice = create<OfficeState>()(
         return state as OfficeState & Record<string, unknown>;
       },
       partialize: (s) => {
-        // hydratedと演出用の一時データ(officeEvents/announcements/tickCount)は永続化しない
-        const { hydrated, officeEvents, announcements, tickCount, ...rest } = s as OfficeState &
+        // hydratedと演出用の一時データ(officeEvents/announcements/tickCount/relayQueue)は永続化しない
+        const { hydrated, officeEvents, announcements, tickCount, relayQueue, ...rest } = s as OfficeState &
           Record<string, unknown>;
         return rest;
       },

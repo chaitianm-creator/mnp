@@ -76,26 +76,35 @@ const agentBase = {
 // 個性データ(ライブオフィス用)。ゲーム的な強さではなく業務上の特徴として表現する
 export const AGENT_PERSONAS: Record<
   string,
-  { nickname: string; trait: string; strengths: string[]; weaknesses: string[]; signatureStat: { label: string; value: string } }
+  {
+    nickname: string;
+    trait: string;
+    strengths: string[];
+    weaknesses: string[];
+    signatureStat: { label: string; value: string };
+    weeklyHighlight: string;
+    focus: number;
+    fatigue: number;
+  }
 > = {
-  ceo: { nickname: '蒼', trait: '全体最適・決断が速い', strengths: ['タスク分解', '優先順位付け', 'リソース配分'], weaknesses: ['細かい文言調整'], signatureStat: { label: '本日の采配', value: '14件' } },
-  secretary: { nickname: '結衣', trait: '気配り上手', strengths: ['日程調整', '議事録', 'リマインド'], weaknesses: ['技術的な判断'], signatureStat: { label: '今日の調整会議', value: '2件' } },
-  list: { nickname: '拓海', trait: '粘り強い', strengths: ['企業リサーチ', '重複検出', '条件絞り込み'], weaknesses: ['文章表現'], signatureStat: { label: '今日の取得件数', value: '152社' } },
-  form_sales: { nickname: '駿', trait: '丁寧で確実', strengths: ['フォーム送信文', '送信前チェック'], weaknesses: ['電話対応'], signatureStat: { label: '今日の下書き', value: '32件' } },
-  email_sales: { nickname: '美咲', trait: '積極的', strengths: ['採用サイト提案', '初回営業文', '件名A/B'], weaknesses: ['長文レポート'], signatureStat: { label: '今日の返信率', value: '18%' } },
-  reception: { nickname: 'ひなた', trait: '対応が早い', strengths: ['問い合わせ分類', '一次返信', '緊急度判定'], weaknesses: ['価格交渉'], signatureStat: { label: '平均初回対応', value: '18分' } },
-  deal_mgr: { nickname: '亮', trait: '記録魔', strengths: ['商談要約', 'ネクストアクション設計'], weaknesses: ['デザイン評価'], signatureStat: { label: '今日の更新商談', value: '8件' } },
-  tel: { nickname: '大和', trait: '声のプロ(準備中)', strengths: ['トークスクリプト', '想定Q&A'], weaknesses: ['自動架電(未解禁)'], signatureStat: { label: 'アポ率', value: '8.8%' } },
-  sns: { nickname: '琴音', trait: 'トレンドに敏感', strengths: ['Instagram企画', '投稿カレンダー'], weaknesses: ['長文SEO記事'], signatureStat: { label: '今週のインプ', value: '12.8万' } },
-  seo: { nickname: '慧', trait: 'データ主義', strengths: ['キーワード調査', 'AIO情報設計', '競合分析'], weaknesses: ['ビジュアル提案'], signatureStat: { label: '10位以内KW', value: '3件' } },
-  director: { nickname: '真央', trait: '段取り上手', strengths: ['要件整理', 'サイトマップ', '進行管理'], weaknesses: ['コード実装'], signatureStat: { label: '進行案件', value: '3件' } },
-  writer: { nickname: '文乃', trait: '言葉を大切にする', strengths: ['キャッチコピー', 'サービス紹介文', '採用コピー'], weaknesses: ['数値分析'], signatureStat: { label: '今日の原稿', value: '7本' } },
-  designer: { nickname: 'ナナ', trait: '品質重視', strengths: ['コーポレートサイト', 'LP', '配色設計'], weaknesses: ['短納期の妥協'], signatureStat: { label: '今日の制作画面', value: '4面' } },
-  coder: { nickname: '航', trait: '手が速い', strengths: ['Next.js実装', 'レスポンシブ', 'アニメーション'], weaknesses: ['コピー執筆'], signatureStat: { label: 'ビルド成功率', value: '96%' } },
-  reviewer: { nickname: 'レイ', trait: '慎重', strengths: ['誤字検出', 'アクセシビリティ', 'リンク切れ'], weaknesses: ['スピード優先の判断'], signatureStat: { label: '今日の検出数', value: '12件' } },
-  infra: { nickname: '岳', trait: '安全第一', strengths: ['公開前チェック', 'ビルド監視', 'ドメイン管理'], weaknesses: ['営業文作成'], signatureStat: { label: '連続無障害', value: '34日' } },
-  accountant: { nickname: '澄香', trait: '几帳面', strengths: ['トークン集計', '原価計算', 'CSV出力'], weaknesses: ['デザイン評価'], signatureStat: { label: '締め処理', value: '毎日0時' } },
-  ops_admin: { nickname: '守', trait: '目配りが利く', strengths: ['権限管理', '監査ログ', 'ルール整備'], weaknesses: ['クリエイティブ提案'], signatureStat: { label: '監査ログ', value: '1,204件' } },
+  ceo: { nickname: '蒼', trait: '全体最適・決断が速い', strengths: ['タスク分解', '優先順位付け', 'リソース配分'], weaknesses: ['細かい文言調整'], signatureStat: { label: '本日の采配', value: '14件' }, weeklyHighlight: '営業→制作の引き継ぎ時間を平均42分短縮', focus: 88, fatigue: 34 },
+  secretary: { nickname: '結衣', trait: '気配り上手', strengths: ['日程調整', '議事録', 'リマインド'], weaknesses: ['技術的な判断'], signatureStat: { label: '今日の調整会議', value: '2件' }, weeklyHighlight: '会議確定率を75%→86%に改善', focus: 82, fatigue: 22 },
+  list: { nickname: '拓海', trait: '粘り強い', strengths: ['企業リサーチ', '重複検出', '条件絞り込み'], weaknesses: ['文章表現'], signatureStat: { label: '今日の取得件数', value: '152社' }, weeklyHighlight: '週間812社を調査、有効率85%を維持', focus: 91, fatigue: 48 },
+  form_sales: { nickname: '駿', trait: '丁寧で確実', strengths: ['フォーム送信文', '送信前チェック'], weaknesses: ['電話対応'], signatureStat: { label: '今日の下書き', value: '32件' }, weeklyHighlight: 'フォーム到達率を92%→97%に改善', focus: 79, fatigue: 41 },
+  email_sales: { nickname: '美咲', trait: '積極的', strengths: ['採用サイト提案', '初回営業文', '件名A/B'], weaknesses: ['長文レポート'], signatureStat: { label: '今日の返信率', value: '18%' }, weeklyHighlight: '文面Bパターンで返信率2.1%→3.4%', focus: 86, fatigue: 45 },
+  reception: { nickname: 'ひなた', trait: '対応が早い', strengths: ['問い合わせ分類', '一次返信', '緊急度判定'], weaknesses: ['価格交渉'], signatureStat: { label: '平均初回対応', value: '18分' }, weeklyHighlight: '初回対応時間を31分→18分に短縮', focus: 84, fatigue: 26 },
+  deal_mgr: { nickname: '亮', trait: '記録魔', strengths: ['商談要約', 'ネクストアクション設計'], weaknesses: ['デザイン評価'], signatureStat: { label: '今日の更新商談', value: '8件' }, weeklyHighlight: '受注1件(佐藤工務店様 ¥650,000)', focus: 80, fatigue: 30 },
+  tel: { nickname: '大和', trait: '声のプロ(準備中)', strengths: ['トークスクリプト', '想定Q&A'], weaknesses: ['自動架電(未解禁)'], signatureStat: { label: 'アポ率', value: '8.8%' }, weeklyHighlight: '不動産業向けスクリプトv2を完成', focus: 65, fatigue: 12 },
+  sns: { nickname: '琴音', trait: 'トレンドに敏感', strengths: ['Instagram企画', '投稿カレンダー'], weaknesses: ['長文SEO記事'], signatureStat: { label: '今週のインプ', value: '12.8万' }, weeklyHighlight: '実績紹介投稿がインプ4,820を記録', focus: 83, fatigue: 38 },
+  seo: { nickname: '慧', trait: 'データ主義', strengths: ['キーワード調査', 'AIO情報設計', '競合分析'], weaknesses: ['ビジュアル提案'], signatureStat: { label: '10位以内KW', value: '3件' }, weeklyHighlight: '「工務店 ホームページ 事例」5位に上昇', focus: 89, fatigue: 43 },
+  director: { nickname: '真央', trait: '段取り上手', strengths: ['要件整理', 'サイトマップ', '進行管理'], weaknesses: ['コード実装'], signatureStat: { label: '進行案件', value: '3件' }, weeklyHighlight: '遅延ゼロで3案件を並行進行中', focus: 87, fatigue: 47 },
+  writer: { nickname: '文乃', trait: '言葉を大切にする', strengths: ['キャッチコピー', 'サービス紹介文', '採用コピー'], weaknesses: ['数値分析'], signatureStat: { label: '今日の原稿', value: '7本' }, weeklyHighlight: '田中製作所様トップコピーが一発承認', focus: 85, fatigue: 44 },
+  designer: { nickname: 'ナナ', trait: '品質重視', strengths: ['コーポレートサイト', 'LP', '配色設計'], weaknesses: ['短納期の妥協'], signatureStat: { label: '今日の制作画面', value: '4面' }, weeklyHighlight: '修正回数を平均3.2回→1.8回に削減', focus: 90, fatigue: 52 },
+  coder: { nickname: '航', trait: '手が速い', strengths: ['Next.js実装', 'レスポンシブ', 'アニメーション'], weaknesses: ['コピー執筆'], signatureStat: { label: 'ビルド成功率', value: '96%' }, weeklyHighlight: '共通コンポーネント12個を整備', focus: 92, fatigue: 55 },
+  reviewer: { nickname: 'レイ', trait: '慎重', strengths: ['誤字検出', 'アクセシビリティ', 'リンク切れ'], weaknesses: ['スピード優先の判断'], signatureStat: { label: '今日の検出数', value: '12件' }, weeklyHighlight: '公開後の不具合報告0件を継続', focus: 88, fatigue: 36 },
+  infra: { nickname: '岳', trait: '安全第一', strengths: ['公開前チェック', 'ビルド監視', 'ドメイン管理'], weaknesses: ['営業文作成'], signatureStat: { label: '連続無障害', value: '34日' }, weeklyHighlight: '連続無障害34日を更新中', focus: 76, fatigue: 18 },
+  accountant: { nickname: '澄香', trait: '几帳面', strengths: ['トークン集計', '原価計算', 'CSV出力'], weaknesses: ['デザイン評価'], signatureStat: { label: '締め処理', value: '毎日0時' }, weeklyHighlight: '6月分帳簿を締め、粗利率73.2%を確定', focus: 81, fatigue: 24 },
+  ops_admin: { nickname: '守', trait: '目配りが利く', strengths: ['権限管理', '監査ログ', 'ルール整備'], weaknesses: ['クリエイティブ提案'], signatureStat: { label: '監査ログ', value: '1,204件' }, weeklyHighlight: '監査で要対応事項0件', focus: 74, fatigue: 15 },
 };
 
 export const seedAgents: Agent[] = [

@@ -71,6 +71,9 @@ export interface Agent {
   weaknesses?: string[]; // 苦手業務
   signatureStat?: { label: string; value: string }; // 例: 今日の返信率 18%
   doneFlashUntil?: string; // 完了演出の表示期限(ISO)
+  focus?: number; // 現在の集中度 0-100(デモで変動)
+  fatigue?: number; // 疲労度 0-100(作業で上昇、待機・休憩で回復)
+  weeklyHighlight?: string; // 今週の成果(例: 返信率が2.1%→3.4%に改善)
 }
 
 export type TaskStatus =
@@ -450,4 +453,5 @@ export interface CompanySettings {
   demoMode: boolean;
   setupCompleted: boolean;
   timeEffects?: boolean; // 時間帯演出(v2で追加。未定義はtrue扱い)
+  investorMode?: boolean; // ダッシュボードの投資家向け表示(未定義はfalse=経営者向け)
 }

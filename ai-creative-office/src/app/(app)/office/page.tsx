@@ -12,6 +12,7 @@ import {
   OfficeSummary,
   RunningTasksBar,
 } from '@/components/office/office-widgets';
+import { SystemMonitor } from '@/components/office/system-monitor';
 import { ProgressBar } from '@/components/ui';
 import { agentZoneLabel } from '@/lib/office';
 import { useOffice } from '@/lib/store';
@@ -45,8 +46,9 @@ export default function OfficePage() {
 
   return (
     <div className="space-y-3">
-      {/* 上部: サマリー + CEOアナウンス */}
+      {/* 上部: サマリー + システムモニター + CEOアナウンス */}
       <OfficeSummary />
+      <SystemMonitor />
       <CeoAnnouncement />
 
       {/* モバイル: 表示切り替え */}
