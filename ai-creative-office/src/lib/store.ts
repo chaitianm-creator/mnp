@@ -1178,6 +1178,23 @@ export const useOffice = create<OfficeState>()(
             };
           }
 
+          // 休憩演出: 疲労が溜まった待機中の社員はときどき休憩スペースへ行き、回復して戻る
+          if (agent.zone === 'break' && agent.status === 'idle') {
+            if (Math.random() < 0.3 && (agent.fatigue ?? 0) < 25) {
+              return { ...agent, zone: 'desk' as OfficeZone, statusNote: '休憩から戻りました', fatigue: drift(agent.fatigue, 10, 3), focus: drift(agent.focus, 75, 4) };
+            }
+            return { ...agent, statusNote: '☕ 休憩中', fatigue: drift(agent.fatigue, 5, 3), focus: drift(agent.focus, 70, 3) };
+          }
+          if ((agent.fatigue ?? 0) >= 45 && Math.random() < 0.06) {
+            return {
+              ...agent,
+              status: 'idle' as AgentStatus,
+              zone: 'break' as OfficeZone,
+              statusNote: '☕ 休憩中',
+              currentTaskId: null,
+              progress: 0,
+            };
+          }
           return {
             ...agent,
             status: 'idle' as AgentStatus,

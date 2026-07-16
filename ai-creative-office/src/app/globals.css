@@ -41,6 +41,25 @@ body {
   height: 0.4rem;
 }
 
+/* 箱庭シミュレーター: 歩行中の上下ボブ */
+@keyframes sim-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+.sim-bob {
+  animation: sim-bob 0.32s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sim-bob {
+    animation: none;
+  }
+}
+
 /* AI思考中の3点ドット(静かな点滅) */
 @keyframes think {
   0%,

@@ -5,7 +5,7 @@
 // モバイル(390px)では「オフィス表示」と「社員リスト表示」を切り替えられる
 import { AgentDetailPanel } from '@/components/agent-detail-panel';
 import { AgentAvatar, AgentStatusBadge } from '@/components/agent-bits';
-import { OfficeMap } from '@/components/office-map';
+import { OfficeSimulator } from '@/components/office/office-simulator';
 import {
   CeoAlertBar,
   CeoAnnouncement,
@@ -83,9 +83,9 @@ export default function OfficePage() {
       {/* 中央 + 右 */}
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-3">
-          {/* デスクトップは常にオフィス。モバイルは切り替え */}
+          {/* デスクトップは常にオフィス(箱庭シミュレーター)。モバイルは切り替え */}
           <div className={cn(mobileView === 'list' && 'hidden lg:block')}>
-            <OfficeMap onSelect={(a) => setSelectedId(a.id)} />
+            <OfficeSimulator onSelect={(a) => setSelectedId(a.id)} />
           </div>
 
           {/* モバイル用: 社員リスト表示 */}
