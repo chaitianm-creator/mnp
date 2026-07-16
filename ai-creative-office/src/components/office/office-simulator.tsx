@@ -2,11 +2,12 @@
 
 // ============================================================
 // 箱庭型AI会社シミュレーター(見下ろし型オフィス)
+// - 参考イメージ準拠: 木の温もり+パステル+丸アバター+こげ茶ルームタグ
 // - 見た目はゲーム品質、裏側は既存のZustandストアをそのまま使用
 // - 部屋・家具はSVGで描画(外部画像なし)
 // - AI社員は状態(status/zone)に応じて座標間を「歩いて」移動
-// - 仕事の受け渡し(officeEvents)/会話吹き出し/時間帯照明/
-//   休憩/会議/CEO報告/成果物完成のお祝い演出
+// - 仕事の受け渡し/会話吹き出し/時間帯照明/休憩/会議/CEO報告/
+//   成果物完成のお祝い演出
 // ============================================================
 import { agentZone, currentPeriod, type DayPeriod } from '@/lib/office';
 import { AGENT_STATUS } from '@/lib/labels';
@@ -19,6 +20,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const VB = { w: 1280, h: 880 };
 
+// 参考イメージのパレット(木・パステル)
+const P = {
+  bgOuter: '#efe6d4',
+  bgInner: '#f6efe0',
+  wall: '#a98454',
+  wallLight: '#c4a071',
+  floorWood: '#eeddbc',
+  plank: '#dcc394',
+  tag: '#6f5b43',
+  window: '#bcd9ea',
+  windowFrame: '#ffffff',
+  night: '#4b4b73',
+  nightPlank: '#3f3f63',
+};
+
 interface Room {
   id: string;
   label: string;
@@ -26,23 +42,23 @@ interface Room {
   y: number;
   w: number;
   h: number;
-  floor: string; // 床色
-  accent: string;
+  night?: boolean; // サーバールーム=夜勤テーマ
+  windows?: number; // 上壁の窓の数
 }
 
 const ROOMS: Room[] = [
-  { id: 'president', label: '社長室', x: 20, y: 20, w: 280, h: 190, floor: '#efe6d8', accent: '#8b5cf6' },
-  { id: 'ceo', label: 'CEO席(経営部)', x: 320, y: 20, w: 320, h: 190, floor: '#e8eaf6', accent: '#6366f1' },
-  { id: 'secretary', label: '秘書席', x: 660, y: 20, w: 180, h: 190, floor: '#e3f0f4', accent: '#0ea5e9' },
-  { id: 'server', label: 'サーバールーム', x: 860, y: 20, w: 180, h: 190, floor: '#dfe3ea', accent: '#ef4444' },
-  { id: 'break', label: '休憩スペース', x: 1060, y: 20, w: 200, h: 190, floor: '#e6f2e6', accent: '#14b8a6' },
-  { id: 'sales', label: '営業部', x: 20, y: 240, w: 500, h: 280, floor: '#f3ead9', accent: '#f59e0b' },
-  { id: 'production', label: '制作部', x: 540, y: 240, w: 500, h: 280, floor: '#eae6f4', accent: '#8b5cf6' },
-  { id: 'marketing', label: 'マーケティング部', x: 1060, y: 240, w: 200, h: 280, floor: '#f6e6ee', accent: '#ec4899' },
-  { id: 'admin', label: '管理部', x: 20, y: 550, w: 240, h: 240, floor: '#e4efe9', accent: '#10b981' },
-  { id: 'meeting', label: '会議室', x: 280, y: 550, w: 380, h: 240, floor: '#e9e4f4', accent: '#8b5cf6' },
-  { id: 'project', label: 'プロジェクトテーブル', x: 680, y: 550, w: 320, h: 240, floor: '#e6ecf6', accent: '#6366f1' },
-  { id: 'approval', label: '承認待ちスペース', x: 1020, y: 550, w: 240, h: 240, floor: '#f6efdc', accent: '#f59e0b' },
+  { id: 'president', label: '社長室', x: 20, y: 20, w: 280, h: 190, windows: 2 },
+  { id: 'ceo', label: 'CEO席(経営部)', x: 320, y: 20, w: 320, h: 190, windows: 2 },
+  { id: 'secretary', label: '秘書席', x: 660, y: 20, w: 180, h: 190, windows: 1 },
+  { id: 'server', label: 'サーバールーム(夜勤)', x: 860, y: 20, w: 180, h: 190, night: true },
+  { id: 'break', label: '休憩室', x: 1060, y: 20, w: 200, h: 190, windows: 1 },
+  { id: 'sales', label: '営業部', x: 20, y: 240, w: 500, h: 280, windows: 3 },
+  { id: 'production', label: '制作部', x: 540, y: 240, w: 500, h: 280, windows: 3 },
+  { id: 'marketing', label: 'マーケ部', x: 1060, y: 240, w: 200, h: 280, windows: 1 },
+  { id: 'admin', label: '管理部', x: 20, y: 550, w: 240, h: 240, windows: 1 },
+  { id: 'meeting', label: '会議室', x: 280, y: 550, w: 380, h: 240, windows: 2 },
+  { id: 'project', label: 'プロジェクトテーブル', x: 680, y: 550, w: 320, h: 240, windows: 2 },
+  { id: 'approval', label: '承認待ちスペース', x: 1020, y: 550, w: 240, h: 240, windows: 1 },
 ];
 
 // AI社員の自席(デスク)座標
@@ -71,8 +87,8 @@ const ZONE_SEATS: Record<Exclude<OfficeZone, 'desk'>, { x: number; y: number }[]
     { x: 1080, y: 650 }, { x: 1150, y: 650 }, { x: 1220, y: 650 },
     { x: 1080, y: 730 }, { x: 1150, y: 730 }, { x: 1220, y: 730 },
   ],
-  server: [{ x: 910, y: 150 }, { x: 970, y: 165 }, { x: 940, y: 120 }],
-  break: [{ x: 1105, y: 120 }, { x: 1215, y: 120 }, { x: 1105, y: 170 }, { x: 1215, y: 170 }],
+  server: [{ x: 910, y: 155 }, { x: 970, y: 168 }, { x: 940, y: 125 }],
+  break: [{ x: 1105, y: 125 }, { x: 1215, y: 125 }, { x: 1110, y: 172 }, { x: 1210, y: 172 }],
 };
 
 /** 全AI社員の現在座標を解決(ゾーン内は順番に着席・重なり防止) */
@@ -88,27 +104,53 @@ function resolvePositions(agents: Agent[]): Map<string, { x: number; y: number }
       const i = zoneCount[zone] ?? 0;
       zoneCount[zone] = i + 1;
       const seat = seats[i % seats.length];
-      // 席が足りない場合は少しずらして重なりを防ぐ
       map.set(a.id, { x: seat.x + Math.floor(i / seats.length) * 14, y: seat.y + Math.floor(i / seats.length) * 10 });
     }
   }
   return map;
 }
 
-// ---------- 家具(SVG) ----------
+// ---------- 家具(SVG・パステル木調) ----------
 
 function Desk({ x, y, glow }: { x: number; y: number; glow: boolean }) {
   return (
     <g>
-      <rect x={x - 34} y={y - 52} width={68} height={30} rx={5} fill="#b58a5a" stroke="#98713f" strokeWidth={1.5} />
+      <rect x={x - 34} y={y - 52} width={68} height={30} rx={7} fill="#c89b66" stroke="#a87f4d" strokeWidth={2} />
+      <rect x={x - 30} y={y - 48} width={60} height={4} rx={2} fill="#ffffff" opacity={0.25} />
       {/* モニター(作業中は点灯) */}
-      <rect x={x - 14} y={y - 50} width={28} height={16} rx={2} fill={glow ? '#bfdbfe' : '#334155'} stroke="#1e293b" strokeWidth={1.5}>
-        {glow && <animate attributeName="fill" values="#bfdbfe;#93c5fd;#bfdbfe" dur="2.4s" repeatCount="indefinite" />}
+      <rect x={x - 14} y={y - 50} width={28} height={17} rx={3} fill={glow ? '#cfe6f7' : '#5b6472'} stroke="#47505e" strokeWidth={1.5}>
+        {glow && <animate attributeName="fill" values="#cfe6f7;#a8d2f0;#cfe6f7" dur="2.4s" repeatCount="indefinite" />}
       </rect>
-      <rect x={x - 3} y={y - 34} width={6} height={4} fill="#475569" />
-      {glow && <circle cx={x} cy={y - 42} r={18} fill="#60a5fa" opacity={0.12} />}
+      <rect x={x - 3} y={y - 33} width={6} height={4} fill="#8a8f99" />
+      {glow && <circle cx={x} cy={y - 42} r={18} fill="#7cb8e8" opacity={0.14} />}
       {/* 椅子 */}
-      <circle cx={x} cy={y - 6} r={9} fill="#64748b" opacity={0.35} />
+      <circle cx={x} cy={y - 4} r={9} fill="#b9c4a3" stroke="#9dab84" strokeWidth={1.2} opacity={0.8} />
+    </g>
+  );
+}
+
+function Bookshelf({ x, y, w = 70 }: { x: number; y: number; w?: number }) {
+  const colors = ['#e08a8a', '#8ab0e0', '#8ecf9d', '#e6c46b', '#c39ad6'];
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={34} rx={4} fill="#b98d5c" stroke="#9a7345" strokeWidth={2} />
+      {[0, 1].map((row) => (
+        <g key={row}>
+          {Array.from({ length: Math.floor((w - 12) / 9) }, (_, i) => (
+            <rect key={i} x={x + 6 + i * 9} y={y + 4 + row * 15} width={6} height={11} rx={1} fill={colors[(i + row) % colors.length]} opacity={0.9} />
+          ))}
+        </g>
+      ))}
+    </g>
+  );
+}
+
+function Clock({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <circle cx={x} cy={y} r={9} fill="#ffffff" stroke="#8a6a4a" strokeWidth={2} />
+      <line x1={x} y1={y} x2={x} y2={y - 5} stroke="#6f5b43" strokeWidth={1.5} strokeLinecap="round" />
+      <line x1={x} y1={y} x2={x + 4} y2={y + 1} stroke="#6f5b43" strokeWidth={1.5} strokeLinecap="round" />
     </g>
   );
 }
@@ -116,13 +158,15 @@ function Desk({ x, y, glow }: { x: number; y: number; glow: boolean }) {
 function MeetingTable() {
   return (
     <g>
-      <ellipse cx={470} cy={675} rx={92} ry={44} fill="#b58a5a" stroke="#98713f" strokeWidth={2} />
-      <ellipse cx={470} cy={675} rx={70} ry={30} fill="#c79b6b" />
+      <ellipse cx={470} cy={679} rx={92} ry={44} fill="#caa06c" stroke="#a87f4d" strokeWidth={2.5} />
+      <ellipse cx={470} cy={675} rx={92} ry={44} fill="#d9b27e" stroke="#b08c5f" strokeWidth={2} />
+      <ellipse cx={470} cy={675} rx={68} ry={29} fill="#e5c592" />
       {/* ホワイトボード */}
-      <rect x={300} y={562} width={90} height={40} rx={4} fill="#ffffff" stroke="#94a3b8" strokeWidth={1.5} />
-      <line x1={310} y1={574} x2={370} y2={574} stroke="#8b5cf6" strokeWidth={2.5} strokeLinecap="round" />
-      <line x1={310} y1={584} x2={355} y2={584} stroke="#cbd5e1" strokeWidth={2} strokeLinecap="round" />
-      <line x1={310} y1={592} x2={362} y2={592} stroke="#cbd5e1" strokeWidth={2} strokeLinecap="round" />
+      <rect x={300} y={562} width={92} height={42} rx={5} fill="#ffffff" stroke="#a98454" strokeWidth={2} />
+      <line x1={310} y1={575} x2={372} y2={575} stroke="#8ecf9d" strokeWidth={3} strokeLinecap="round" />
+      <line x1={310} y1={586} x2={356} y2={586} stroke="#d9c9a8" strokeWidth={2.5} strokeLinecap="round" />
+      <line x1={310} y1={595} x2={364} y2={595} stroke="#d9c9a8" strokeWidth={2.5} strokeLinecap="round" />
+      <Clock x={630} y={575} />
     </g>
   );
 }
@@ -130,10 +174,11 @@ function MeetingTable() {
 function ProjectTable() {
   return (
     <g>
-      <rect x={760} y={640} width={160} height={70} rx={10} fill="#8fa8c8" stroke="#6b87ab" strokeWidth={2} />
-      <rect x={775} y={652} width={40} height={26} rx={3} fill="#f8fafc" stroke="#cbd5e1" />
-      <rect x={825} y={658} width={36} height={22} rx={3} fill="#fef9c3" stroke="#eab308" strokeWidth={0.8} />
-      <rect x={872} y={650} width={34} height={28} rx={3} fill="#f8fafc" stroke="#cbd5e1" />
+      <rect x={758} y={638} width={164} height={74} rx={14} fill="#caa06c" stroke="#a87f4d" strokeWidth={2.5} />
+      <rect x={760} y={636} width={160} height={70} rx={13} fill="#d9b27e" stroke="#b08c5f" strokeWidth={2} />
+      <rect x={775} y={650} width={40} height={26} rx={3} fill="#fdfaf3" stroke="#d9c9a8" />
+      <rect x={825} y={656} width={36} height={22} rx={3} fill="#fbeeb8" stroke="#e0c25c" strokeWidth={0.8} />
+      <rect x={872} y={648} width={34} height={28} rx={3} fill="#fdfaf3" stroke="#d9c9a8" />
     </g>
   );
 }
@@ -141,15 +186,18 @@ function ProjectTable() {
 function BreakArea() {
   return (
     <g>
-      {/* ソファ */}
-      <rect x={1085} y={95} width={60} height={22} rx={8} fill="#e8927c" stroke="#d97862" strokeWidth={1.5} />
-      <rect x={1195} y={95} width={60} height={22} rx={8} fill="#e8927c" stroke="#d97862" strokeWidth={1.5} />
+      {/* 緑のラグ */}
+      <ellipse cx={1160} cy={150} rx={72} ry={38} fill="#bcd9a8" opacity={0.55} />
+      {/* ソファ(ピンク) */}
+      <rect x={1082} y={98} width={62} height={24} rx={10} fill="#f2b0c1" stroke="#e094ab" strokeWidth={2} />
+      <rect x={1192} y={98} width={62} height={24} rx={10} fill="#f2b0c1" stroke="#e094ab" strokeWidth={2} />
       {/* コーヒーテーブル */}
-      <circle cx={1160} cy={150} r={16} fill="#b58a5a" stroke="#98713f" strokeWidth={1.5} />
+      <circle cx={1160} cy={150} r={16} fill="#d9b27e" stroke="#b08c5f" strokeWidth={2} />
       <text x={1160} y={155} textAnchor="middle" fontSize={12}>☕</text>
-      {/* 自販機 */}
-      <rect x={1230} y={140} width={22} height={36} rx={3} fill="#475569" stroke="#334155" strokeWidth={1.5} />
-      <rect x={1234} y={146} width={14} height={12} rx={1} fill="#93c5fd" />
+      {/* 自販機(ピンク) */}
+      <rect x={1230} y={138} width={24} height={40} rx={4} fill="#f4a9bd" stroke="#e094ab" strokeWidth={2} />
+      <rect x={1234} y={144} width={16} height={14} rx={2} fill="#fdf1f4" />
+      <rect x={1234} y={162} width={16} height={4} rx={1.5} fill="#fdf1f4" opacity={0.8} />
     </g>
   );
 }
@@ -157,13 +205,18 @@ function BreakArea() {
 function ServerRacks({ hasError }: { hasError: boolean }) {
   return (
     <g>
+      {/* 月と星(夜勤テーマ) */}
+      <text x={1015} y={48} textAnchor="middle" fontSize={14}>🌙</text>
+      <circle cx={885} cy={45} r={1.5} fill="#fef3c7" opacity={0.9} />
+      <circle cx={990} cy={58} r={1.2} fill="#fef3c7" opacity={0.8} />
+      <circle cx={945} cy={40} r={1.5} fill="#fef3c7" opacity={0.7} />
       {[0, 1, 2].map((i) => (
         <g key={i}>
-          <rect x={880 + i * 48} y={60} width={34} height={64} rx={3} fill="#1e293b" stroke="#0f172a" strokeWidth={1.5} />
+          <rect x={880 + i * 48} y={62} width={34} height={62} rx={4} fill="#33334f" stroke="#26263d" strokeWidth={2} />
           {[0, 1, 2, 3].map((j) => (
-            <rect key={j} x={885 + i * 48} y={66 + j * 14} width={24} height={9} rx={1.5} fill="#334155" />
+            <rect key={j} x={885 + i * 48} y={68 + j * 13} width={24} height={8} rx={2} fill="#454568" />
           ))}
-          <circle cx={890 + i * 48} cy={70} r={2} fill={hasError && i === 1 ? '#ef4444' : '#34d399'}>
+          <circle cx={890 + i * 48} cy={72} r={2} fill={hasError && i === 1 ? '#f87171' : '#6ee7b7'}>
             <animate attributeName="opacity" values="1;0.3;1" dur={`${1.2 + i * 0.4}s`} repeatCount="indefinite" />
           </circle>
         </g>
@@ -175,10 +228,14 @@ function ServerRacks({ hasError }: { hasError: boolean }) {
 function PresidentRoom() {
   return (
     <g>
-      <rect x={60} y={60} width={120} height={44} rx={6} fill="#7c5a3a" stroke="#5f4227" strokeWidth={2} />
-      <rect x={95} y={66} width={40} height={20} rx={2} fill="#334155" stroke="#1e293b" />
-      <ellipse cx={230} cy={160} rx={26} ry={12} fill="#dbc9a8" opacity={0.7} />
-      <Plant x={272} y={52} />
+      {/* ピンクのラグ */}
+      <ellipse cx={160} cy={150} rx={80} ry={34} fill="#f4c6cf" opacity={0.5} />
+      {/* 社長デスク */}
+      <rect x={60} y={58} width={120} height={46} rx={8} fill="#a87f4d" stroke="#8a6538" strokeWidth={2.5} />
+      <rect x={64} y={62} width={112} height={5} rx={2.5} fill="#ffffff" opacity={0.2} />
+      <rect x={95} y={66} width={42} height={22} rx={3} fill="#5b6472" stroke="#47505e" strokeWidth={1.5} />
+      <Bookshelf x={200} y={56} w={84} />
+      <Plant x={276} y={168} />
     </g>
   );
 }
@@ -186,10 +243,32 @@ function PresidentRoom() {
 function Plant({ x, y }: { x: number; y: number }) {
   return (
     <g>
-      <rect x={x - 7} y={y + 4} width={14} height={12} rx={2} fill="#b45309" />
-      <circle cx={x} cy={y - 4} r={11} fill="#22c55e" opacity={0.85} />
-      <circle cx={x - 7} cy={y + 1} r={7} fill="#16a34a" opacity={0.85} />
-      <circle cx={x + 7} cy={y + 1} r={7} fill="#4ade80" opacity={0.85} />
+      <rect x={x - 8} y={y + 4} width={16} height={13} rx={3} fill="#c98a54" stroke="#a87043" strokeWidth={1.2} />
+      <circle cx={x} cy={y - 5} r={11} fill="#8ecf9d" />
+      <circle cx={x - 8} cy={y + 1} r={7} fill="#6fbf82" />
+      <circle cx={x + 8} cy={y + 1} r={7} fill="#a8dcb2" />
+    </g>
+  );
+}
+
+function FlowerPot({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x - 9} y={y} width={18} height={10} rx={3} fill="#d99a63" stroke="#b57f4c" strokeWidth={1.2} />
+      <circle cx={x - 4} cy={y - 4} r={3.5} fill="#f2a9bd" />
+      <circle cx={x + 4} cy={y - 4} r={3.5} fill="#f5d76e" />
+      <circle cx={x} cy={y - 8} r={3.5} fill="#f8c3d0" />
+    </g>
+  );
+}
+
+function WelcomeMat() {
+  return (
+    <g>
+      <rect x={585} y={812} width={130} height={30} rx={14} fill="#f4b8c6" stroke="#e094ab" strokeWidth={2} />
+      <text x={650} y={831} textAnchor="middle" fontSize={12} fill="#9c5b6e" fontWeight={700}>
+        ようこそ!🐰
+      </text>
     </g>
   );
 }
@@ -197,11 +276,12 @@ function Plant({ x, y }: { x: number; y: number }) {
 function ApprovalArea({ pending }: { pending: number }) {
   return (
     <g>
-      <rect x={1060} y={590} width={160} height={16} rx={6} fill="#d6bc8a" stroke="#b89a63" strokeWidth={1.2} />
-      <rect x={1060} y={688} width={160} height={16} rx={6} fill="#d6bc8a" stroke="#b89a63" strokeWidth={1.2} />
+      <rect x={1060} y={590} width={160} height={16} rx={7} fill="#d9b27e" stroke="#b08c5f" strokeWidth={1.5} />
+      <rect x={1060} y={688} width={160} height={16} rx={7} fill="#d9b27e" stroke="#b08c5f" strokeWidth={1.5} />
       {/* 書類トレイ */}
-      <rect x={1226} y={585} width={26} height={20} rx={3} fill="#f8fafc" stroke="#cbd5e1" strokeWidth={1.2} />
-      <text x={1239} y={578} textAnchor="middle" fontSize={11} fill="#b45309" fontWeight={700}>
+      <rect x={1224} y={585} width={28} height={20} rx={4} fill="#fdfaf3" stroke="#c4a071" strokeWidth={1.5} />
+      <rect x={1228} y={581} width={20} height={4} rx={2} fill="#f5d76e" />
+      <text x={1238} y={576} textAnchor="middle" fontSize={11} fill="#b45309" fontWeight={700}>
         {pending > 0 ? `${pending}件` : ''}
       </text>
     </g>
@@ -214,7 +294,7 @@ const LIGHTING: Record<DayPeriod, { fill: string; opacity: number; label: string
   morning: { fill: '#fcd34d', opacity: 0.08, label: '朝会・出社の時間帯', emoji: '🌅' },
   day: { fill: '#ffffff', opacity: 0, label: '通常業務中', emoji: '☀️' },
   evening: { fill: '#fb923c', opacity: 0.12, label: '日報作成の時間帯', emoji: '🌇' },
-  night: { fill: '#0f172a', opacity: 0.34, label: '夜間は一部AIのみ稼働中', emoji: '🌙' },
+  night: { fill: '#2a2a4a', opacity: 0.32, label: '夜間は一部AIのみ稼働中', emoji: '🌙' },
 };
 
 // ---------- AI社員スプライト ----------
@@ -245,14 +325,13 @@ function AgentSprite({
     }
   }, [pos.x, pos.y]);
 
-  // 吹き出しを出す条件(騒がしくならないよう限定)
   const showBubble =
     agent.statusNote.startsWith('💬') ||
     ['waiting_approval', 'error', 'done', 'meeting'].includes(agent.status) ||
     (busy && agent.progress > 0);
   const bubbleText = agent.statusNote.replace(/^💬 ?/, '').slice(0, 14) + (agent.statusNote.length > 15 ? '…' : '');
   const dotColor =
-    agent.status === 'error' ? '#ef4444' : agent.status === 'waiting_approval' ? '#f59e0b' : agent.status === 'done' ? '#10b981' : busy ? '#22c55e' : '#94a3b8';
+    agent.status === 'error' ? '#ef4444' : agent.status === 'waiting_approval' ? '#f59e0b' : agent.status === 'done' ? '#10b981' : busy ? '#34c759' : '#b8b3a6';
 
   return (
     <motion.g
@@ -269,48 +348,49 @@ function AgentSprite({
     >
       <g className={walking && !reduced ? 'sim-bob' : undefined}>
         {/* 影 */}
-        <ellipse cx={0} cy={12} rx={13} ry={4.5} fill="#0f172a" opacity={0.14} />
-        {/* 体 */}
-        <circle r={15} fill="#ffffff" stroke={agent.color} strokeWidth={3} opacity={agent.status === 'paused' ? 0.55 : 1} />
-        <text y={5.5} textAnchor="middle" fontSize={15} aria-hidden>
+        <ellipse cx={0} cy={13} rx={14} ry={4.5} fill="#8a6a4a" opacity={0.18} />
+        {/* 体(白丸+カラーリング — 参考イメージの丸アバター) */}
+        <circle r={16.5} fill="#ffffff" stroke="#e8ddc8" strokeWidth={1} opacity={agent.status === 'paused' ? 0.6 : 1} />
+        <circle r={16.5} fill="none" stroke={agent.color} strokeWidth={2.6} opacity={agent.status === 'paused' ? 0.4 : 0.9} />
+        <text y={6} textAnchor="middle" fontSize={16} aria-hidden>
           {agent.avatar}
         </text>
-        {/* 状態ドット */}
-        <circle cx={11} cy={-10} r={4.2} fill={dotColor} stroke="#fff" strokeWidth={1.4}>
+        {/* 状態ドット(右下・参考イメージ準拠) */}
+        <circle cx={11.5} cy={11.5} r={4.5} fill={dotColor} stroke="#fff" strokeWidth={1.6}>
           {busy && !reduced && <animate attributeName="opacity" values="1;0.4;1" dur="1.6s" repeatCount="indefinite" />}
         </circle>
         {/* 完了フラッシュ */}
         {agent.status === 'done' && (
-          <motion.circle r={15} fill="none" stroke="#10b981" strokeWidth={2.5} initial={{ opacity: 0.9, scale: 1 }} animate={{ opacity: 0, scale: 1.9 }} transition={{ duration: 1.4, repeat: 2 }} />
+          <motion.circle r={16.5} fill="none" stroke="#10b981" strokeWidth={2.5} initial={{ opacity: 0.9, scale: 1 }} animate={{ opacity: 0, scale: 1.9 }} transition={{ duration: 1.4, repeat: 2 }} />
         )}
         {/* 未読バッジ */}
         {unread > 0 && (
           <g>
-            <circle cx={-12} cy={-11} r={6.5} fill="#4f46e5" stroke="#fff" strokeWidth={1.4} />
-            <text x={-12} y={-8} textAnchor="middle" fontSize={8.5} fill="#fff" fontWeight={700}>
+            <circle cx={-12} cy={-12} r={6.5} fill="#4f46e5" stroke="#fff" strokeWidth={1.4} />
+            <text x={-12} y={-9} textAnchor="middle" fontSize={8.5} fill="#fff" fontWeight={700}>
               {unread}
             </text>
           </g>
         )}
-        {/* 名札 */}
-        <rect x={-34} y={17} width={68} height={13} rx={6.5} fill="#ffffff" opacity={0.92} stroke="#e2e8f0" strokeWidth={0.8} />
-        <text y={26.5} textAnchor="middle" fontSize={8.5} fill="#334155" fontWeight={700}>
+        {/* 名札(白ピル・参考イメージ準拠) */}
+        <rect x={-36} y={19} width={72} height={15} rx={7.5} fill="#ffffff" stroke="#e3d7bd" strokeWidth={1.2} />
+        <text y={29.5} textAnchor="middle" fontSize={9} fill="#6f5b43" fontWeight={700}>
           {agent.name.slice(0, 9)}
         </text>
         {/* 進捗ミニバー */}
         {busy && agent.progress > 0 && (
           <g>
-            <rect x={-16} y={32} width={32} height={3.5} rx={1.75} fill="#e2e8f0" />
-            <rect x={-16} y={32} width={(32 * agent.progress) / 100} height={3.5} rx={1.75} fill={agent.color} />
+            <rect x={-16} y={37} width={32} height={3.5} rx={1.75} fill="#e8ddc8" />
+            <rect x={-16} y={37} width={(32 * agent.progress) / 100} height={3.5} rx={1.75} fill={agent.color} />
           </g>
         )}
         {/* 吹き出し */}
         <AnimatePresence>
           {showBubble && bubbleText && (
             <motion.g initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-              <rect x={-bubbleText.length * 4.6 - 8} y={-46} width={bubbleText.length * 9.2 + 16} height={20} rx={10} fill="#ffffff" stroke="#e2e8f0" strokeWidth={1} opacity={0.97} />
-              <path d="M -4 -27 L 0 -20 L 4 -27 Z" fill="#ffffff" stroke="#e2e8f0" strokeWidth={0.8} />
-              <text y={-32.5} textAnchor="middle" fontSize={9.5} fill="#334155">
+              <rect x={-bubbleText.length * 4.6 - 8} y={-48} width={bubbleText.length * 9.2 + 16} height={20} rx={10} fill="#ffffff" stroke="#e3d7bd" strokeWidth={1.2} opacity={0.97} />
+              <path d="M -4 -29 L 0 -22 L 4 -29 Z" fill="#ffffff" stroke="#e3d7bd" strokeWidth={0.8} />
+              <text y={-34.5} textAnchor="middle" fontSize={9.5} fill="#5c4c38">
                 {bubbleText}
               </text>
             </motion.g>
@@ -372,18 +452,16 @@ function CelebrationLayer({ positions }: { positions: Map<string, { x: number; y
   const seenAch = useRef<string | null>(null);
   const seenRuns = useRef<Record<string, string>>({});
 
-  // 成果イベント → 小さなお祝い
   useEffect(() => {
     const latest = achievements[0];
     if (!latest || seenAch.current === latest.id) return;
     const isFirst = seenAch.current === null;
     seenAch.current = latest.id;
-    if (isFirst) return; // 初期表示時は発火しない
+    if (isFirst) return;
     const pos = positions.get(latest.agentId);
     if (pos) setBursts((b) => [...b.slice(-3), { id: latest.id, x: pos.x, y: pos.y, big: false }]);
   }, [achievements, positions]);
 
-  // AI実働ランの完了 → 大きなお祝い(CEO席で発火)
   useEffect(() => {
     for (const run of runs) {
       const prevStatus = seenRuns.current[run.id];
@@ -410,7 +488,7 @@ function CelebrationLayer({ positions }: { positions: Map<string, { x: number; y
             {Array.from({ length: burst.big ? 10 : 6 }, (_, i) => {
               const a = (i / (burst.big ? 10 : 6)) * Math.PI * 2;
               const dist = burst.big ? 46 : 30;
-              const colors = ['#6366f1', '#f59e0b', '#10b981', '#ec4899', '#38bdf8'];
+              const colors = ['#f2a9bd', '#f5d76e', '#8ecf9d', '#8ab0e0', '#c39ad6'];
               return (
                 <motion.circle
                   key={i}
@@ -475,9 +553,8 @@ export function OfficeSimulator({ onSelect }: { onSelect: (a: Agent) => void }) 
   const workingIds = new Set(agents.filter((a) => ['working', 'checking', 'delegating'].includes(a.status) && agentZone(a) === 'desk').map((a) => a.id));
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-300 bg-slate-200 shadow-card">
-      {/* 時間帯ラベル */}
-      <p className="absolute right-3 top-2 z-10 rounded-full bg-white/85 px-2.5 py-0.5 text-[10px] font-medium text-slate-600 shadow-sm">
+    <div className="relative overflow-hidden rounded-2xl border border-[#dccbaa] bg-[#efe6d4] shadow-card">
+      <p className="absolute right-3 top-2 z-10 rounded-full bg-white/90 px-2.5 py-0.5 text-[10px] font-medium text-[#6f5b43] shadow-sm">
         {light.emoji} {light.label}
       </p>
       <div className="overflow-x-auto">
@@ -487,43 +564,61 @@ export function OfficeSimulator({ onSelect }: { onSelect: (a: Agent) => void }) 
           role="img"
           aria-label="バーチャルオフィスの見取り図。AI社員をクリックすると詳細を開けます"
         >
-          {/* 建物の床(廊下) */}
-          <rect x={0} y={0} width={VB.w} height={VB.h} rx={18} fill="#cbd5e1" />
-          <rect x={8} y={8} width={VB.w - 16} height={VB.h - 16} rx={14} fill="#dde3ec" />
+          <defs>
+            {/* 木の床(縦板) */}
+            <pattern id="planks" width={26} height={26} patternUnits="userSpaceOnUse">
+              <rect width={26} height={26} fill="none" />
+              <line x1={0} y1={0} x2={0} y2={26} stroke={P.plank} strokeOpacity={0.5} strokeWidth={1.4} />
+              <line x1={13} y1={0} x2={13} y2={26} stroke={P.plank} strokeOpacity={0.25} strokeWidth={1} />
+            </pattern>
+            <pattern id="planksNight" width={26} height={26} patternUnits="userSpaceOnUse">
+              <rect width={26} height={26} fill="none" />
+              <line x1={0} y1={0} x2={0} y2={26} stroke={P.nightPlank} strokeOpacity={0.7} strokeWidth={1.4} />
+            </pattern>
+          </defs>
+
+          {/* 建物の外枠と廊下 */}
+          <rect x={0} y={0} width={VB.w} height={VB.h} rx={22} fill={P.bgOuter} />
+          <rect x={8} y={8} width={VB.w - 16} height={VB.h - 16} rx={18} fill={P.bgInner} />
 
           {/* 部屋 */}
           {ROOMS.map((room) => (
             <g key={room.id}>
-              <rect x={room.x} y={room.y} width={room.w} height={room.h} rx={10} fill={room.floor} stroke="#94a3b8" strokeWidth={2.5} />
-              <rect x={room.x} y={room.y} width={room.w} height={room.h} rx={10} fill="url(#floorTexture)" opacity={0.5} />
-              {/* ドア */}
-              <rect x={room.x + room.w / 2 - 16} y={room.y + room.h - 3} width={32} height={6} rx={3} fill="#dde3ec" />
-              {/* 部屋ラベル */}
-              <rect x={room.x + 8} y={room.y + 8} width={room.label.length * 10.5 + 18} height={18} rx={9} fill="#ffffff" opacity={0.9} />
-              <circle cx={room.x + 18} cy={room.y + 17} r={3.5} fill={room.accent} />
-              <text x={room.x + 27} y={room.y + 21} fontSize={10.5} fill="#334155" fontWeight={700}>
+              {/* 壁(木枠)と床 */}
+              <rect x={room.x - 4} y={room.y - 4} width={room.w + 8} height={room.h + 8} rx={16} fill={P.wall} />
+              <rect x={room.x} y={room.y} width={room.w} height={room.h} rx={12} fill={room.night ? P.night : P.floorWood} />
+              <rect x={room.x} y={room.y} width={room.w} height={room.h} rx={12} fill={`url(#${room.night ? 'planksNight' : 'planks'})`} />
+              {/* 窓(上壁・青) */}
+              {!room.night &&
+                Array.from({ length: room.windows ?? 0 }, (_, i) => {
+                  const wx = room.x + room.w - 34 - i * 42;
+                  return (
+                    <g key={i}>
+                      <rect x={wx} y={room.y - 3} width={28} height={12} rx={3} fill={P.window} stroke={P.windowFrame} strokeWidth={2} />
+                      <line x1={wx + 14} y1={room.y - 3} x2={wx + 14} y2={room.y + 9} stroke={P.windowFrame} strokeWidth={1.5} />
+                    </g>
+                  );
+                })}
+              {/* ドア(下壁) */}
+              <rect x={room.x + room.w / 2 - 16} y={room.y + room.h - 4} width={32} height={8} rx={4} fill={P.bgInner} stroke={P.wallLight} strokeWidth={1} />
+              {/* 部屋ラベル(こげ茶タグ・参考イメージ準拠) */}
+              <rect x={room.x + 6} y={room.y + 6} width={room.label.length * 11 + 16} height={20} rx={6} fill={P.tag} opacity={0.95} />
+              <text x={room.x + 14} y={room.y + 20} fontSize={11} fill="#fdfaf3" fontWeight={700}>
                 {room.label}
               </text>
               {/* 会議室の使用中ランプ */}
               {room.id === 'meeting' && (
                 <g>
-                  <circle cx={room.x + room.w - 22} cy={room.y + 17} r={4} fill={meetingInUse ? '#ef4444' : '#34d399'}>
+                  <circle cx={room.x + room.w - 22} cy={room.y + 16} r={4} fill={meetingInUse ? '#ef4444' : '#34c759'}>
                     {meetingInUse && <animate attributeName="opacity" values="1;0.4;1" dur="1.8s" repeatCount="indefinite" />}
                   </circle>
-                  <text x={room.x + room.w - 30} y={room.y + 21} textAnchor="end" fontSize={9} fill={meetingInUse ? '#b91c1c' : '#047857'}>
+                  <text x={room.x + room.w - 30} y={room.y + 20} textAnchor="end" fontSize={9} fill={meetingInUse ? '#b91c1c' : '#2e7d4f'}>
                     {meetingInUse ? '使用中' : '空室'}
                   </text>
                 </g>
               )}
             </g>
           ))}
-
-          <defs>
-            <pattern id="floorTexture" width={26} height={26} patternUnits="userSpaceOnUse">
-              <rect width={26} height={26} fill="none" />
-              <path d="M 26 0 L 0 0 0 26" fill="none" stroke="#0f172a" strokeOpacity={0.035} strokeWidth={1} />
-            </pattern>
-          </defs>
 
           {/* 家具 */}
           <PresidentRoom />
@@ -535,24 +630,29 @@ export function OfficeSimulator({ onSelect }: { onSelect: (a: Agent) => void }) 
           <BreakArea />
           <ServerRacks hasError={hasError} />
           <ApprovalArea pending={pending} />
-          <Plant x={40} y={228} />
-          <Plant x={1240} y={532} />
-          <Plant x={648} y={228} />
+          <Bookshelf x={130} y={560} w={100} />
+          <Clock x={60} y={600} />
+          <Plant x={40} y={226} />
+          <Plant x={1240} y={534} />
+          <Plant x={648} y={226} />
+          <FlowerPot x={550} y={824} />
+          <FlowerPot x={750} y={824} />
+          <WelcomeMat />
 
           {/* 社長(あなた) */}
           <g role="img" aria-label={`${ceoName}(あなた)の席`}>
-            <ellipse cx={120} cy={142} rx={13} ry={4.5} fill="#0f172a" opacity={0.14} />
-            <circle cx={120} cy={130} r={15} fill="#fff" stroke="#6366f1" strokeWidth={3} />
-            <text x={120} y={136} textAnchor="middle" fontSize={15}>🧑‍💼</text>
-            <rect x={86} y={147} width={68} height={13} rx={6.5} fill="#ffffff" opacity={0.92} stroke="#e2e8f0" strokeWidth={0.8} />
-            <text x={120} y={156.5} textAnchor="middle" fontSize={8.5} fill="#334155" fontWeight={700}>
+            <ellipse cx={120} cy={144} rx={14} ry={4.5} fill="#8a6a4a" opacity={0.18} />
+            <circle cx={120} cy={130} r={16.5} fill="#fff" stroke="#e8ddc8" strokeWidth={1} />
+            <circle cx={120} cy={130} r={16.5} fill="none" stroke="#6366f1" strokeWidth={2.6} opacity={0.9} />
+            <text x={120} y={136} textAnchor="middle" fontSize={16}>🧑‍💼</text>
+            <rect x={84} y={149} width={72} height={15} rx={7.5} fill="#ffffff" stroke="#e3d7bd" strokeWidth={1.2} />
+            <text x={120} y={159.5} textAnchor="middle" fontSize={9} fill="#6f5b43" fontWeight={700}>
               {ceoName}(社長)
             </text>
           </g>
 
-          {/* 時間帯の照明オーバーレイ(社員より下・床より上) */}
-          {light.opacity > 0 && <rect x={0} y={0} width={VB.w} height={VB.h} rx={18} fill={light.fill} opacity={light.opacity} pointerEvents="none" />}
-          {/* 夜はデスクライトが灯る */}
+          {/* 時間帯の照明オーバーレイ */}
+          {light.opacity > 0 && <rect x={0} y={0} width={VB.w} height={VB.h} rx={22} fill={light.fill} opacity={light.opacity} pointerEvents="none" />}
           {period === 'night' &&
             Object.entries(DESKS).map(([id, d]) =>
               workingIds.has(id) ? <circle key={id} cx={d.x} cy={d.y - 42} r={30} fill="#fbbf24" opacity={0.16} pointerEvents="none" /> : null,
