@@ -722,7 +722,8 @@ function AgentSprite({
       aria-label={`${agent.name}(${st.label})の詳細を開く`}
       style={{ cursor: 'pointer', outline: 'none' }}
     >
-      <g className={walking && !reduced ? 'sim-bob' : !reduced && agent.status !== 'paused' ? 'idle-sway' : undefined}>
+      {/* 揺れ(idle-sway)は作業完了(done)のキャラだけ。他は歩行ボブのみで静止 */}
+      <g className={walking && !reduced ? 'sim-bob' : !reduced && agent.status === 'done' ? 'idle-sway' : undefined}>
         {/* 影 */}
         <ellipse cx={0} cy={17} rx={13} ry={4} fill="#8a6a4a" opacity={0.18} />
         {/* キャラ本体(向きで反転) */}
