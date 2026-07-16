@@ -1047,7 +1047,8 @@ export function OfficeSimulator({ onSelect }: { onSelect: (a: Agent) => void }) 
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-[#dccbaa] bg-[#efe6d4] shadow-card">
-      <p className="absolute right-3 top-2 z-10 rounded-full bg-white/90 px-2.5 py-0.5 text-[10px] font-medium text-[#6f5b43] shadow-sm">
+      {/* 時間帯ラベル: 右上は休憩室タグと重なるため、部屋のない右下の余白に表示 */}
+      <p className="absolute bottom-2 right-3 z-10 rounded-full bg-white/90 px-2.5 py-0.5 text-[10px] font-medium text-[#6f5b43] shadow-sm">
         {light.emoji} {light.label}
       </p>
       <div className="overflow-x-auto">
