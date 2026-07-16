@@ -11,8 +11,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
+  buildAgentContext,
+  buildCompanyContext,
+  conversationProvider,
+  moodOf,
+} from './conversation';
+import {
   AGENT_PERSONAS,
+  mergePersona,
   seedAgents,
+  seedDirectChats,
+  seedProposals,
+  seedTalks,
+  seedUnread,
   seedApprovals,
   seedCampaigns,
   seedChat,
@@ -35,14 +46,18 @@ import type {
   ActivityLog,
   Agent,
   AgentStatus,
+  AgentTalk,
   AiUsageRecord,
   Announcement,
   Approval,
   Campaign,
+  CeoProposal,
+  ChatAction,
   ChatMessage,
   CompanySettings,
   DailyStat,
   Deal,
+  DirectChatMessage,
   ErrorRecord,
   ExecutionPlan,
   Inquiry,
@@ -84,12 +99,23 @@ interface OfficeState {
   announcements: Announcement[];
   tickCount: number;
   relayQueue: { from: string; to: string; label: string; log: string }[];
+  lastChatAt: Record<string, string>; // 「社長と会話中」演出用(永続化しない)
+  lastProposalTick: number; // CEO提案のクールダウン(永続化しない)
+  // AI社員との会話・CEO提案(永続化する)
+  directChats: Record<string, DirectChatMessage[]>;
+  unread: Record<string, number>;
+  proposals: CeoProposal[];
+  agentTalks: AgentTalk[];
 
   setHydrated: (v: boolean) => void;
   tick: () => void;
   pauseAgent: (agentId: string) => void;
   resumeAgent: (agentId: string) => void;
   renameAgent: (agentId: string, name: string) => void;
+  openChat: (agentId: string) => void;
+  sendDirectMessage: (agentId: string, content: string) => void;
+  executeChatAction: (agentId: string, action: ChatAction) => void;
+  decideProposal: (proposalId: string, decision: 'adopted' | 'revision' | 'rejected') => void;
   decideApproval: (id: string, decision: 'approved' | 'rejected' | 'revision_requested') => void;
   updateSettings: (patch: Partial<CompanySettings>) => void;
   sendChat: (content: string) => void;
@@ -362,8 +388,284 @@ export const useOffice = create<OfficeState>()(
       announcements: [],
       tickCount: 0,
       relayQueue: [],
+      lastChatAt: {},
+      lastProposalTick: 0,
+      directChats: seedDirectChats,
+      unread: seedUnread,
+      proposals: seedProposals,
+      agentTalks: seedTalks,
 
       setHydrated: (v) => set({ hydrated: v }),
+
+      // ---------- AI社員との個別会話 ----------
+      openChat: (agentId) => {
+        const s = get();
+        const agent = s.agents.find((a) => a.id === agentId);
+        if (!agent) return;
+        const history = s.directChats[agentId] ?? [];
+        // 初回は人格の挨拶+現在の状況で会話を開始する
+        const withGreeting =
+          history.length === 0
+            ? [
+                {
+                  id: uid('dm'),
+                  role: 'agent' as const,
+                  content: `${agent.greeting ?? 'お疲れさまです。'}\n現在は「${agent.statusNote}」の状態です。ご質問やご依頼があればどうぞ。`,
+                  timestamp: nowIso(),
+                },
+              ]
+            : history;
+        set({
+          directChats: { ...s.directChats, [agentId]: withGreeting },
+          unread: { ...s.unread, [agentId]: 0 }, // 開いた時点で既読
+        });
+      },
+
+      sendDirectMessage: (agentId, content) => {
+        const s = get();
+        const agent = s.agents.find((a) => a.id === agentId);
+        if (!agent || !content.trim()) return;
+        const userMsg: DirectChatMessage = { id: uid('dm'), role: 'user', content: content.trim(), timestamp: nowIso() };
+        // 会話生成はProvider経由(将来Claude APIなどへ差し替え可能)
+        const reply = conversationProvider.generateAgentReply(
+          content.trim(),
+          buildAgentContext(s, agentId),
+          buildCompanyContext(s),
+        );
+        const agentMsg: DirectChatMessage = {
+          id: uid('dm'),
+          role: 'agent',
+          content: reply.content,
+          actions: reply.actions,
+          timestamp: nowIso(),
+        };
+        const history = [...(s.directChats[agentId] ?? []), userMsg, agentMsg].slice(-100);
+        set({
+          directChats: { ...s.directChats, [agentId]: history },
+          unread: { ...s.unread, [agentId]: 0 },
+          lastChatAt: { ...s.lastChatAt, [agentId]: nowIso() },
+          agents: s.agents.map((a) =>
+            a.id === agentId && a.status !== 'paused' && a.status !== 'error'
+              ? { ...a, statusNote: '社長と会話中', currentMood: moodOf(a) }
+              : a,
+          ),
+        });
+      },
+
+      // 会話内アクションの実行(ユーザーがボタンを押した時のみ)
+      executeChatAction: (agentId, action) => {
+        const s = get();
+        const agent = s.agents.find((a) => a.id === agentId);
+        if (!agent) return;
+        const pushAgentMsg = (content: string) => {
+          const msg: DirectChatMessage = { id: uid('dm'), role: 'agent', content, timestamp: nowIso() };
+          return { ...s.directChats, [agentId]: [...(s.directChats[agentId] ?? []), msg].slice(-100) };
+        };
+
+        if (action.kind === 'create_task') {
+          const title = (action.payload ?? '社長からの依頼').slice(0, 60);
+          const task: Task = {
+            id: uid('task'),
+            title,
+            description: `会話からの依頼: ${action.payload ?? ''}`,
+            assigneeId: agentId,
+            requesterId: null,
+            projectId: null,
+            customerId: null,
+            priority: 'high',
+            status: 'running',
+            progress: 0,
+            plannedStart: null,
+            deadline: null,
+            startedAt: nowIso(),
+            completedAt: null,
+            needsApproval: false,
+            approver: null,
+            dependsOn: [],
+            input: action.payload ?? null,
+            output: null,
+            model: agent.model,
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsd: 0,
+            errorMessage: null,
+            createdAt: nowIso(),
+          };
+          set({
+            tasks: [task, ...s.tasks],
+            directChats: pushAgentMsg(`承知しました。「${title}」をタスクとして登録し、着手します。進捗はオフィスとタスク管理でご確認いただけます。`),
+            agents: s.agents.map((a) =>
+              a.id === agentId && a.status !== 'paused' ? { ...a, status: 'checking' as AgentStatus, statusNote: '依頼内容を確認中' } : a,
+            ),
+            logs: [
+              { id: uid('log'), timestamp: nowIso(), agentId, message: `社長との会話から新しいタスク「${title}」を受領しました。`, taskId: task.id, projectId: null, status: 'info' as const },
+              ...s.logs,
+            ].slice(0, 400),
+          });
+          return;
+        }
+
+        if (action.kind === 'consult') {
+          const targetId = action.payload ?? 'ceo';
+          const target = s.agents.find((a) => a.id === targetId);
+          set({
+            directChats: pushAgentMsg(`${target?.name ?? targetId}へ確認を依頼しました。回答が届き次第、ご報告します。`),
+            officeEvents: [
+              { id: uid('evt'), kind: 'delegate' as const, fromAgentId: agentId, toAgentId: targetId, label: '確認を依頼', createdAt: nowIso() },
+              ...s.officeEvents,
+            ].slice(0, 10),
+            agentTalks: [
+              {
+                id: uid('talk'),
+                lines: [
+                  { agentId, text: `${target?.name ?? targetId}さん、社長からのご相談の件、確認をお願いできますか?` },
+                  { agentId: targetId, text: '確認しました。内容を見て今日中に回答します。' },
+                ],
+                taskId: agent.currentTaskId,
+                projectId: null,
+                timestamp: nowIso(),
+              },
+              ...s.agentTalks,
+            ].slice(0, 20),
+            logs: [
+              { id: uid('log'), timestamp: nowIso(), agentId, message: `${target?.name ?? targetId}へ確認を依頼しました。`, taskId: null, projectId: null, status: 'info' as const },
+              ...s.logs,
+            ].slice(0, 400),
+          });
+          return;
+        }
+
+        if (action.kind === 'call_meeting') {
+          const attendees = (action.payload ?? 'director,designer').split(',');
+          set({
+            directChats: pushAgentMsg('会議を招集しました。対象メンバーが会議室へ移動します。'),
+            agents: s.agents.map((a) =>
+              [agentId, ...attendees].includes(a.id) && a.status !== 'paused' && a.status !== 'error'
+                ? { ...a, status: 'meeting' as AgentStatus, zone: 'meeting' as OfficeZone, statusNote: '💬 社長招集の会議に参加中' }
+                : a,
+            ),
+            logs: [
+              { id: uid('log'), timestamp: nowIso(), agentId, message: '社長の承認により会議を招集しました。', taskId: null, projectId: null, status: 'info' as const },
+              ...s.logs,
+            ].slice(0, 400),
+          });
+          return;
+        }
+
+        if (action.kind === 'pause_agent') {
+          get().pauseAgent(agentId);
+          set({ directChats: pushAgentMsg('承知しました。作業を一時停止し、休憩スペースへ移動します。再開のご指示をお待ちします。') });
+          return;
+        }
+        if (action.kind === 'resume_agent') {
+          get().resumeAgent(agentId);
+          set({ directChats: pushAgentMsg('作業を再開します。次のタスクから順に進めます。') });
+          return;
+        }
+
+        if (action.kind === 'report') {
+          const ctx = buildAgentContext(s, agentId);
+          const lines = [
+            `【詳細レポート】${agent.name}(${nowIso().slice(0, 10)})`,
+            `状態: ${agent.statusNote} / 居場所: ${ctx.zoneLabel}`,
+            `本日${agent.todayCount}件 / 今月${agent.monthCount}件を処理`,
+            ctx.currentTask ? `進行中: 「${ctx.currentTask.title}」(${ctx.currentTask.progress}%)` : '進行中のタスクなし',
+            `待機タスク: ${ctx.queuedTasks.length}件`,
+            `担当案件: ${ctx.assignedProjects.map((p) => `${p.name}(${p.progress}%)`).join(' / ') || 'なし'}`,
+            `集中度${agent.focus ?? 75}% / 疲労度${agent.fatigue ?? 20}% / 推定利用料 ${Math.round(ctx.ownCostJpy).toLocaleString()}円`,
+          ];
+          set({ directChats: pushAgentMsg(lines.join('\n')) });
+          return;
+        }
+        // kind === 'link' はUI側で遷移のみ(ストア変更なし)
+      },
+
+      // ---------- CEO提案の採用・修正・却下 ----------
+      decideProposal: (proposalId, decision) => {
+        const s = get();
+        const proposal = s.proposals.find((p) => p.id === proposalId);
+        if (!proposal || !['new', 'reviewing', 'revision'].includes(proposal.status)) return;
+
+        if (decision === 'adopted') {
+          // 採用: 提案内容をタスクへ変換し、担当AIへ割り振る
+          const newTasks: Task[] = proposal.actions.map((item, i) => ({
+            id: uid('task'),
+            title: item.title,
+            description: `CEO提案「${proposal.title}」より`,
+            assigneeId: item.assigneeId,
+            requesterId: 'ceo',
+            projectId: null,
+            customerId: null,
+            priority: 'high',
+            status: i === 0 ? 'running' : 'queued',
+            progress: 0,
+            plannedStart: null,
+            deadline: null,
+            startedAt: i === 0 ? nowIso() : null,
+            completedAt: null,
+            needsApproval: false,
+            approver: null,
+            dependsOn: [],
+            input: proposal.summary,
+            output: null,
+            model: 'claude-sonnet-5',
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsd: 0,
+            errorMessage: null,
+            createdAt: nowIso(),
+          }));
+          const events: OfficeEvent[] = proposal.targetAgentIds.map((toAgentId) => ({
+            id: uid('evt'),
+            kind: 'plan' as const,
+            fromAgentId: 'ceo',
+            toAgentId,
+            label: '提案採用・実行開始',
+            createdAt: nowIso(),
+          }));
+          set({
+            proposals: s.proposals.map((p) =>
+              p.id === proposalId ? { ...p, status: 'executing' as const, decidedAt: nowIso(), taskIds: newTasks.map((t) => t.id) } : p,
+            ),
+            tasks: [...newTasks, ...s.tasks],
+            officeEvents: [...events, ...s.officeEvents].slice(0, 10),
+            announcements: [
+              { id: uid('ann'), message: `社長が提案「${proposal.title}」を採用しました。実行を開始します`, tone: 'success' as const, createdAt: nowIso() },
+              ...s.announcements,
+            ].slice(0, 6),
+            agents: s.agents.map((a) =>
+              proposal.targetAgentIds.includes(a.id) && a.status !== 'paused' && a.status !== 'error'
+                ? { ...a, status: 'checking' as AgentStatus, statusNote: '提案タスクを確認中' }
+                : a,
+            ),
+            logs: [
+              { id: uid('log'), timestamp: nowIso(), agentId: 'ceo', message: `提案「${proposal.title}」が採用されました。タスク${newTasks.length}件を作成し、実行を開始します。`, taskId: newTasks[0]?.id ?? null, projectId: null, status: 'success' as const },
+              ...s.logs,
+            ].slice(0, 400),
+          });
+          return;
+        }
+
+        const status = decision === 'revision' ? ('revision' as const) : ('rejected' as const);
+        set({
+          proposals: s.proposals.map((p) => (p.id === proposalId ? { ...p, status, decidedAt: nowIso() } : p)),
+          logs: [
+            {
+              id: uid('log'),
+              timestamp: nowIso(),
+              agentId: 'ceo',
+              message:
+                decision === 'revision'
+                  ? `提案「${proposal.title}」に修正依頼を受けました。前提を見直して再提案します。`
+                  : `提案「${proposal.title}」は見送りとなりました。判断を記録します。`,
+              taskId: null,
+              projectId: null,
+              status: 'warning' as const,
+            },
+            ...s.logs,
+          ].slice(0, 400),
+        });
+      },
 
       // ---------- デモエンジン ----------
       // 小さな変化は毎tick(約3秒)、大きなイベントは6tickごと(約18秒)に発生させる
@@ -391,6 +693,7 @@ export const useOffice = create<OfficeState>()(
 
         // 仕事のリレー演出: キューに積まれた依頼を2tickごとに1本ずつ流す
         let relayQueue = s.relayQueue;
+        const newTalks: AgentTalk[] = [];
         if (relayQueue.length > 0 && tickCount % 2 === 0) {
           const [step, ...rest] = relayQueue;
           relayQueue = rest;
@@ -410,6 +713,17 @@ export const useOffice = create<OfficeState>()(
             taskId: null,
             projectId: null,
             status: 'info',
+          });
+          // 社内会話としても記録(重要イベントのみ)
+          newTalks.push({
+            id: uid('talk'),
+            lines: [
+              { agentId: step.from, text: `${step.label}します。確認をお願いします。` },
+              { agentId: step.to, text: pickRandom(['確認しました。すぐ対応します。', '受け取りました。優先で進めます。', '承知しました。今日中に対応します。']) },
+            ],
+            taskId: null,
+            projectId: null,
+            timestamp: nowIso(),
           });
         }
 
@@ -808,6 +1122,73 @@ export const useOffice = create<OfficeState>()(
           }
         }
 
+        // 7) 「社長と会話中」の吹き出しを一定時間維持 + 気分の更新
+        const chatCutoff = Date.now() - 12000;
+        agents = agents.map((a) => {
+          const t = s.lastChatAt[a.id];
+          const talking = t && new Date(t).getTime() > chatCutoff;
+          return {
+            ...a,
+            currentMood: moodOf(a),
+            statusNote: talking ? '💬 社長と会話中' : a.statusNote,
+          };
+        });
+
+        // 8) AI社員からの自発報告(タスク完了時に確率で。未読が溜まりすぎないよう抑制)
+        let directChats = s.directChats;
+        let unread = s.unread;
+        const reporter = Array.from(completedAssignees).find((id) => (s.unread[id] ?? 0) < 2);
+        if (reporter && Math.random() < 0.5) {
+          const agent = agents.find((a) => a.id === reporter);
+          const doneTask = tasks.find((t) => t.assigneeId === reporter && t.status === 'done' && t.completedAt);
+          if (agent && doneTask) {
+            const msg: DirectChatMessage = {
+              id: uid('dm'),
+              role: 'agent',
+              content: `ご報告です。「${doneTask.title}」が完了しました。本日はこれで${agent.todayCount}件目です。続けて次のタスクへ進みます。`,
+              timestamp: nowIso(),
+            };
+            directChats = { ...directChats, [reporter]: [...(directChats[reporter] ?? []), msg].slice(-100) };
+            unread = { ...unread, [reporter]: (unread[reporter] ?? 0) + 1 };
+          }
+        }
+
+        // 9) CEO AIの自発提案(約60秒周期で状況を分析。未処理の提案がある間は出さない)
+        let proposals = s.proposals;
+        let lastProposalTick = s.lastProposalTick;
+        if (
+          tickCount % 20 === 0 &&
+          tickCount - lastProposalTick >= 20 &&
+          !proposals.some((p) => p.status === 'new' || p.status === 'reviewing')
+        ) {
+          const draft = conversationProvider.generateCEOProposal(buildCompanyContext({ ...s, agents, tasks, approvals }), agents);
+          if (draft) {
+            lastProposalTick = tickCount;
+            proposals = [draft, ...proposals].slice(0, 20);
+            unread = { ...unread, ceo: (unread.ceo ?? 0) + 1 };
+            const ceoMsg: DirectChatMessage = {
+              id: uid('dm'),
+              role: 'agent',
+              content: `新しい経営提案があります。\n「${draft.title}」\n${draft.summary}\n詳細は提案センターでご確認ください。`,
+              timestamp: nowIso(),
+            };
+            directChats = { ...directChats, ceo: [...(directChats.ceo ?? []), ceoMsg].slice(-100) };
+            announcements = [
+              { id: uid('ann'), message: `新しい経営提案「${draft.title}」を作成しました。提案センターをご確認ください`, tone: 'info' as const, createdAt: nowIso() },
+              ...announcements,
+            ].slice(0, 6);
+            newLogs.push({
+              id: uid('log'),
+              timestamp: nowIso(),
+              agentId: 'ceo',
+              message: `経営提案「${draft.title}」を作成しました。`,
+              taskId: null,
+              projectId: null,
+              status: 'info',
+            });
+          }
+        }
+
         dailyStats = dailyStats.map((d, i) => (i === todayIdx ? today : d));
 
         set({
@@ -819,6 +1200,11 @@ export const useOffice = create<OfficeState>()(
           announcements,
           tickCount,
           relayQueue,
+          directChats,
+          unread,
+          proposals,
+          lastProposalTick,
+          agentTalks: [...newTalks, ...s.agentTalks].slice(0, 20),
           officeEvents: [...newEvents, ...s.officeEvents].slice(0, 10),
           logs: [...newLogs.reverse(), ...s.logs].slice(0, 400),
         });
@@ -1102,31 +1488,59 @@ export const useOffice = create<OfficeState>()(
         })),
 
       resetAll: () =>
-        set({ ...initialData, officeEvents: [], announcements: [], tickCount: 0, relayQueue: [] }),
+        set({
+          ...initialData,
+          officeEvents: [],
+          announcements: [],
+          tickCount: 0,
+          relayQueue: [],
+          lastChatAt: {},
+          lastProposalTick: 0,
+          directChats: seedDirectChats,
+          unread: seedUnread,
+          proposals: seedProposals,
+          agentTalks: seedTalks,
+        }),
     }),
     {
       name: 'aco-store-v1',
-      version: 3,
+      version: 4,
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
       },
-      // 旧バージョンの永続化データにライブオフィス用フィールド(個性・集中度など)を補完する
+      // 旧バージョンの永続化データに新フィールドを補完する
       migrate: (persisted, version) => {
         const state = persisted as Partial<OfficeState>;
         if (version < 3 && state) {
-          if (Array.isArray(state.agents)) {
-            state.agents = state.agents.map((a) => ({ ...a, ...AGENT_PERSONAS[a.id] }));
-          }
           if (state.settings && state.settings.timeEffects === undefined) {
             state.settings = { ...state.settings, timeEffects: true };
           }
         }
+        if (version < 4 && state) {
+          // v4: 人格・会話フィールドの補完(既存の動的値は保持)
+          if (Array.isArray(state.agents)) {
+            state.agents = state.agents.map((a) => mergePersona({ ...a, ...AGENT_PERSONAS[a.id] } as Agent));
+          }
+          if (!state.directChats) state.directChats = seedDirectChats;
+          if (!state.unread) state.unread = seedUnread;
+          if (!state.proposals) state.proposals = seedProposals;
+          if (!state.agentTalks) state.agentTalks = seedTalks;
+        }
         return state as OfficeState & Record<string, unknown>;
       },
       partialize: (s) => {
-        // hydratedと演出用の一時データ(officeEvents/announcements/tickCount/relayQueue)は永続化しない
-        const { hydrated, officeEvents, announcements, tickCount, relayQueue, ...rest } = s as OfficeState &
-          Record<string, unknown>;
+        // hydratedと演出用の一時データは永続化しない
+        // (会話履歴 directChats / 未読 unread / 提案 proposals / 社内会話 agentTalks は永続化する)
+        const {
+          hydrated,
+          officeEvents,
+          announcements,
+          tickCount,
+          relayQueue,
+          lastChatAt,
+          lastProposalTick,
+          ...rest
+        } = s as OfficeState & Record<string, unknown>;
         return rest;
       },
     },

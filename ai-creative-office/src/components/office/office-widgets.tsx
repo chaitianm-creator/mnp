@@ -189,6 +189,66 @@ export function LiveFeed({
   );
 }
 
+// ---------- 社内会話(AI社員同士の短い会話・重要イベント時のみ) ----------
+
+export function TalkFeed({ onSelectAgent }: { onSelectAgent: (agentId: string) => void }) {
+  const talks = useOffice((s) => s.agentTalks);
+  const agents = useOffice((s) => s.agents);
+  if (talks.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white">
+      <div className="border-b border-slate-100 px-4 py-3">
+        <p className="text-sm font-semibold text-slate-800">社内会話</p>
+        <p className="text-[10px] text-slate-400">AI社員同士のやりとり(重要イベント時のみ)</p>
+      </div>
+      <ul className="max-h-72 space-y-3 overflow-y-auto px-3 py-3">
+        {talks.slice(0, 6).map((talk) => (
+          <li key={talk.id} className="space-y-1.5">
+            {talk.lines.map((line, i) => {
+              const agent = agents.find((a) => a.id === line.agentId);
+              return (
+                <div key={i} className="flex items-start gap-2">
+                  <button
+                    onClick={() => onSelectAgent(line.agentId)}
+                    aria-label={`${agent?.name ?? line.agentId}の詳細を開く`}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                    style={{
+                      backgroundColor: `${agent?.color ?? '#94a3b8'}18`,
+                      border: `1.5px solid ${agent?.color ?? '#94a3b8'}55`,
+                    }}
+                  >
+                    {agent?.avatar ?? '🤖'}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold text-slate-600">{agent?.name ?? line.agentId}</p>
+                    <p className="rounded-lg rounded-tl-sm bg-slate-50 px-2 py-1 text-[11px] leading-snug text-slate-600">
+                      {line.text}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex items-center gap-2 pl-8">
+              <span className="text-[9px] tabular-nums text-slate-300">{timeAgo(talk.timestamp)}</span>
+              {talk.taskId && (
+                <Link href={`/tasks/${talk.taskId}`} className="text-[10px] text-brand-600 hover:underline">
+                  関連タスク →
+                </Link>
+              )}
+              {talk.projectId && (
+                <Link href={`/projects/${talk.projectId}`} className="text-[10px] text-brand-600 hover:underline">
+                  関連案件 →
+                </Link>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ---------- 進行中の主要タスク ----------
 
 export function RunningTasksBar() {

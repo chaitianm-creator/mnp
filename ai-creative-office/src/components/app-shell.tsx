@@ -16,6 +16,7 @@ import {
   Handshake,
   Inbox,
   LayoutDashboard,
+  Lightbulb,
   Link2,
   ListTodo,
   Megaphone,
@@ -35,10 +36,11 @@ const NAV = [
     { href: '/dashboard', label: '経営ダッシュボード', icon: LayoutDashboard },
     { href: '/office', label: 'バーチャルオフィス', icon: Building2 },
     { href: '/chat', label: '社長指示チャット', icon: MessageSquare },
+    { href: '/proposals', label: 'CEO提案センター', icon: Lightbulb, badge: 'proposals' },
     { href: '/approvals', label: '承認センター', icon: CheckCircle2, badge: 'approvals' },
   ]},
   { section: '組織', items: [
-    { href: '/agents', label: 'AI社員', icon: Users },
+    { href: '/agents', label: 'AI社員', icon: Users, badge: 'unread' },
     { href: '/tasks', label: 'タスク管理', icon: ListTodo },
     { href: '/logs', label: '活動ログ', icon: Activity },
   ]},
@@ -80,7 +82,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const companyName = useOffice((s) => s.settings.companyName);
   const demoMode = useOffice((s) => s.settings.demoMode);
   const pendingApprovals = useOffice((s) => s.approvals.filter((a) => a.status === 'pending').length);
+  const openProposals = useOffice(
+    (s) => s.proposals.filter((p) => ['new', 'reviewing', 'revision'].includes(p.status)).length,
+  );
+  const totalUnread = useOffice((s) => Object.values(s.unread).reduce((a, b) => a + b, 0));
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const badgeCount = (badge?: string) =>
+    badge === 'approvals' ? pendingApprovals : badge === 'proposals' ? openProposals : badge === 'unread' ? totalUnread : 0;
 
   useDemoEngine();
 
@@ -125,14 +134,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="flex-1">{item.label}</span>
-                    {'badge' in item && item.badge === 'approvals' && pendingApprovals > 0 && (
+                    {'badge' in item && badgeCount(item.badge) > 0 && (
                       <span
                         className={cn(
                           'rounded-full px-1.5 py-0.5 text-[10px] font-bold',
-                          active ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700',
+                          active
+                            ? 'bg-white/20 text-white'
+                            : item.badge === 'unread'
+                              ? 'bg-brand-100 text-brand-700'
+                              : 'bg-amber-100 text-amber-700',
                         )}
+                        aria-label={`${item.label}の未処理 ${badgeCount(item.badge)}件`}
                       >
-                        {pendingApprovals}
+                        {badgeCount(item.badge)}
                       </span>
                     )}
                   </Link>

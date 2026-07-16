@@ -74,6 +74,17 @@ export interface Agent {
   focus?: number; // 現在の集中度 0-100(デモで変動)
   fatigue?: number; // 疲労度 0-100(作業で上昇、待機・休憩で回復)
   weeklyHighlight?: string; // 今週の成果(例: 返信率が2.1%→3.4%に改善)
+  // ---- 人格・会話(v4で追加・すべて任意) ----
+  displayName?: string; // 例: 営業AI「美咲」
+  personality?: string; // 性格(例: 積極的、提案型、スピード重視)
+  speakingStyle?: string; // 口調(例: 明るく、簡潔で、数字を交えて報告)
+  decisionPolicy?: string; // 判断基準(例: 返信率、商談化率、顧客との適合度)
+  greeting?: string; // 会話開始時の挨拶
+  currentMood?: string; // 現在の気分(集中度・疲労度から更新)
+  confidence?: number; // 自信度 0-100
+  specialties?: string[]; // 専門領域(strengthsの別名的に使用)
+  preferredTaskTypes?: string[]; // 依頼を受けやすいタスク種別
+  communicationExamples?: string[]; // 話し方の例
 }
 
 export type TaskStatus =
@@ -422,6 +433,74 @@ export interface Announcement {
   message: string;
   tone: 'info' | 'success' | 'warning';
   createdAt: string;
+}
+
+// ---------- AI社員との個別会話 ----------
+
+/** 会話内のアクションボタン(ユーザーが押すまで実行しない) */
+export interface ChatAction {
+  id: string;
+  label: string;
+  kind:
+    | 'link' // 画面遷移(承認センター等)
+    | 'create_task' // タスク作成(承認=クリック)
+    | 'consult' // 他AIへ相談・確認依頼(信号+ログ)
+    | 'pause_agent'
+    | 'resume_agent'
+    | 'call_meeting' // 会議招集
+    | 'report'; // 詳細レポートを会話に追加
+  href?: string; // kind=link用
+  payload?: string; // タスク内容・相談先AIidなど
+}
+
+export interface DirectChatMessage {
+  id: string;
+  role: 'user' | 'agent';
+  content: string;
+  actions?: ChatAction[];
+  timestamp: string;
+}
+
+// ---------- CEO AIの経営提案 ----------
+
+export type ProposalStatus =
+  | 'new' // 新規
+  | 'reviewing' // 確認中
+  | 'adopted' // 採用
+  | 'revision' // 修正依頼
+  | 'rejected' // 却下
+  | 'queued' // 実行待ち
+  | 'executing' // 実行中
+  | 'done' // 完了
+  | 'failed'; // 失敗
+
+export interface CeoProposal {
+  id: string;
+  title: string;
+  summary: string; // CEO AIの要約
+  issue: string; // 課題
+  evidence: string[]; // 根拠となる数字
+  hypothesis: string; // 原因仮説
+  actions: { title: string; assigneeId: string }[]; // 提案内容(採用時にタスク化)
+  expectedEffect: string; // 想定効果
+  risks: string[]; // 想定リスク
+  estimatedCostJpy: number; // 想定コスト
+  approvalNote: string; // 承認が必要な処理
+  targetDepartment: string;
+  targetAgentIds: string[];
+  status: ProposalStatus;
+  createdAt: string;
+  decidedAt: string | null;
+  taskIds: string[]; // 採用時に作成したタスク
+}
+
+/** AI社員同士の短い社内会話(重要イベント時のみ) */
+export interface AgentTalk {
+  id: string;
+  lines: { agentId: string; text: string }[];
+  taskId: string | null;
+  projectId: string | null;
+  timestamp: string;
 }
 
 export interface Integration {

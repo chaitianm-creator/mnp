@@ -42,6 +42,7 @@ const AgentDesk = memo(function AgentDesk({
   compact?: boolean;
 }) {
   const reduced = useReducedMotion();
+  const unreadCount = useOffice((s) => s.unread[agent.id] ?? 0);
   const st = AGENT_STATUS[agent.status];
   const busy = ['working', 'checking', 'delegating'].includes(agent.status);
   const isDone = agent.status === 'done';
@@ -74,6 +75,14 @@ const AgentDesk = memo(function AgentDesk({
         busy && !reduced && 'motion-safe:shadow-[0_0_14px_rgba(99,102,241,0.22)]',
       )}
     >
+      {unreadCount > 0 && (
+        <span
+          className="absolute -left-1.5 -top-1.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[9px] font-bold text-white shadow"
+          aria-label={`未読メッセージ ${unreadCount}件`}
+        >
+          {unreadCount}
+        </span>
+      )}
       <div className="flex items-center gap-2">
         <div
           className={cn(
@@ -191,6 +200,9 @@ function CeoSpot({ onSelect }: { onSelect: (a: Agent) => void }) {
   const running = useOffice((s) => s.tasks.filter((t) => t.status === 'running').length);
   const errors = useOffice((s) => s.agents.filter((a) => a.status === 'error').length);
   const latest = useOffice((s) => s.announcements[0]);
+  const openProposals = useOffice(
+    (s) => s.proposals.filter((p) => ['new', 'reviewing', 'revision'].includes(p.status)).length,
+  );
   if (!ceo) return null;
   return (
     <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,180px)_1fr]">
@@ -215,6 +227,14 @@ function CeoSpot({ onSelect }: { onSelect: (a: Agent) => void }) {
         <p className="col-span-2 truncate rounded-lg bg-brand-50/70 px-2 py-1 text-[10px] text-brand-700">
           🎯 {latest?.message ?? '本日の重点方針を策定中です'}
         </p>
+        {openProposals > 0 && (
+          <Link
+            href="/proposals"
+            className="col-span-2 flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700 outline-none hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-500"
+          >
+            💡 新しい経営提案が{openProposals}件あります → 提案センターへ
+          </Link>
+        )}
       </div>
     </div>
   );

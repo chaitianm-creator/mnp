@@ -12,7 +12,9 @@ import { MapPin, Pause, Play, Send, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { AgentAvatar, AgentStatusBadge, DepartmentBadge } from './agent-bits';
+import { AgentChat } from './agent-chat';
 import { Button, ProgressBar } from './ui';
+import { cn } from '@/lib/utils';
 
 export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onClose: () => void }) {
   const tasks = useOffice((s) => s.tasks);
@@ -26,6 +28,10 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
   const panelRef = useRef<HTMLElement>(null);
   const [instruction, setInstruction] = useState('');
   const [sent, setSent] = useState(false);
+  const [tab, setTab] = useState<'chat' | 'profile'>('chat');
+
+  // 別の社員を開いたら会話タブに戻す
+  useEffect(() => setTab('chat'), [agent?.id]);
 
   // Escで閉じる + 簡易フォーカストラップ
   useEffect(() => {
@@ -92,9 +98,9 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
             animate={reduced ? { opacity: 1 } : { x: 0, opacity: 1 }}
             exit={reduced ? { opacity: 0 } : { x: 420, opacity: 0 }}
             transition={reduced ? { duration: 0.1 } : { type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-slate-200 bg-white shadow-panel outline-none"
+            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-panel outline-none"
           >
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur">
+            <div className="z-10 flex items-start justify-between gap-3 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur">
               <div className="flex items-center gap-3">
                 <AgentAvatar agent={agent} size="lg" />
                 <div>
@@ -109,7 +115,7 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
                     <AgentStatusBadge agent={agent} />
                   </div>
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
-                    <MapPin className="h-3 w-3" /> 現在の居場所: {agentZoneLabel(agent)}
+                    <MapPin className="h-3 w-3" /> {agentZoneLabel(agent)} ・ {agent.statusNote}
                   </p>
                 </div>
               </div>
@@ -122,6 +128,38 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
               </button>
             </div>
 
+            {/* タブ */}
+            <div className="flex gap-1 border-b border-slate-100 px-5 pt-2" role="tablist" aria-label="表示切り替え">
+              {(
+                [
+                  ['chat', '会話'],
+                  ['profile', 'プロフィール'],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  role="tab"
+                  aria-selected={tab === key}
+                  onClick={() => setTab(key)}
+                  className={cn(
+                    'rounded-t-lg border-b-2 px-3 py-1.5 text-xs font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-500',
+                    tab === key ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-400 hover:text-slate-600',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* 会話タブ */}
+            {tab === 'chat' && (
+              <div className="min-h-0 flex-1 px-4 pb-3">
+                <AgentChat agent={agent} onClose={onClose} />
+              </div>
+            )}
+
+            {/* プロフィールタブ */}
+            <div className={cn('min-h-0 flex-1 overflow-y-auto', tab !== 'profile' && 'hidden')}>
             <div className="space-y-5 px-5 py-4">
               <section>
                 <p className="text-xs text-slate-500">{agent.description}</p>
@@ -300,6 +338,7 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
                   詳細ページを開く
                 </Link>
               </div>
+            </div>
             </div>
           </motion.aside>
         </>

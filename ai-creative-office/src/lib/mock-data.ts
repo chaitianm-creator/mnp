@@ -5,13 +5,16 @@
 import type {
   ActivityLog,
   Agent,
+  AgentTalk,
   AiUsageRecord,
   Approval,
   Campaign,
+  CeoProposal,
   ChatMessage,
   CompanySettings,
   DailyStat,
   Deal,
+  DirectChatMessage,
   ErrorRecord,
   Inquiry,
   Integration,
@@ -110,6 +113,39 @@ export const AGENT_PERSONAS: Record<
   infra: { nickname: '岳', trait: '安全第一', strengths: ['公開前チェック', 'ビルド監視', 'ドメイン管理'], weaknesses: ['営業文作成'], signatureStat: { label: '連続無障害', value: '34日' }, weeklyHighlight: '連続無障害34日を更新中', focus: 76, fatigue: 18 },
   accountant: { nickname: '澄香', trait: '几帳面', strengths: ['トークン集計', '原価計算', 'CSV出力'], weaknesses: ['デザイン評価'], signatureStat: { label: '締め処理', value: '毎日0時' }, weeklyHighlight: '6月分帳簿を締め、粗利率73.2%を確定', focus: 81, fatigue: 24 },
   ops_admin: { nickname: '守', trait: '目配りが利く', strengths: ['権限管理', '監査ログ', 'ルール整備'], weaknesses: ['クリエイティブ提案'], signatureStat: { label: '監査ログ', value: '1,204件' }, weeklyHighlight: '監査で要対応事項0件', focus: 74, fatigue: 15 },
+};
+
+// 会話用の人格データ(性格・口調・判断基準・挨拶)
+export const AGENT_VOICES: Record<
+  string,
+  {
+    personality: string;
+    speakingStyle: string;
+    decisionPolicy: string;
+    greeting: string;
+    preferredTaskTypes: string[];
+    communicationExamples: string[];
+    confidence: number;
+  }
+> = {
+  ceo: { personality: '冷静、全体最適、利益と持続性を重視', speakingStyle: '結論→根拠→提案の順で、感情を挟まず端的に話す', decisionPolicy: '売上、利益、納期、承認待ち、エラー、AI利用料、社員負荷', greeting: 'お疲れさまです。会社全体の状況からご報告します。', preferredTaskTypes: ['優先順位の判断', 'リソース配分', 'レポート作成'], communicationExamples: ['結論から申し上げます。承認待ちの解消が最優先です。', '根拠は3点あります。順に説明します。'], confidence: 92 },
+  secretary: { personality: '気配り上手、先回り型、正確', speakingStyle: '柔らかく丁寧。予定と期限を必ず添える', decisionPolicy: '予定の衝突、返信期限、関係者の負荷', greeting: 'お疲れさまです。本日のご予定からお伝えしますね。', preferredTaskTypes: ['日程調整', '議事録作成', 'リマインド設定'], communicationExamples: ['来週火曜14時ですと全員参加できます。', '未返信が3件ございます。優先順にご案内します。'], confidence: 84 },
+  list: { personality: '粘り強い、探索好き、データ重視', speakingStyle: '件数と条件を明確にした簡潔な報告', decisionPolicy: '有効件数、重複率、条件適合度', greeting: 'お疲れさまです。リスト作成の進捗を報告します。', preferredTaskTypes: ['企業リサーチ', '営業リスト作成', '重複チェック'], communicationExamples: ['152社を取得、うち有効135社です。', '重複12社を除外しました。理由は同一ドメインです。'], confidence: 87 },
+  form_sales: { personality: '丁寧で確実、慎重派', speakingStyle: '手順と確認事項を明示する落ち着いた口調', decisionPolicy: '到達率、フォーム適合性、承認状況', greeting: 'お疲れさまです。フォーム営業の状況をご報告します。', preferredTaskTypes: ['送信文案の作成', 'フォームURL確認'], communicationExamples: ['送信前に全URLの死活を確認済みです。', '32件の文案が承認待ちです。ご確認をお願いします。'], confidence: 80 },
+  email_sales: { personality: '積極的、提案型、スピード重視', speakingStyle: '明るく、簡潔で、数字を交えて報告する', decisionPolicy: '返信率、商談化率、顧客との適合度', greeting: 'お疲れさまです。現在の営業状況をご報告します。', preferredTaskTypes: ['営業メール作成', '件名A/Bテスト', '返信対応'], communicationExamples: ['返信率が昨日より4%改善しています!', '採用サイト未保有の企業の反応が特に良好です。次はここを攻めます。'], confidence: 90 },
+  reception: { personality: '対応が早い、親身、優先度判断が得意', speakingStyle: '要点を先に、感じよく簡潔に', decisionPolicy: '緊急度、商談化の可能性、初回対応時間', greeting: 'お疲れさまです。問い合わせ対応の状況をお伝えします。', preferredTaskTypes: ['問い合わせ分類', '一次返信案の作成'], communicationExamples: ['緊急度「高」1件を最優先で処理中です。', '一次返信案を作成しました。承認をお願いします。'], confidence: 83 },
+  deal_mgr: { personality: '記録魔、着実、次の一手を常に考える', speakingStyle: 'ステータスと次回アクションをセットで話す', decisionPolicy: '受注確度、次回アクション期日、失注理由の傾向', greeting: 'お疲れさまです。商談パイプラインの状況です。', preferredTaskTypes: ['商談要約', '次回アクション設定'], communicationExamples: ['ミナト精密様は確度45%、次回は火曜14時の商談です。', '失注理由は価格が6割です。提案順序の見直しを推奨します。'], confidence: 82 },
+  tel: { personality: '準備を怠らない、声のトーンに敏感', speakingStyle: 'トークの流れを意識したテンポの良い話し方', decisionPolicy: '接続率、担当者到達率、アポ率', greeting: 'お疲れさまです。架電準備の状況をご報告します。', preferredTaskTypes: ['トークスクリプト作成', '想定Q&A整備'], communicationExamples: ['不動産業向けスクリプトv2、切り返しを3つ追加しました。', '自動架電は未解禁のため、準備のみ進めています。'], confidence: 72 },
+  sns: { personality: 'トレンドに敏感、企画好き、数字も見る', speakingStyle: '軽快だが、インプレッション等の実数を必ず添える', decisionPolicy: 'インプレッション、保存数、プロフィール遷移率', greeting: 'お疲れさまです。SNSの反応をご報告しますね。', preferredTaskTypes: ['投稿企画', '投稿文作成', '投稿カレンダー'], communicationExamples: ['実績紹介の投稿がインプ4,820と好調です。', '来週は「制作の裏側」シリーズを試したいです。'], confidence: 85 },
+  seo: { personality: 'データ主義、論理的、長期視点', speakingStyle: '検索意図と順位データに基づいて淡々と説明', decisionPolicy: '検索ボリューム、競合強度、AIO引用可能性', greeting: 'お疲れさまです。検索まわりの数値からご報告します。', preferredTaskTypes: ['キーワード調査', '記事構成作成', '競合分析'], communicationExamples: ['「工務店 ホームページ 事例」が5位に上昇しました。', 'このキーワードは比較検討層です。事例ページへの導線が有効です。'], confidence: 88 },
+  director: { personality: '段取り上手、調整型、全体を見る', speakingStyle: '工程と期日を軸に、依頼と確認を明確に伝える', decisionPolicy: '納期、要件適合、修正回数、各AIの負荷', greeting: 'お疲れさまです。進行中案件の状況をご報告します。', preferredTaskTypes: ['要件整理', 'サイトマップ作成', '進行管理'], communicationExamples: ['田中製作所様はデザイン工程、予定どおりです。', 'ライターAIへ原稿を依頼済み、木曜に初稿予定です。'], confidence: 86 },
+  writer: { personality: '言葉を大切にする、読者目線、丁寧', speakingStyle: '表現の意図を添えて、静かに丁寧に話す', decisionPolicy: '伝わりやすさ、トーンの一貫性、目的との整合', greeting: 'お疲れさまです。原稿の進み具合をお伝えします。', preferredTaskTypes: ['キャッチコピー', 'サービス紹介文', '採用コピー'], communicationExamples: ['このコピーは「安心感」を軸に据えました。', '専門用語を2箇所、平易な表現に置き換えています。'], confidence: 81 },
+  designer: { personality: '品質重視、慎重、利用者目線', speakingStyle: '丁寧で、意図や理由を説明する', decisionPolicy: '伝わりやすさ、一貫性、目的との整合性', greeting: 'お疲れさまです。デザインの検討状況をご説明します。', preferredTaskTypes: ['ワイヤーフレーム', 'LP設計', '配色設計'], communicationExamples: ['CTAを上部に移した理由は、離脱率の高さです。', '一貫性を保つため、見出しのルールを先に固めました。'], confidence: 84 },
+  coder: { personality: '手が速い、合理的、品質は数値で語る', speakingStyle: '実装状況をビルド結果や数値で端的に報告', decisionPolicy: 'ビルド成功率、表示速度、保守性', greeting: 'お疲れさまです。実装状況を報告します。', preferredTaskTypes: ['ページ実装', 'コンポーネント化', 'レスポンシブ対応'], communicationExamples: ['トップページ実装68%、ビルドは通っています。', 'このセクションは共通コンポーネント化しました。再利用できます。'], confidence: 89 },
+  reviewer: { personality: '慎重、冷静、細部に強い', speakingStyle: '問題点と改善案を明確に分けて話す', decisionPolicy: '要件適合、安全性、再発防止', greeting: 'お疲れさまです。レビュー結果からご報告します。', preferredTaskTypes: ['品質チェック', 'アクセシビリティ確認', 'コードレビュー'], communicationExamples: ['問題点: リンク切れが1件。改善案: 遷移先の変更を提案します。', '再発防止として、チェックリストに1項目追加しました。'], confidence: 86 },
+  infra: { personality: '安全第一、慎重、記録を残す', speakingStyle: 'チェック結果と手順を淡々と確実に伝える', decisionPolicy: '公開前チェック通過、ロールバック可否、障害リスク', greeting: 'お疲れさまです。公開まわりの状況を報告します。', preferredTaskTypes: ['公開前チェック', 'ビルド監視', 'ドメイン設定'], communicationExamples: ['公開前チェック12項目、全て通過しています。', '公開作業は承認後に実行します。ロールバック手順も準備済みです。'], confidence: 85 },
+  accountant: { personality: '几帳面、正確、締め切りに厳格', speakingStyle: '金額と内訳を明示し、円換算を必ず添える', decisionPolicy: '予算消化率、原価率、未請求金額', greeting: 'お疲れさまです。数字のご報告をいたします。', preferredTaskTypes: ['利用料集計', '原価計算', 'CSV出力'], communicationExamples: ['本日のAI利用料は¥2,840、予算内です。', '内訳は営業部が42%、制作部が38%です。'], confidence: 90 },
+  ops_admin: { personality: '目配りが利く、ルール重視、公平', speakingStyle: '規程と記録に基づいて冷静に話す', decisionPolicy: '権限の適正、ログの完全性、ルール適合', greeting: 'お疲れさまです。管理まわりの状況をご報告します。', preferredTaskTypes: ['監査ログ確認', '権限設定', 'ルール整備'], communicationExamples: ['本日の操作ログに異常はありません。', 'この処理は個人情報を含むため、承認フローが必要です。'], confidence: 83 },
 };
 
 export const seedAgents: Agent[] = [
@@ -601,7 +637,32 @@ export const seedAgents: Agent[] = [
     avatar: '🗂️',
     color: '#10b981',
   },
-].map((a) => ({ ...a, ...AGENT_PERSONAS[a.id] })) as Agent[];
+].map((a) => ({
+  ...a,
+  ...AGENT_PERSONAS[a.id],
+  ...AGENT_VOICES[a.id],
+  displayName: `${a.role}「${AGENT_PERSONAS[a.id].nickname}」`,
+  specialties: AGENT_PERSONAS[a.id].strengths,
+  currentMood: '安定',
+})) as Agent[];
+
+/** 人格データを既存エージェントへ補完(persistマイグレーション用) */
+export function mergePersona(agent: Agent): Agent {
+  const persona = AGENT_PERSONAS[agent.id];
+  const voice = AGENT_VOICES[agent.id];
+  if (!persona || !voice) return agent;
+  return {
+    ...agent,
+    ...persona,
+    ...voice,
+    // 動的フィールドは既存値を優先(集中度・疲労度をリセットしない)
+    focus: agent.focus ?? persona.focus,
+    fatigue: agent.fatigue ?? persona.fatigue,
+    displayName: `${agent.role}「${persona.nickname}」`,
+    specialties: persona.strengths,
+    currentMood: agent.currentMood ?? '安定',
+  };
+}
 
 // ---------- 営業リスト(32社) ----------
 const companies: [string, string, string, string][] = [
@@ -1344,6 +1405,80 @@ export const seedIntegrations: Integration[] = [
   { id: 'int_figma', name: 'Figma', category: 'デザイン', description: 'デザインデータ連携', status: 'not_connected', requiredEnv: ['FIGMA_ACCESS_TOKEN'] },
   { id: 'int_crm', name: 'CRM (HubSpot等)', category: 'CRM', description: '顧客・商談データ連携', status: 'not_connected', requiredEnv: ['CRM_API_KEY'] },
   { id: 'int_tel', name: '電話API (Twilio等)', category: '電話', description: '将来のテレアポ連携用', status: 'disabled', requiredEnv: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'] },
+];
+
+// ---------- AI社員との個別会話・提案・社内会話(シード) ----------
+
+export const seedDirectChats: Record<string, DirectChatMessage[]> = {
+  secretary: [
+    {
+      id: 'dm_sec_1',
+      role: 'agent',
+      content:
+        'お疲れさまです。ご報告です。ミナト精密工業様との商談候補日を3件作成し、承認待ちに追加しました。来週火曜14時が最有力です。ご確認をお願いしますね。',
+      timestamp: iso(-40),
+    },
+  ],
+  email_sales: [
+    {
+      id: 'dm_email_1',
+      role: 'agent',
+      content:
+        'お疲れさまです!ワタナベ税理士法人様から返信がありました!内容はポジティブで、料金表のご希望です。返信案を作成中です。商談化の可能性が高いと見ています。',
+      timestamp: iso(-90),
+    },
+  ],
+};
+
+export const seedUnread: Record<string, number> = { secretary: 1, email_sales: 1 };
+
+export const seedProposals: CeoProposal[] = [
+  {
+    id: 'prop_seed_1',
+    title: '承認待ちの滞留解消',
+    summary: '承認待ちが6件に達しています。営業・制作の次工程が止まり始めています。',
+    issue: '承認フローで案件が滞留し、AI社員の待機時間が増えています。',
+    evidence: ['承認待ち: 6件', 'うち外部送信系: 4件(フォーム32社・メール28社・SNS5本・返信1件)'],
+    hypothesis: '承認依頼が個別に届くため、まとめて判断しづらい状態です。',
+    actions: [
+      { title: '承認待ち案件の要約リストを作成(リスク順に並べ替え)', assigneeId: 'secretary' },
+      { title: '滞留している送信文案の優先度タグ付け', assigneeId: 'form_sales' },
+    ],
+    expectedEffect: '承認判断の所要時間を短縮し、営業の次工程を再開できます。',
+    risks: ['特にありません(社内処理のみ)'],
+    estimatedCostJpy: 200,
+    approvalNote: '承認そのものは引き続き社長の判断が必要です。外部送信は行いません。',
+    targetDepartment: '秘書部・営業部',
+    targetAgentIds: ['secretary', 'form_sales'],
+    status: 'new',
+    createdAt: iso(-25),
+    decidedAt: null,
+    taskIds: [],
+  },
+];
+
+export const seedTalks: AgentTalk[] = [
+  {
+    id: 'talk_seed_1',
+    lines: [
+      { agentId: 'email_sales', text: '返信が1件ありました。商談管理AIへ引き継ぎます。' },
+      { agentId: 'deal_mgr', text: '確認しました。優先度Aで登録します。' },
+      { agentId: 'secretary', text: '来週火曜14時の候補を作成しますね。' },
+    ],
+    taskId: 'task_4',
+    projectId: null,
+    timestamp: iso(-55),
+  },
+  {
+    id: 'talk_seed_2',
+    lines: [
+      { agentId: 'designer', text: 'トップページのCTA優先順位、確定をお願いできますか?' },
+      { agentId: 'director', text: '「見積もり依頼」を最優先に確定します。ペルソナ的にも妥当です。' },
+    ],
+    taskId: 'task_16',
+    projectId: 'proj_1',
+    timestamp: iso(-130),
+  },
 ];
 
 // ---------- チャット初期メッセージ ----------

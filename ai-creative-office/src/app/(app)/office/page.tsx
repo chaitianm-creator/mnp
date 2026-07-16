@@ -11,6 +11,7 @@ import {
   LiveFeed,
   OfficeSummary,
   RunningTasksBar,
+  TalkFeed,
 } from '@/components/office/office-widgets';
 import { SystemMonitor } from '@/components/office/system-monitor';
 import { ProgressBar } from '@/components/ui';
@@ -124,11 +125,12 @@ export default function OfficePage() {
             社内ライブフィード
             {feedOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
-          <div className={cn(!feedOpen && 'hidden xl:block')}>
+          <div className={cn('space-y-3', !feedOpen && 'hidden xl:block')}>
             <LiveFeed
               onSelectAgent={(id) => setSelectedId(id)}
-              className="max-h-[420px] xl:max-h-[calc(100vh-190px)] xl:min-h-[500px]"
+              className="max-h-[380px] xl:max-h-[calc(100vh-480px)] xl:min-h-[320px]"
             />
+            <TalkFeed onSelectAgent={(id) => setSelectedId(id)} />
           </div>
         </div>
       </div>

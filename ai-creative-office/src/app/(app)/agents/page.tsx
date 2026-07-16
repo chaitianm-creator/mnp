@@ -12,6 +12,7 @@ import { useState } from 'react';
 
 export default function AgentsPage() {
   const agents = useOffice((s) => s.agents);
+  const unread = useOffice((s) => s.unread);
   const usdJpyRate = useOffice((s) => s.settings.usdJpyRate);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = agents.find((a) => a.id === selectedId) ?? null;
@@ -33,13 +34,21 @@ export default function AgentsPage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {members.map((agent) => (
-                  <Card key={agent.id} className="cursor-pointer p-4 transition hover:border-brand-300">
+                  <Card key={agent.id} className="relative cursor-pointer p-4 transition hover:border-brand-300">
+                    {(unread[agent.id] ?? 0) > 0 && (
+                      <span
+                        className="absolute -left-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white shadow"
+                        aria-label={`未読メッセージ ${unread[agent.id]}件`}
+                      >
+                        {unread[agent.id]}
+                      </span>
+                    )}
                     <button className="w-full text-left" onClick={() => setSelectedId(agent.id)}>
                       <div className="flex items-center gap-3">
                         <AgentAvatar agent={agent} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-bold text-slate-900">{agent.name}</p>
-                          <p className="truncate text-xs text-slate-400">{agent.role}</p>
+                          <p className="truncate text-xs text-slate-400">{agent.trait ?? agent.role}</p>
                         </div>
                         <AgentStatusBadge agent={agent} />
                       </div>
