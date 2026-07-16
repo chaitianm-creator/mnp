@@ -66,7 +66,8 @@ function useDemoEngine() {
   const demoMode = useOffice((s) => s.settings.demoMode);
   useEffect(() => {
     if (!demoMode) return;
-    const id = setInterval(() => tick(), 2500);
+    // 小さな変化は約3秒ごと。大イベント(会議・アナウンス・エラー)はストア側で6tickごとに発生
+    const id = setInterval(() => tick(), 3000);
     return () => clearInterval(id);
   }, [demoMode, tick]);
 }
