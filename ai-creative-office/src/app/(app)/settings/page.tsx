@@ -53,7 +53,21 @@ export default function SettingsPage() {
                 className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${settings.demoMode ? 'left-[22px]' : 'left-0.5'}`}
               />
             </button>
-            <p className="text-sm text-slate-700">{settings.demoMode ? '稼働中(2.5秒ごとに更新)' : '停止中'}</p>
+            <p className="text-sm text-slate-700">{settings.demoMode ? '稼働中(約3秒ごとに小さな変化、約18秒ごとに大イベント)' : '停止中'}</p>
+          </div>
+          <div className="flex items-center gap-3 border-t border-slate-100 p-4">
+            <button
+              onClick={() => updateSettings({ timeEffects: !(settings.timeEffects ?? true) })}
+              className={`relative h-6 w-11 rounded-full transition ${(settings.timeEffects ?? true) ? 'bg-emerald-500' : 'bg-slate-300'}`}
+              aria-label="時間帯演出の切り替え"
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${(settings.timeEffects ?? true) ? 'left-[22px]' : 'left-0.5'}`}
+              />
+            </button>
+            <p className="text-sm text-slate-700">
+              時間帯演出(朝・日中・夕方・夜でオフィスの雰囲気が変化){(settings.timeEffects ?? true) ? ': ON' : ': OFF'}
+            </p>
           </div>
         </Card>
 
@@ -138,22 +152,13 @@ export default function SettingsPage() {
 
 function AgentSettingRow({ agentId }: { agentId: string }) {
   const agent = useOffice((s) => s.agents.find((a) => a.id === agentId))!;
+  const renameAgent = useOffice((s) => s.renameAgent);
+  const pauseAgent = useOffice((s) => s.pauseAgent);
+  const resumeAgent = useOffice((s) => s.resumeAgent);
   const [name, setName] = useState(agent.name);
 
-  const rename = () => {
-    useOffice.setState((s) => ({
-      agents: s.agents.map((a) => (a.id === agentId ? { ...a, name: name || a.name } : a)),
-    }));
-  };
-  const togglePause = () => {
-    useOffice.setState((s) => ({
-      agents: s.agents.map((a) =>
-        a.id === agentId
-          ? { ...a, status: a.status === 'paused' ? 'idle' : 'paused', statusNote: a.status === 'paused' ? '次のタスク待ち' : '停止中(社長指示)' }
-          : a,
-      ),
-    }));
-  };
+  const rename = () => renameAgent(agentId, name);
+  const togglePause = () => (agent.status === 'paused' ? resumeAgent(agentId) : pauseAgent(agentId));
 
   return (
     <div className="flex items-center gap-2 rounded-lg border border-slate-100 px-3 py-2">

@@ -29,6 +29,18 @@ export interface AgentKpi {
   unit?: string;
 }
 
+/** オフィス内の居場所(ライブオフィス用) */
+export type OfficeZone = 'desk' | 'meeting' | 'project' | 'approval' | 'server' | 'break';
+
+export const ZONE_LABELS: Record<OfficeZone, string> = {
+  desk: '自席',
+  meeting: '会議室',
+  project: 'プロジェクトテーブル',
+  approval: '承認待ちスペース',
+  server: 'サーバールーム',
+  break: '休憩スペース',
+};
+
 export interface Agent {
   id: string;
   name: string; // 表示名(設定で変更可能)
@@ -51,6 +63,14 @@ export interface Agent {
   avatar: string; // 絵文字アバター
   color: string; // アバター背景色 (tailwindクラスではなくhex)
   enabled: boolean;
+  // ---- ライブオフィス用(v2で追加・すべて任意) ----
+  zone?: OfficeZone; // 現在の居場所。未指定時はstatusから導出
+  nickname?: string; // 人間味のための呼び名(例: 美咲)
+  trait?: string; // 特徴(例: 積極的 / 品質重視)
+  strengths?: string[]; // 得意業務
+  weaknesses?: string[]; // 苦手業務
+  signatureStat?: { label: string; value: string }; // 例: 今日の返信率 18%
+  doneFlashUntil?: string; // 完了演出の表示期限(ISO)
 }
 
 export type TaskStatus =
@@ -383,6 +403,24 @@ export interface ExecutionPlan {
   estimatedCostJpy: number;
 }
 
+/** AI社員間の連携イベント(オフィス演出用・永続化しない) */
+export interface OfficeEvent {
+  id: string;
+  kind: 'delegate' | 'complete' | 'error' | 'plan';
+  fromAgentId: string;
+  toAgentId: string;
+  label: string;
+  createdAt: string;
+}
+
+/** CEO AIの全社アナウンス */
+export interface Announcement {
+  id: string;
+  message: string;
+  tone: 'info' | 'success' | 'warning';
+  createdAt: string;
+}
+
 export interface Integration {
   id: string;
   name: string;
@@ -411,4 +449,5 @@ export interface CompanySettings {
   usdJpyRate: number;
   demoMode: boolean;
   setupCompleted: boolean;
+  timeEffects?: boolean; // 時間帯演出(v2で追加。未定義はtrue扱い)
 }
