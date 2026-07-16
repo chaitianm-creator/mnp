@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Virtual Office — AI社員が働く仮想オフィス</title>
+<style>
+:root{
+  --bg:#0b0f1a; --panel:#141b2b; --panel2:#1a2338; --line:#26324d;
+  --text:#e6ecf7; --muted:#8b98b8;
+  --sales:#38bdf8; --front:#fbbf24; --back:#a78bfa; --studio:#34d399;
+  --pink:#f472b6; --green:#4ade80;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif;font-size:14px}
+.wrap{max-width:1360px;margin:0 auto;padding:14px}
+
+/* header */
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+header h1{font-size:19px;letter-spacing:.02em}
+header h1 small{display:block;font-size:11px;font-weight:400;color:var(--muted);margin-top:2px}
+.clock{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 14px;font-variant-numeric:tabular-nums;font-size:15px;display:flex;gap:10px;align-items:baseline}
+.clock b{font-size:18px}
+.clock span{color:var(--muted);font-size:12px}
+.controls{display:flex;gap:6px;margin-left:auto}
+.controls button{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px}
+.controls button:hover{background:var(--panel2)}
+.controls button.on{background:#233150;border-color:#3b82f6;color:#93c5fd}
+
+/* KPI bar */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;position:relative;overflow:hidden}
+.kpi .lbl{font-size:12px;color:var(--muted)}
+.kpi .num{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
+.kpi .num em{font-style:normal;font-size:12px;font-weight:400;color:var(--muted);margin-left:2px}
+.kpi .cum{font-size:11px;color:var(--muted)}
+.kpi.flash::after{content:"";position:absolute;inset:0;background:rgba(56,189,248,.18);animation:fl .6s ease-out forwards}
+@keyframes fl{from{opacity:1}to{opacity:0}}
+
+/* layout */
+.main{display:flex;gap:12px;align-items:flex-start}
+.officeCol{flex:1 1 640px;min-width:0}
+.officeBox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}
+canvas{width:100%;height:auto;display:block;border-radius:8px;background:#0d1322;cursor:pointer}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--muted)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* side */
+.side{flex:0 0 380px;max-width:380px;display:flex;flex-direction:column;gap:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 4px;cursor:pointer;font-size:12.5px;border-bottom:2px solid transparent}
+.tabs button.on{color:var(--text);border-bottom-color:var(--sales);background:var(--panel2)}
+.tabbody{height:560px;overflow-y:auto;padding:10px}
+.tabbody::-webkit-scrollbar{width:8px}
+.tabbody::-webkit-scrollbar-thumb{background:#2b3a5c;border-radius:4px}
+
+/* log */
+.logline{display:flex;gap:8px;padding:6px 6px;border-bottom:1px solid #1c2740;font-size:12.5px;line-height:1.5;animation:in .25s ease-out}
+@keyframes in{from{opacity:0;transform:translateY(-4px)}to{opacity:1}}
+.logline time{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:11px;padding-top:2px}
+.logline .who{font-weight:600;white-space:nowrap}
+.logline.kpi-hit{background:rgba(56,189,248,.07)}
+
+/* employees tab */
+.empDetail{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.empDetail h3{font-size:15px;margin-bottom:2px}
+.empDetail .role{font-size:12px;color:var(--muted);margin-bottom:8px}
+.empDetail .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px}
+.empDetail .grid div{background:#111827;border-radius:6px;padding:6px 8px}
+.empDetail .grid b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
+.empDetail .now{margin-top:8px;font-size:12px;color:#c7d4ef;background:#0f1626;border-radius:6px;padding:7px 9px}
+.emprow{display:flex;align-items:center;gap:9px;padding:7px 6px;border-bottom:1px solid #1c2740;cursor:pointer;font-size:12.5px}
+.emprow:hover{background:var(--panel2)}
+.emprow.sel{background:#20304f}
+.emprow i{width:10px;height:10px;border-radius:3px;flex:none}
+.emprow .nm{font-weight:600;white-space:nowrap}
+.emprow .rl{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.emprow .st{font-variant-numeric:tabular-nums;color:#9fb4dc;white-space:nowrap;font-size:11.5px}
+
+/* projects */
+.proj{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:9px}
+.proj h4{font-size:13px;margin-bottom:6px}
+.proj .stg{font-size:11.5px;color:var(--muted);margin-bottom:6px}
+.bar{height:7px;background:#0f1626;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#34d399,#38bdf8);border-radius:4px;transition:width .5s}
+.proj.done{opacity:.65}
+.proj.done .bar i{background:var(--green)}
+.pubcount{font-size:12.5px;color:var(--muted);margin:2px 2px 10px}
+.pubcount b{color:var(--green);font-size:16px}
+
+/* accounting */
+.acct .big{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.acct .big .lbl{font-size:12px;color:var(--muted)}
+.acct .big .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.acct table{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:10px}
+.acct th{color:var(--muted);font-weight:500;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}
+.acct th:first-child,.acct td:first-child{text-align:left}
+.acct td{padding:4px 6px;border-bottom:1px solid #1c2740;text-align:right;font-variant-numeric:tabular-nums}
+.acct .note{font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:10px}
+.dl{display:block;width:100%;background:#123a2a;border:1px solid #1f7a4d;color:#6ee7b7;border-radius:8px;padding:9px;cursor:pointer;font-size:13px}
+.dl:hover{background:#155238}
+
+@media (max-width:1020px){
+  .main{flex-direction:column}
+  .side{max-width:none;flex:auto;width:100%}
+  .tabbody{height:420px}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .kpis .kpi:first-child{grid-column:span 2}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🏢 AI Virtual Office<small>AI社員19名が並列で働く仮想オフィス</small></h1>
+    <div class="clock"><b id="clock">Day 1&emsp;09:00</b><span id="phase">営業中</span></div>
+    <div class="controls">
+      <button id="btnPause">⏸ 一時停止</button>
+      <button id="sp0" class="spd on">×1</button>
+      <button id="sp1" class="spd">×3</button>
+      <button id="sp2" class="spd">×10</button>
+    </div>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="main">
+    <div class="officeCol">
+      <div class="officeBox">
+        <canvas id="cv" width="960" height="600"></canvas>
+        <div class="legend">
+          <span><i style="background:#fbbf24"></i>受付</span>
+          <span><i style="background:#38bdf8"></i>営業フロア</span>
+          <span><i style="background:#a78bfa"></i>バックオフィス</span>
+          <span><i style="background:#34d399"></i>Web制作スタジオ</span>
+          <span style="margin-left:auto">社員をクリックすると詳細が見られます</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="tabs">
+        <button data-tab="log" class="on">📡 活動ログ</button>
+        <button data-tab="emp">👥 社員</button>
+        <button data-tab="proj">🖥 制作案件</button>
+        <button data-tab="acct">💴 経理</button>
+      </div>
+      <div class="tabbody" id="tab-log"></div>
+      <div class="tabbody" id="tab-emp" hidden></div>
+      <div class="tabbody" id="tab-proj" hidden></div>
+      <div class="tabbody acct" id="tab-acct" hidden></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================= ユーティリティ ================= */
+const $=s=>document.querySelector(s);
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const rf=(a,b)=>a+Math.random()*(b-a);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const fmt=n=>n.toLocaleString("ja-JP");
+
+/* ================= 定数 ================= */
+const DEPTS={
+  front:{label:"受付",color:"#fbbf24"},
+  sales:{label:"営業フロア",color:"#38bdf8"},
+  back:{label:"バックオフィス",color:"#a78bfa"},
+  studio:{label:"Web制作スタジオ",color:"#34d399"},
+};
+const KPIS={
+  list:{label:"リスト獲得",emoji:"📋",unit:"件"},
+  form:{label:"フォーム送信",emoji:"📨",unit:"件"},
+  mail:{label:"メール送信",emoji:"✉️",unit:"通"},
+  front:{label:"受付対応",emoji:"💁",unit:"件"},
+  appt:{label:"アポイント",emoji:"📅",unit:"件"},
+};
+// トークン単価（Claude Sonnet 想定）: 入力 $3 / 100万tok, 出力 $15 / 100万tok
+const RATE_IN=3, RATE_OUT=15, USD_JPY=155;
+
+/* ================= 社員定義 ================= */
+// jobs: 発火時に {text, kpi?, amt?, call?, deal?} を返す関数の配列
+const EMPLOYEES=[
+  // ---- 受付 ----
+  {id:"akari",name:"あかり",role:"受付AI（一次対応）",dept:"front",desk:[86,84],hair:"#7c3f12",
+   every:[7,11],jobs:[
+     ()=>({text:"☎️ 代表電話に一次対応",kpi:"front",amt:1}),
+     ()=>({text:"📬 問い合わせを営業へ振り分け",kpi:"front",amt:1}),
+   ]},
+  // ---- 営業フロア ----
+  {id:"ren",name:"レン",role:"リサーチAI（リスト作成）",dept:"sales",desk:[330,84],hair:"#1f2937",
+   every:[2.5,4.5],jobs:[
+     ()=>({text:`📋 リスト獲得 +${ri(2,7)}件`,kpi:"list",amt:null}),
+     ()=>({text:"🔎 企業DBをスキャン中…"}),
+     ()=>({text:"🧹 重複データをクレンジング"}),
+   ]},
+  {id:"fuka",name:"フウカ",role:"フォーム送信AI",dept:"sales",desk:[500,84],hair:"#5b21b6",
+   every:[3,5.5],jobs:[
+     ()=>({text:"📨 問い合わせフォーム送信 完了",kpi:"form",amt:1}),
+     ()=>({text:"🤖 入力項目を自動マッピング"}),
+   ]},
+  {id:"mei",name:"メイ",role:"メール営業AI",dept:"sales",desk:[670,84],hair:"#9d174d",
+   every:[2,4],jobs:[
+     ()=>({text:`✉️ 営業メール送信 +${ri(1,4)}通`,kpi:"mail",amt:null}),
+     ()=>({text:"📖 開封を検知 → 追客メール準備"}),
+     ()=>Math.random()<.3?{text:"🎉 返信あり！アポ打診成功",kpi:"appt",amt:1}:{text:"✏️ 件名をABテスト中"},
+   ]},
+  {id:"teru",name:"テル",role:"テレアポAI",dept:"sales",desk:[330,196],hair:"#065f46",phone:true,
+   every:[2.5,4.5],jobs:[
+     ()=>Math.random()<.22?{text:"🎉 アポ獲得！日程確定",kpi:"appt",amt:1,call:1}:{text:"📞 架電中…トークを自動調整",call:1},
+   ]},
+  {id:"sho",name:"ショウ",role:"商談管理AI（SFA）",dept:"sales",desk:[500,196],hair:"#78350f",
+   every:[4,7],jobs:[
+     ()=>({text:"🗂 商談メモをCRMに自動記録"}),
+     ()=>({text:"⏰ 次回商談のリマインド設定"}),
+     ()=>Math.random()<.18?{text:"🎊 成約！契約書を管理AIへ",deal:1}:{text:"📊 パイプラインを更新"},
+   ]},
+  {id:"rena",name:"レナ",role:"レポートAI",dept:"sales",desk:[670,196],hair:"#374151",
+   every:[8,12],jobs:[
+     ()=>({text:"📈 時間別レポートを自動生成"}),
+     ()=>({text:"🧮 CVR・アポ率を再計算"}),
+   ]},
+  // ---- バックオフィス ----
+  {id:"hina",name:"ヒナ",role:"秘書AI（スケジュール調整）",dept:"back",desk:[80,364],hair:"#4c1d95",
+   every:[5,9],jobs:[
+     ()=>({text:`🗓 会議を調整（${pick(["火","水","木","金"])} ${ri(10,16)}:00）`}),
+     ()=>({text:"🔔 明日の予定をリマインド送信"}),
+   ]},
+  {id:"mako",name:"マコ",role:"マーケティングAI（SNS運用）",dept:"back",desk:[220,364],hair:"#831843",
+   every:[5,8],jobs:[
+     ()=>({text:"📣 Xに投稿を予約"}),
+     ()=>({text:`📊 インプレッション ${fmt(ri(800,9000))} を分析`}),
+   ]},
+  {id:"kanna",name:"カンナ",role:"管理AI（人事・経理・法務・総務）",dept:"back",desk:[360,364],hair:"#111827",
+   every:[5,9],jobs:[
+     ()=>({text:`🧾 経費精算 ${ri(1,4)}件を承認`}),
+     ()=>({text:"⚖️ 契約書ドラフトをレビュー"}),
+     ()=>({text:"🕘 勤怠（稼働ログ）をチェック"}),
+   ]},
+  {id:"seo",name:"セオ",role:"SEO/AIO AI",dept:"back",desk:[120,486],hair:"#164e63",
+   every:[5,8],jobs:[
+     ()=>({text:`🔑 KW調査「${pick(["AI 代行","HP制作 相場","営業 自動化","AI 受付"])}」`}),
+     ()=>({text:"📝 記事構成案を作成（H2×6）"}),
+   ]},
+  {id:"kei",name:"ケイ",role:"経理AI（トークン集計・帳簿）",dept:"back",desk:[300,486],hair:"#7c2d12",
+   every:[6,10],jobs:[
+     ()=>({text:"💴 利用トークンを円換算 → 帳簿更新"}),
+     ()=>({text:"📒 Excel帳簿（CSV）を最新化"}),
+   ]},
+  // ---- Web制作スタジオ ----
+  {id:"nao",name:"ナオ",role:"ディレクターAI（要件整理・進行管理）",dept:"studio",desk:[544,364],hair:"#1e3a8a",
+   every:[6,10],jobs:[()=>({text:"📋 進行表を更新・タスク割当"})]},
+  {id:"mina",name:"ミナ",role:"デザイナーAI（ワイヤー・デザイン）",dept:"studio",desk:[688,364],hair:"#86198f",
+   every:[6,10],jobs:[()=>({text:"🎨 配色パターンを3案生成"})]},
+  {id:"kou",name:"コウ",role:"コーダーAI（HTML/CSS・実装）",dept:"studio",desk:[832,364],hair:"#0f172a",
+   every:[5,9],jobs:[()=>({text:"⌨️ レスポンシブ対応を実装中"})]},
+  {id:"fumi",name:"フミ",role:"ライターAI（コピー・紹介文）",dept:"studio",desk:[544,486],hair:"#7f1d1d",
+   every:[6,10],jobs:[()=>({text:"✒️ キャッチコピーを10案出し"})]},
+  {id:"ryo",name:"リョウ",role:"レビュアーAI（品質管理）",dept:"studio",desk:[688,486],hair:"#3f3f46",
+   every:[6,10],jobs:[()=>({text:`🔍 表示崩れチェック（指摘${ri(0,3)}件）`})]},
+  {id:"kura",name:"クラ",role:"インフラAI（公開環境・デプロイ）",dept:"studio",desk:[832,486],hair:"#14532d",
+   every:[7,11],jobs:[()=>({text:"🛡 SSL・バックアップを確認"})]},
+];
+
+/* ================= 制作パイプライン ================= */
+const STAGES=[
+  {name:"要件定義",emp:"nao",emoji:"📋"},
+  {name:"ワイヤーフレーム",emp:"mina",emoji:"📐"},
+  {name:"デザイン",emp:"mina",emoji:"🎨"},
+  {name:"コーディング",emp:"kou",emoji:"⌨️"},
+  {name:"ライティング",emp:"fumi",emoji:"✒️"},
+  {name:"レビュー",emp:"ryo",emoji:"🔍"},
+  {name:"公開作業",emp:"kura",emoji:"🚀"},
+];
+const PROJECT_NAMES=[
+  "田中工務店 コーポレートサイト","カフェHana ランディングページ","佐藤会計事務所 HP",
+  "フィットネスZERO LP","花屋ぼたん ECサイト","クリニック青葉 HP",
+  "学習塾ミライ LP","不動産ワークス HP","美容室Luce サイト","町の電気屋さん HP",
+];
+
+/* ================= 状態 ================= */
+const state={
+  simMin:9*60, day:1, paused:false, speed:1,
+  kpi:{}, publish:0, deals:0,
+  projects:[], projSeq:0, nextProjAdvance:0,
+  logs:[], selected:null, tab:"log",
+};
+for(const k in KPIS) state.kpi[k]={today:0,total:0};
+
+for(const e of EMPLOYEES){
+  e.pos={x:e.desk[0],y:e.desk[1]};
+  e.state="work";            // work | walk | break | walkback
+  e.path=[]; e.bubble=null;
+  e.nextJob=state.simMin+rf(0.5,e.every[1]);
+  e.nextBreak=state.simMin+rf(25,70);
+  e.stats={actions:0,tin:0,tout:0,calls:0};
+  e.currentTask="業務開始の準備中…";
+}
+function newProject(){
+  state.projSeq++;
+  const name=PROJECT_NAMES[(state.projSeq-1)%PROJECT_NAMES.length];
+  return {id:state.projSeq,name,stage:0,done:false};
+}
+state.projects=[newProject(),newProject(),newProject()];
+state.projects[1].stage=2; state.projects[2].stage=4;
+state.nextProjAdvance=state.simMin+rf(4,8);
+
+/* ================= ログ / KPI ================= */
+function simTimeStr(){
+  const h=Math.floor(state.simMin/60),m=Math.floor(state.simMin%60);
+  return `Day${state.day} ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+}
+function addLog(emp,text,isKpi){
+  state.logs.unshift({t:simTimeStr(),emp,text,isKpi});
+  if(state.logs.length>80)state.logs.pop();
+  if(state.tab==="log")renderLog();
+}
+function bumpKpi(key,amt){
+  const k=state.kpi[key]; k.today+=amt; k.total+=amt;
+  renderKpis(key);
+}
+function addTokens(emp,heavy){
+  const tin=ri(heavy?6000:1500,heavy?20000:9000);
+  const tout=ri(heavy?1500:300,heavy?6000:2500);
+  emp.stats.tin+=tin; emp.stats.tout+=tout; emp.stats.actions++;
+}
+const costYen=(tin,tout)=>(tin/1e6*RATE_IN+tout/1e6*RATE_OUT)*USD_JPY;
+
+/* ================= 社員の仕事発火 ================= */
+function fireJob(emp){
+  const job=pick(emp.jobs)();
+  emp.bubble={text:job.text,until:state.simMin+2.2};
+  emp.currentTask=job.text;
+  addTokens(emp,false);
+  if(job.call)emp.stats.calls+=job.call;
+  if(job.deal){state.deals+=job.deal;}
+  let isKpi=false;
+  if(job.kpi){
+    isKpi=true;
+    let amt=job.amt;
+    if(amt==null){ // テキスト内の +n を拾う
+      const m=job.text.match(/\+(\d+)/); amt=m?+m[1]:1;
+    }
+    bumpKpi(job.kpi,amt);
+  }
+  addLog(emp,job.text,isKpi);
+  if(state.tab==="emp")renderEmp();
+}
+
+/* ================= 制作パイプライン進行 ================= */
+function advanceProjects(){
+  const act=state.projects.filter(p=>!p.done);
+  if(act.length<3)state.projects.push(newProject());
+  const p=pick(state.projects.filter(p=>!p.done));
+  if(!p)return;
+  const st=STAGES[p.stage];
+  const emp=EMPLOYEES.find(e=>e.id===st.emp);
+  const short=p.name.split(" ")[0];
+  const text=`${st.emoji} ${short}：${st.name}${p.stage===STAGES.length-1?" → 公開🎉":" 完了"}`;
+  emp.bubble={text,until:state.simMin+2.4};
+  emp.currentTask=text;
+  addTokens(emp,true);
+  addLog(emp,text,p.stage===STAGES.length-1);
+  p.stage++;
+  if(p.stage>=STAGES.length){
+    p.done=true; state.publish++;
+    addLog(EMPLOYEES.find(e=>e.id==="nao"),`🎊 ${short} 納品完了！運用フェーズへ`,true);
+  }
+  if(state.tab==="proj")renderProj();
+}
+
+/* ================= 来客（受付） ================= */
+const visitors=[];
+let nextVisitor=state.simMin+rf(4,9);
+function spawnVisitor(){
+  visitors.push({x:150,y:-24,phase:"in",wait:0,hue:ri(0,360)});
+}
+
+/* ================= 日次処理 ================= */
+function endOfDay(){
+  const k=state.kpi;
+  addLog(EMPLOYEES.find(e=>e.id==="rena"),
+    `🌙 日報：リスト${k.list.today} / フォーム${k.form.today} / メール${k.mail.today} / 受付${k.front.today} / アポ${k.appt.today}`,true);
+  state.day++; state.simMin=9*60;
+  for(const key in state.kpi)state.kpi[key].today=0;
+  for(const e of EMPLOYEES){
+    e.nextJob=state.simMin+rf(0.5,e.every[1]);
+    e.nextBreak=state.simMin+rf(25,70);
+    e.state="work"; e.path=[]; e.pos={x:e.desk[0],y:e.desk[1]};
+  }
+  visitors.length=0; nextVisitor=state.simMin+rf(4,9);
+  state.nextProjAdvance=state.simMin+rf(4,8);
+  renderKpis();
+}
+
+/* ================= 休憩（コーヒー） ================= */
+const COFFEE={x:462,y:552};
+function startBreak(emp){
+  emp.state="walk";
+  emp.path=[{x:COFFEE.x,y:emp.pos.y},{x:COFFEE.x,y:COFFEE.y-14}];
+  emp.breakUntil=null;
+}
+
+/* ================= シミュレーション ================= */
+let last=performance.now();
+function tick(now){
+  const dt=Math.min((now-last)/1000,0.1); last=now;
+  if(!state.paused){
+    state.simMin+=dt*state.speed;           // 1秒 = 1分 × speed
+    if(state.simMin>=18*60)endOfDay();
+
+    for(const e of EMPLOYEES){
+      // 仕事
+      if(e.state==="work"&&state.simMin>=e.nextJob){
+        fireJob(e);
+        e.nextJob=state.simMin+rf(e.every[0],e.every[1]);
+      }
+      // 休憩開始
+      if(e.state==="work"&&state.simMin>=e.nextBreak&&e.id!=="akari"){
+        startBreak(e);
+        e.nextBreak=state.simMin+rf(35,80);
+      }
+      // 移動
+      if((e.state==="walk"||e.state==="walkback")&&e.path.length){
+        const t=e.path[0],sp=95*state.speed*dt;
+        const dx=t.x-e.pos.x,dy=t.y-e.pos.y,d=Math.hypot(dx,dy);
+        if(d<=sp){e.pos.x=t.x;e.pos.y=t.y;e.path.shift();
+          if(!e.path.length){
+            if(e.state==="walk"){e.state="break";e.breakUntil=state.simMin+rf(2,4);
+              e.bubble={text:"☕ ひとやすみ",until:state.simMin+1.6};}
+            else{e.state="work";}
+          }
+        }else{e.pos.x+=dx/d*sp;e.pos.y+=dy/d*sp;}
+      }
+      // 休憩終了
+      if(e.state==="break"&&state.simMin>=e.breakUntil){
+        e.state="walkback";
+        e.path=[{x:COFFEE.x,y:e.desk[1]},{x:e.desk[0],y:e.desk[1]}];
+      }
+      if(e.bubble&&state.simMin>=e.bubble.until)e.bubble=null;
+    }
+
+    // 制作パイプライン
+    if(state.simMin>=state.nextProjAdvance){
+      advanceProjects();
+      state.nextProjAdvance=state.simMin+rf(6,12);
+    }
+
+    // 来客
+    if(state.simMin>=nextVisitor){spawnVisitor();nextVisitor=state.simMin+rf(6,12);}
+    for(const v of visitors){
+      const sp=80*state.speed*dt;
+      if(v.phase==="in"){
+        if(v.y<66)v.y+=sp; else if(v.x>118)v.x-=sp;
+        else{v.phase="talk";v.wait=state.simMin+rf(1.5,3);
+          const akari=EMPLOYEES[0];
+          akari.bubble={text:"💁 いらっしゃいませ",until:state.simMin+1.8};
+          akari.currentTask="来客対応中";
+          addTokens(akari,false);
+          bumpKpi("front",1);
+          addLog(akari,"💁 来客を受付対応 → 担当へ引き継ぎ",true);
+        }
+      }else if(v.phase==="talk"&&state.simMin>=v.wait){v.phase="out";}
+      else if(v.phase==="out"){
+        if(v.x<150)v.x+=sp; else v.y-=sp;
+        if(v.y<-26)v.gone=true;
+      }
+    }
+    for(let i=visitors.length-1;i>=0;i--)if(visitors[i].gone)visitors.splice(i,1);
+  }
+  updateClock();
+  draw(now);
+  requestAnimationFrame(tick);
+}
+
+/* ================= 描画 ================= */
+const cv=$("#cv"),ctx=cv.getContext("2d");
+const ZONES=[
+  {x:12,y:12,w:246,h:252,dept:"front"},
+  {x:266,y:12,w:682,h:252,dept:"sales"},
+  {x:12,y:272,w:446,h:316,dept:"back"},
+  {x:466,y:272,w:482,h:316,dept:"studio"},
+];
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
+function draw(now){
+  ctx.clearRect(0,0,960,600);
+  // 床
+  for(const z of ZONES){
+    ctx.fillStyle=DEPTS[z.dept].color+"14";
+    rr(z.x,z.y,z.w,z.h,10);ctx.fill();
+    ctx.strokeStyle=DEPTS[z.dept].color+"33";ctx.lineWidth=1.5;
+    rr(z.x,z.y,z.w,z.h,10);ctx.stroke();
+    ctx.fillStyle=DEPTS[z.dept].color+"88";
+    ctx.font="600 12px sans-serif";
+    ctx.fillText(DEPTS[z.dept].label,z.x+12,z.y+22);
+  }
+  // 入口
+  ctx.fillStyle="#26324d";ctx.fillRect(136,8,30,6);
+  ctx.fillStyle="#8b98b8";ctx.font="10px sans-serif";ctx.fillText("入口",139,7);
+  // 受付カウンター
+  ctx.fillStyle="#3a2f14";rr(60,96,70,16,4);ctx.fill();
+  ctx.fillStyle="#fbbf24";ctx.font="10px sans-serif";ctx.fillText("Reception",64,108);
+  // コーヒーコーナー
+  ctx.fillStyle="#1f2937";rr(448,540,30,36,5);ctx.fill();
+  ctx.fillStyle="#e5e7eb";ctx.font="14px sans-serif";ctx.fillText("☕",455,564);
+  // 観葉植物
+  ctx.font="16px sans-serif";
+  ctx.fillText("🪴",236,252);ctx.fillText("🪴",924,40);ctx.fillText("🪴",22,576);ctx.fillText("🪴",924,576);
+  // 会議テーブル
+  ctx.fillStyle="#1e293b";rr(816,120,110,60,12);ctx.fill();
+  ctx.strokeStyle="#334155";rr(816,120,110,60,12);ctx.stroke();
+  ctx.fillStyle="#64748b";ctx.font="10px sans-serif";ctx.fillText("MTGテーブル",832,154);
+
+  // デスク
+  for(const e of EMPLOYEES){
+    const[dx,dy]=e.desk;
+    ctx.fillStyle="#233047";rr(dx-30,dy+12,60,24,5);ctx.fill();
+    // モニタ（作業中は点滅グロー）
+    const glow=e.state==="work"&&Math.floor(now/400)%3!==0;
+    ctx.fillStyle=glow?"#7dd3fc":"#334155";
+    ctx.fillRect(dx-9,dy+15,18,11);
+    ctx.fillStyle="#0d1322";ctx.fillRect(dx-7,dy+17,14,7);
+    if(glow){ctx.fillStyle="#38bdf866";ctx.fillRect(dx-7,dy+17,14,7);}
+  }
+  // 来客
+  for(const v of visitors){
+    ctx.fillStyle="rgba(0,0,0,.3)";ctx.beginPath();ctx.ellipse(v.x,v.y+18,8,3,0,0,7);ctx.fill();
+    ctx.fillStyle=`hsl(${v.hue},35%,55%)`;rr(v.x-6,v.y,12,14,4);ctx.fill();
+    ctx.fillStyle="#e7c9a9";rr(v.x-5,v.y-9,10,9,3);ctx.fill();
+  }
+  // 社員（y順に描画）
+  const sorted=[...EMPLOYEES].sort((a,b)=>a.pos.y-b.pos.y);
+  for(const e of sorted)drawEmp(e,now);
+  // 吹き出しは最前面
+  for(const e of sorted)if(e.bubble)drawBubble(e);
+}
+function drawEmp(e,now){
+  const {x,y}=e.pos,c=DEPTS[e.dept].color;
+  const walking=e.state==="walk"||e.state==="walkback";
+  const bob=walking?Math.sin(now/90)*2:(e.state==="work"?Math.sin(now/300)*0.8:0);
+  // 影
+  ctx.fillStyle="rgba(0,0,0,.35)";ctx.beginPath();ctx.ellipse(x,y+20,9,3.5,0,0,7);ctx.fill();
+  // 脚（歩行時）
+  if(walking){
+    const ph=Math.sin(now/90)>0;
+    ctx.fillStyle="#1e293b";
+    ctx.fillRect(x-6,y+12,5,8+(ph?2:-1));
+    ctx.fillRect(x+1,y+12,5,8+(ph?-1:2));
+  }
+  // 体
+  ctx.fillStyle=c;rr(x-8,y+bob,16,15,5);ctx.fill();
+  // 頭
+  ctx.fillStyle="#f0c9a0";rr(x-7,y-12+bob,14,12,4);ctx.fill();
+  // 髪
+  ctx.fillStyle=e.hair;rr(x-7,y-12+bob,14,5,[4,4,0,0]);ctx.fill();
+  // 目
+  ctx.fillStyle="#111";
+  ctx.fillRect(x-4,y-5+bob,2,2);ctx.fillRect(x+2,y-5+bob,2,2);
+  // 電話AI
+  if(e.phone&&e.state==="work"){ctx.font="10px sans-serif";ctx.fillText("📞",x+8,y-4);}
+  // 選択リング
+  if(state.selected===e.id){
+    ctx.strokeStyle="#f472b6";ctx.lineWidth=2;
+    rr(x-12,y-17,24,40,8);ctx.stroke();
+  }
+  // 名前
+  ctx.fillStyle="rgba(230,236,247,.85)";ctx.font="10px sans-serif";
+  ctx.textAlign="center";ctx.fillText(e.name,x,y+32);ctx.textAlign="left";
+  e.hit={x:x-14,y:y-18,w:28,h:52};
+}
+function drawBubble(e){
+  const {x,y}=e.pos;
+  ctx.font="11px sans-serif";
+  const text=e.bubble.text.length>18?e.bubble.text.slice(0,17)+"…":e.bubble.text;
+  const w=ctx.measureText(text).width+14;
+  let bx=Math.min(Math.max(x-w/2,4),956-w),by=y-40;
+  ctx.fillStyle="rgba(255,255,255,.95)";
+  rr(bx,by,w,20,7);ctx.fill();
+  ctx.beginPath();ctx.moveTo(x-4,by+20);ctx.lineTo(x+4,by+20);ctx.lineTo(x,by+26);ctx.fill();
+  ctx.fillStyle="#0b0f1a";ctx.fillText(text,bx+7,by+14);
+}
+
+/* ================= UI描画 ================= */
+function renderKpis(flashKey){
+  const el=$("#kpis");
+  el.innerHTML=Object.entries(KPIS).map(([k,def])=>{
+    const s=state.kpi[k];
+    return `<div class="kpi" id="kpi-${k}">
+      <div class="lbl">${def.emoji} ${def.label}</div>
+      <div class="num">${fmt(s.today)}<em>${def.unit}/日</em></div>
+      <div class="cum">累計 ${fmt(s.total)}${def.unit}</div></div>`;
+  }).join("");
+  if(flashKey){
+    const t=$("#kpi-"+flashKey);
+    if(t){t.classList.remove("flash");void t.offsetWidth;t.classList.add("flash");}
+  }
+}
+function renderLog(){
+  $("#tab-log").innerHTML=state.logs.map(l=>{
+    const c=DEPTS[l.emp.dept].color;
+    return `<div class="logline${l.isKpi?" kpi-hit":""}"><time>${l.t}</time>
+      <span class="who" style="color:${c}">${l.emp.name}</span>
+      <span>${l.text}</span></div>`;
+  }).join("")||`<div style="color:var(--muted);padding:20px;text-align:center">まもなく業務開始…</div>`;
+}
+function renderEmp(){
+  const sel=EMPLOYEES.find(e=>e.id===state.selected);
+  let html="";
+  if(sel){
+    const s=sel.stats,c=DEPTS[sel.dept].color;
+    html+=`<div class="empDetail" style="border-color:${c}55">
+      <h3 style="color:${c}">${sel.name}</h3>
+      <div class="role">${sel.role}｜${DEPTS[sel.dept].label}</div>
+      <div class="grid">
+        <div>本日アクション<b>${fmt(s.actions)}</b></div>
+        <div>${sel.phone?"架電数":"状態"}<b>${sel.phone?fmt(s.calls):({work:"💻 作業中",walk:"🚶 移動中",walkback:"🚶 移動中",break:"☕ 休憩中"})[sel.state]}</b></div>
+        <div>トークン<b>${fmt(s.tin+s.tout)}</b></div>
+        <div>概算コスト<b>¥${costYen(s.tin,s.tout).toFixed(1)}</b></div>
+      </div>
+      <div class="now">🗨 ${sel.currentTask}</div></div>`;
+  }
+  html+=EMPLOYEES.map(e=>{
+    const c=DEPTS[e.dept].color;
+    return `<div class="emprow${state.selected===e.id?" sel":""}" data-id="${e.id}">
+      <i style="background:${c}"></i><span class="nm">${e.name}</span>
+      <span class="rl">${e.role}</span>
+      <span class="st">${fmt(e.stats.actions)}件</span></div>`;
+  }).join("");
+  $("#tab-emp").innerHTML=html;
+  document.querySelectorAll(".emprow").forEach(r=>r.onclick=()=>{state.selected=r.dataset.id;renderEmp();});
+}
+function renderProj(){
+  const total=STAGES.length;
+  $("#tab-proj").innerHTML=
+    `<div class="pubcount">🚀 公開済みサイト <b>${state.publish}</b> 件 ｜ 🎊 成約 <b>${state.deals}</b> 件</div>`+
+    state.projects.slice().reverse().map(p=>{
+      const pct=Math.min(100,Math.round(p.stage/total*100));
+      const stg=p.done?"✅ 納品完了・運用中":`${STAGES[p.stage].emoji} ${STAGES[p.stage].name}（担当：${EMPLOYEES.find(e=>e.id===STAGES[p.stage].emp).name}）`;
+      return `<div class="proj${p.done?" done":""}"><h4>${p.name}</h4>
+        <div class="stg">${stg}</div>
+        <div class="bar"><i style="width:${pct}%"></i></div></div>`;
+    }).join("");
+}
+function renderAcct(){
+  let tin=0,tout=0,acts=0;
+  for(const e of EMPLOYEES){tin+=e.stats.tin;tout+=e.stats.tout;acts+=e.stats.actions;}
+  const total=costYen(tin,tout);
+  const rows=[...EMPLOYEES].sort((a,b)=>costYen(b.stats.tin,b.stats.tout)-costYen(a.stats.tin,a.stats.tout)).slice(0,8);
+  $("#tab-acct").innerHTML=`
+    <div class="big"><div class="lbl">💴 AI人件費（累計・概算）</div>
+      <div class="v">¥${total.toFixed(0)}</div>
+      <div class="lbl">総トークン ${fmt(tin+tout)}（入力${fmt(tin)} / 出力${fmt(tout)}）・総アクション ${fmt(acts)}件</div></div>
+    <table><tr><th>社員</th><th>件数</th><th>トークン</th><th>費用</th></tr>
+    ${rows.map(e=>`<tr><td>${e.name}（${e.role.split("（")[0]}）</td>
+      <td>${fmt(e.stats.actions)}</td><td>${fmt(e.stats.tin+e.stats.tout)}</td>
+      <td>¥${costYen(e.stats.tin,e.stats.tout).toFixed(1)}</td></tr>`).join("")}</table>
+    <div class="note">単価想定：入力 $${RATE_IN}/100万tok・出力 $${RATE_OUT}/100万tok（Claude Sonnet 相当）／ $1 = ¥${USD_JPY}。<br>
+    経理AI「ケイ」が自動集計しています。人間の社員5〜10人分の業務がこのコストで回るのがポイント。</div>
+    <button class="dl" id="btnCsv">📥 Excel帳簿をダウンロード（CSV）</button>`;
+  $("#btnCsv").onclick=downloadCsv;
+}
+function downloadCsv(){
+  let rows=[["社員名","役割","部署","アクション数","入力トークン","出力トークン","費用(円)"]];
+  let tin=0,tout=0,acts=0;
+  for(const e of EMPLOYEES){
+    tin+=e.stats.tin;tout+=e.stats.tout;acts+=e.stats.actions;
+    rows.push([e.name,e.role,DEPTS[e.dept].label,e.stats.actions,e.stats.tin,e.stats.tout,costYen(e.stats.tin,e.stats.tout).toFixed(2)]);
+  }
+  rows.push(["合計","","",acts,tin,tout,costYen(tin,tout).toFixed(2)]);
+  const csv="\uFEFF"+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download=`AI社員帳簿_Day${state.day}.csv`;a.click();
+  URL.revokeObjectURL(a.href);
+}
+function updateClock(){
+  const h=Math.floor(state.simMin/60),m=Math.floor(state.simMin%60);
+  $("#clock").textContent=`Day ${state.day}　${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+}
+
+/* ================= 操作 ================= */
+$("#btnPause").onclick=()=>{
+  state.paused=!state.paused;
+  $("#btnPause").textContent=state.paused?"▶ 再開":"⏸ 一時停止";
+  $("#phase").textContent=state.paused?"停止中":"営業中";
+};
+const SPEEDS=[1,3,10];
+document.querySelectorAll(".spd").forEach((b,i)=>b.onclick=()=>{
+  state.speed=SPEEDS[i];
+  document.querySelectorAll(".spd").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");
+});
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
+  state.tab=b.dataset.tab;
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  for(const t of["log","emp","proj","acct"])$("#tab-"+t).hidden=t!==state.tab;
+  refreshTab();
+});
+function refreshTab(){
+  if(state.tab==="log")renderLog();
+  else if(state.tab==="emp")renderEmp();
+  else if(state.tab==="proj")renderProj();
+  else if(state.tab==="acct")renderAcct();
+}
+cv.addEventListener("click",ev=>{
+  const r=cv.getBoundingClientRect();
+  const x=(ev.clientX-r.left)*960/r.width,y=(ev.clientY-r.top)*600/r.height;
+  let hitId=null;
+  for(const e of EMPLOYEES){
+    const h=e.hit;
+    if(h&&x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){hitId=e.id;break;}
+  }
+  if(hitId){
+    state.selected=hitId;
+    state.tab="emp";
+    document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x.dataset.tab==="emp"));
+    for(const t of["log","emp","proj","acct"])$("#tab-"+t).hidden=t!=="emp";
+    renderEmp();
+  }
+});
+// サイドパネルの定期更新（経理・案件・社員は1秒ごと）
+setInterval(()=>{if(state.tab!=="log")refreshTab();},1000);
+
+/* ================= 起動 ================= */
+renderKpis();renderLog();
+addLog(EMPLOYEES.find(e=>e.id==="nao"),"🏢 AI Virtual Office 業務開始。全19名、本日もよろしくお願いします！",false);
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
