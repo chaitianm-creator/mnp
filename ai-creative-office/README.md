@@ -54,6 +54,22 @@ npm run dev
 - Framer Motion(オフィスアニメーション)/ Recharts(グラフ)/ lucide-react
 - Supabase(Phase 4-5で接続予定。スキーマ設計は `supabase/migrations/0001_schema.sql`)
 
+## Vercelへのデプロイ
+
+既存のMokuTomo用Vercelプロジェクトとは**別の新規プロジェクト**として作成します。
+
+| 設定項目 | 値 |
+|---|---|
+| Root Directory | `ai-creative-office` |
+| Framework Preset | Next.js |
+| Build Command | (デフォルト: `next build`) |
+| Output Directory | (デフォルト: `.next`) |
+| Install Command | (デフォルト: `npm install`) |
+| Node.js Version | 20.x(`package.json` の `engines` で指定済み) |
+| Environment Variables | **不要**(Phase 1は外部API未接続) |
+
+ローカル開発時のポート3100指定(`npm run dev` / `npm run start`)はVercel上では使用されず、影響ありません。
+
 ## 今後のフェーズ
 
 - Phase 2: 営業機能の深掘り(キャンペーン実行・返信管理)

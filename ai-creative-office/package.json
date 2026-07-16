@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "AI CREATIVE OFFICE - AI社員と一緒に働く、次世代のWeb制作会社。",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev -p 3100",
     "build": "next build",
