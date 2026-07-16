@@ -7,6 +7,7 @@ import { AgentDetailPanel } from '@/components/agent-detail-panel';
 import { AgentAvatar, AgentStatusBadge } from '@/components/agent-bits';
 import { OfficeMap } from '@/components/office-map';
 import {
+  CeoAlertBar,
   CeoAnnouncement,
   LiveFeed,
   OfficeSummary,
@@ -47,10 +48,11 @@ export default function OfficePage() {
 
   return (
     <div className="space-y-3">
-      {/* 上部: サマリー + システムモニター + CEOアナウンス */}
+      {/* 上部: サマリー + システムモニター + CEOアナウンス + CEO呼びかけ */}
       <OfficeSummary />
       <SystemMonitor />
       <CeoAnnouncement />
+      <CeoAlertBar />
 
       {/* モバイル: 表示切り替え */}
       <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 lg:hidden">

@@ -497,10 +497,40 @@ export interface CeoProposal {
 /** AI社員同士の短い社内会話(重要イベント時のみ) */
 export interface AgentTalk {
   id: string;
-  lines: { agentId: string; text: string }[];
+  lines: { agentId: string; text: string; isReaction?: boolean }[];
   taskId: string | null;
   projectId: string | null;
   timestamp: string;
+  topic?: string; // 会話の話題(同一パターンの連続使用防止・スレッド表示用)
+  threadId?: string; // 一連の連携会話をまとめるID
+}
+
+/** AI社員の成果イベント(自発報告・MVP算出に使用) */
+export interface Achievement {
+  id: string;
+  agentId: string;
+  kind: 'reply' | 'deal' | 'complete' | 'quality' | 'rank' | 'cost' | 'build' | 'recovery' | 'kpi';
+  title: string; // 例: 返信率が4%改善
+  detail: string; // 根拠となる短い説明
+  timestamp: string;
+}
+
+/** CEO AIから社長への能動的な呼びかけ(承認されるまで実行しない) */
+export type CeoAlertStatus = 'new' | 'later' | 'accepted' | 'dismissed';
+
+export interface CeoAlert {
+  id: string;
+  kind: string; // 同種通知のクールダウン用キー
+  severity: 'high' | 'medium' | 'low';
+  conclusion: string; // 結論
+  evidence: string[]; // 根拠となる数字
+  recommendation: string; // 推奨アクション
+  expectedEffect: string; // 想定効果
+  risk?: string; // 必要ならリスク
+  actions: { title: string; assigneeId: string }[]; // 承認時にタスク化
+  status: CeoAlertStatus;
+  createdAt: string;
+  decidedAt: string | null;
 }
 
 export interface Integration {
@@ -534,6 +564,7 @@ export interface CompanySettings {
   timeEffects?: boolean; // 時間帯演出(v2で追加。未定義はtrue扱い)
   investorMode?: boolean; // ダッシュボードの投資家向け表示(未定義はfalse=経営者向け)
   simulation?: SimulationAssumptions; // 投資家モードの算出条件(未定義はDEFAULT_SIMULATION)
+  clockMode?: 'real' | 'demo'; // 時間帯演出の基準: 実時刻連動 / デモ時間を進める(未定義はreal)
 }
 
 /** 投資家モードのシミュレーション算出条件(設定画面から変更可能) */

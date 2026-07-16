@@ -66,6 +66,9 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
     ? logs.filter((l) => l.agentId === agent.id && l.status === 'error').length
     : 0;
   const assignedProjects = agent ? projects.filter((p) => p.memberIds.includes(agent.id)) : [];
+  const latestAchievement = useOffice((s) =>
+    agent ? s.achievements.find((a) => a.agentId === agent.id) : undefined,
+  );
 
   const sendInstruction = () => {
     if (!agent || !instruction.trim()) return;
@@ -288,6 +291,12 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
                 </div>
               </section>
 
+              {/* 勤務履歴(概算・デモデータと当日イベントから算出) */}
+              <section>
+                <p className="mb-2 text-xs font-semibold text-slate-500">本日の勤務履歴(概算)</p>
+                <WorkHistory agent={agent} doneCount={doneCount} errorCount={errorCount} costJpy={agent.costUsd * usdJpyRate} latestAchievement={latestAchievement?.title ?? null} />
+              </section>
+
               <section>
                 <p className="mb-2 text-xs font-semibold text-slate-500">最近の活動ログ</p>
                 <ul className="space-y-1.5">
@@ -344,6 +353,58 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
         </>
       )}
     </AnimatePresence>
+  );
+}
+
+// 勤務履歴(概算): 処理件数・疲労度・現在時刻から導出する。稼働と待機を分けて表示
+function WorkHistory({
+  agent,
+  doneCount,
+  errorCount,
+  costJpy,
+  latestAchievement,
+}: {
+  agent: Agent;
+  doneCount: number;
+  errorCount: number;
+  costJpy: number;
+  latestAchievement: string | null;
+}) {
+  const now = new Date();
+  const startHour = 9;
+  const elapsedMin = Math.max(0, (now.getHours() - startHour) * 60 + now.getMinutes());
+  const workMin = Math.min(elapsedMin, agent.todayCount * 14);
+  const meetingMin = agent.status === 'meeting' ? 30 : 15;
+  const idleMin = Math.max(0, elapsedMin - workMin - meetingMin);
+  const breaks = Math.max(1, Math.floor((agent.fatigue ?? 20) / 30));
+  const fmt = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}時間${min % 60}分` : `${min}分`);
+  const rows: [string, string][] = [
+    ['本日の開始', '09:00(出社)'],
+    ['作業時間', fmt(workMin)],
+    ['待機時間', fmt(idleMin)],
+    ['会議時間', fmt(meetingMin)],
+    ['休憩回数', `${breaks}回`],
+    ['完了タスク', `${doneCount}件`],
+    ['エラー', `${errorCount}件`],
+    ['利用料金', yen(costJpy)],
+  ];
+  return (
+    <div>
+      <dl className="grid grid-cols-2 gap-x-4 divide-slate-50 rounded-lg border border-slate-100 px-3 py-2 text-[11px]">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between py-1">
+            <dt className="text-slate-400">{label}</dt>
+            <dd className="font-semibold tabular-nums text-slate-700">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {latestAchievement && (
+        <p className="mt-1.5 rounded-lg bg-emerald-50/60 px-2.5 py-1.5 text-[11px] text-emerald-700">
+          主な成果: {latestAchievement}
+        </p>
+      )}
+      <p className="mt-1 text-[10px] text-slate-400">※ 稼働と待機を分けた概算値です(デモデータ基準)</p>
+    </div>
   );
 }
 

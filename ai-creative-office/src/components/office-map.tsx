@@ -144,8 +144,15 @@ const AgentDesk = memo(function AgentDesk({
         {agent.statusNote}
       </p>
       {busy && !compact && <ProgressBar value={agent.progress} className="mt-1.5 h-1" />}
-      {/* デスク(家具表現) */}
-      <div className="mx-auto mt-1.5 h-1 w-3/4 rounded-full bg-slate-200/80" aria-hidden />
+      {/* デスク(家具表現)+ 作業中の書類 */}
+      <div className="relative mx-auto mt-1.5 h-1 w-3/4 rounded-full bg-slate-200/80" aria-hidden>
+        {busy && (
+          <span className="absolute -top-1 right-0 flex flex-col gap-px">
+            <span className="h-px w-2.5 rounded bg-slate-300" />
+            <span className="h-px w-2 rounded bg-slate-300/80" />
+          </span>
+        )}
+      </div>
     </motion.button>
   );
 });
@@ -253,14 +260,21 @@ export function OfficeMap({ onSelect }: { onSelect: (a: Agent) => void }) {
   const agents = useOffice((s) => s.agents);
   const ceoName = useOffice((s) => s.settings.ceoName);
   const timeEffects = useOffice((s) => s.settings.timeEffects ?? true);
+  const clockMode = useOffice((s) => s.settings.clockMode ?? 'real');
+  const tickCount = useOffice((s) => s.tickCount);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [period, setPeriod] = useState(() => currentPeriod());
+  const [realPeriod, setRealPeriod] = useState(() => currentPeriod());
 
   useEffect(() => {
-    const id = setInterval(() => setPeriod(currentPeriod()), 60_000);
+    const id = setInterval(() => setRealPeriod(currentPeriod()), 60_000);
     return () => clearInterval(id);
   }, []);
 
+  // デモ時間モードでは約2分で1日分の時間帯が巡る
+  const period =
+    clockMode === 'demo'
+      ? (['morning', 'day', 'evening', 'night'] as const)[Math.floor(tickCount / 40) % 4]
+      : realPeriod;
   const meta = PERIOD_META[timeEffects ? period : 'day'];
   const inZone = (zone: OfficeZone, dept?: DepartmentId) =>
     agents.filter(
@@ -341,8 +355,26 @@ export function OfficeMap({ onSelect }: { onSelect: (a: Agent) => void }) {
             );
           })}
 
-          {/* 会議室 */}
-          <Area name="会議室" icon={<Presentation className="h-3.5 w-3.5" />} color="#8b5cf6" className="sm:col-span-2" deco="🖥️">
+          {/* 会議室(使用中ランプ付き) */}
+          <Area
+            name="会議室"
+            icon={<Presentation className="h-3.5 w-3.5" />}
+            color="#8b5cf6"
+            className="sm:col-span-2"
+            deco={
+              <span className="flex items-center gap-1 text-[9px] font-medium">
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    meeting.length > 0 ? 'bg-red-400 motion-safe:animate-pulse' : 'bg-emerald-400',
+                  )}
+                />
+                <span className={meeting.length > 0 ? 'text-red-500' : 'text-emerald-600'}>
+                  {meeting.length > 0 ? '使用中' : '空室'}
+                </span>
+              </span>
+            }
+          >
             {/* ホワイトボード(装飾) */}
             <div className="mt-2 rounded-md border border-slate-200 bg-white/90 px-2 py-1" aria-hidden>
               <div className="h-0.5 w-2/3 rounded bg-violet-200" />

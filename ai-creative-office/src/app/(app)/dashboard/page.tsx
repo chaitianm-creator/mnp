@@ -4,6 +4,7 @@
 // - 経営者向け: 今日の意思決定に必要なKPIを重要度順に配置(前日比/前時間比つき)
 // - 投資家向け: ワンクリックで年間利益・ROI・AI削減人件費などの大型表示へ切り替え
 import { AnimatedNumber, DeltaBadge } from '@/components/animated-number';
+import { MvpCard } from '@/components/mvp-card';
 import { HorizontalBars, TrendBars, TrendLine } from '@/components/charts';
 import { Card, CardHeader, PageHeader, StatCard } from '@/components/ui';
 import { DEPARTMENTS } from '@/lib/labels';
@@ -171,6 +172,9 @@ export default function DashboardPage() {
             />
           </div>
 
+          {/* 今日のMVP AI社員 */}
+          <MvpCard />
+
           {/* 今日の動き(前日比つき) */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <LiveStat label="今日の完了タスク" value={today?.tasksCompleted ?? 0} unit="件" prev={yesterday?.tasksCompleted} />
@@ -247,6 +251,56 @@ export default function DashboardPage() {
                 <Card>
                   <CardHeader title="案件別の粗利益" />
                   <div className="p-3"><HorizontalBars data={projectProfit} unit="円" /></div>
+                </Card>
+              </div>
+
+              {/* 部署別の稼働状況 / 支援が必要なAI */}
+              <div className="grid gap-3 lg:grid-cols-2">
+                <Card>
+                  <CardHeader title="部署別の稼働状況" sub="評価ではなく、リソース配分の参考情報です" />
+                  <div className="divide-y divide-slate-50">
+                    {Object.entries(DEPARTMENTS).map(([deptId, dept]) => {
+                      const members = agents.filter((a) => a.departmentId === deptId);
+                      const active = members.filter((a) => ['working', 'checking', 'delegating'].includes(a.status)).length;
+                      const costJpy = members.reduce((acc, a) => acc + a.costUsd, 0) * usdJpyRate;
+                      const queued = 0;
+                      return (
+                        <div key={deptId} className="flex items-center gap-3 px-4 py-2 text-xs">
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: dept.color }} />
+                          <span className="w-32 font-medium text-slate-700">{dept.name}</span>
+                          <span className="text-slate-500">稼働 {active}/{members.length}名</span>
+                          <span className="text-slate-500">本日 {members.reduce((acc, a) => acc + a.todayCount, 0)}件</span>
+                          <span className="ml-auto tabular-nums text-slate-400">{yen(costJpy)}</span>
+                          {queued > 0 && <span className="text-amber-600">待機 {queued}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+                <Card>
+                  <CardHeader title="支援が必要なAI社員" sub="疲労度が高い、またはエラー対応中のAIです" />
+                  <div className="p-4">
+                    {agents.filter((a) => (a.fatigue ?? 0) >= 60 || a.status === 'error').length === 0 ? (
+                      <p className="py-4 text-center text-xs text-emerald-600">現在、支援が必要なAI社員はいません</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {agents
+                          .filter((a) => (a.fatigue ?? 0) >= 60 || a.status === 'error')
+                          .map((a) => (
+                            <li key={a.id} className="flex items-center gap-2 rounded-lg border border-slate-100 px-3 py-2 text-xs">
+                              <span aria-hidden>{a.avatar}</span>
+                              <span className="font-medium text-slate-700">{a.name}</span>
+                              <span className={cn('ml-auto', a.status === 'error' ? 'text-red-600' : 'text-amber-600')}>
+                                {a.status === 'error' ? 'エラー対応中' : `疲労度 ${a.fatigue}%`}
+                              </span>
+                              <Link href={`/agents/${a.id}`} className="text-brand-600 hover:underline">
+                                確認 →
+                              </Link>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                  </div>
                 </Card>
               </div>
             </div>

@@ -70,6 +70,29 @@ export default function SettingsPage() {
               時間帯演出(朝・日中・夕方・夜でオフィスの雰囲気が変化){(settings.timeEffects ?? true) ? ': ON' : ': OFF'}
             </p>
           </div>
+          <div className="space-y-3 border-t border-slate-100 p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="text-xs font-medium text-slate-600">時間帯の基準</label>
+              <select
+                value={settings.clockMode ?? 'real'}
+                onChange={(e) => updateSettings({ clockMode: e.target.value as 'real' | 'demo' })}
+                className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none"
+              >
+                <option value="real">実時刻連動</option>
+                <option value="demo">デモ時間を進める(約2分で1日)</option>
+              </select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-slate-600">会社イベントの再生:</span>
+              <Button variant="secondary" onClick={() => useOffice.getState().playAssembly('morning')}>
+                🌅 朝会を再生
+              </Button>
+              <Button variant="secondary" onClick={() => useOffice.getState().playAssembly('evening')}>
+                🌇 夕会を再生
+              </Button>
+              <span className="text-[11px] text-slate-400">再生するとオフィスの社内会話・アナウンスに反映されます</span>
+            </div>
+          </div>
         </Card>
 
         <Card>

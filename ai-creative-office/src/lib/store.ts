@@ -14,8 +14,14 @@ import {
   buildAgentContext,
   buildCompanyContext,
   conversationProvider,
+  generateAchievementReport,
+  generateAssembly,
+  generateCEOAlert,
+  generateInterAgentConversation,
+  generateReaction,
   moodOf,
 } from './conversation';
+import { currentPeriod } from './office';
 import {
   AGENT_PERSONAS,
   mergePersona,
@@ -43,6 +49,7 @@ import {
   seedUsage,
 } from './mock-data';
 import type {
+  Achievement,
   ActivityLog,
   Agent,
   AgentStatus,
@@ -51,6 +58,7 @@ import type {
   Announcement,
   Approval,
   Campaign,
+  CeoAlert,
   CeoProposal,
   ChatAction,
   ChatMessage,
@@ -101,11 +109,16 @@ interface OfficeState {
   relayQueue: { from: string; to: string; label: string; log: string }[];
   lastChatAt: Record<string, string>; // 「社長と会話中」演出用(永続化しない)
   lastProposalTick: number; // CEO提案のクールダウン(永続化しない)
+  alertCooldowns: Record<string, number>; // 同種CEO呼びかけの再通知防止(永続化しない)
+  lastTalkTopics: string[]; // 直近の会話トピック(同一パターン連続防止・永続化しない)
+  lastAssemblyKey: string; // 朝会/夕会の重複開催防止(永続化しない)
   // AI社員との会話・CEO提案(永続化する)
   directChats: Record<string, DirectChatMessage[]>;
   unread: Record<string, number>;
   proposals: CeoProposal[];
   agentTalks: AgentTalk[];
+  achievements: Achievement[]; // 成果イベント(MVP算出に使用)
+  ceoAlerts: CeoAlert[]; // CEOから社長への呼びかけ
 
   setHydrated: (v: boolean) => void;
   tick: () => void;
@@ -116,6 +129,8 @@ interface OfficeState {
   sendDirectMessage: (agentId: string, content: string) => void;
   executeChatAction: (agentId: string, action: ChatAction) => void;
   decideProposal: (proposalId: string, decision: 'adopted' | 'revision' | 'rejected') => void;
+  decideAlert: (alertId: string, decision: 'accepted' | 'later' | 'dismissed') => void;
+  playAssembly: (kind: 'morning' | 'evening') => void;
   decideApproval: (id: string, decision: 'approved' | 'rejected' | 'revision_requested') => void;
   updateSettings: (patch: Partial<CompanySettings>) => void;
   sendChat: (content: string) => void;
@@ -390,12 +405,97 @@ export const useOffice = create<OfficeState>()(
       relayQueue: [],
       lastChatAt: {},
       lastProposalTick: 0,
+      alertCooldowns: {},
+      lastTalkTopics: [],
+      lastAssemblyKey: '',
       directChats: seedDirectChats,
       unread: seedUnread,
       proposals: seedProposals,
       agentTalks: seedTalks,
+      achievements: [],
+      ceoAlerts: [],
 
       setHydrated: (v) => set({ hydrated: v }),
+
+      // ---------- CEO呼びかけへの対応(押されるまで実行しない) ----------
+      decideAlert: (alertId, decision) => {
+        const s = get();
+        const alert = s.ceoAlerts.find((a) => a.id === alertId);
+        if (!alert || (alert.status !== 'new' && alert.status !== 'later')) return;
+        if (decision === 'accepted') {
+          const newTasks: Task[] = alert.actions.map((item, i) => ({
+            id: uid('task'),
+            title: item.title,
+            description: `CEO呼びかけ「${alert.conclusion}」より`,
+            assigneeId: item.assigneeId,
+            requesterId: 'ceo',
+            projectId: null,
+            customerId: null,
+            priority: 'high',
+            status: i === 0 ? 'running' : 'queued',
+            progress: 0,
+            plannedStart: null,
+            deadline: null,
+            startedAt: i === 0 ? nowIso() : null,
+            completedAt: null,
+            needsApproval: false,
+            approver: null,
+            dependsOn: [],
+            input: alert.recommendation,
+            output: null,
+            model: 'claude-sonnet-5',
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsd: 0,
+            errorMessage: null,
+            createdAt: nowIso(),
+          }));
+          set({
+            ceoAlerts: s.ceoAlerts.map((a) => (a.id === alertId ? { ...a, status: 'accepted' as const, decidedAt: nowIso() } : a)),
+            tasks: [...newTasks, ...s.tasks],
+            officeEvents: [
+              ...alert.actions.map((item) => ({
+                id: uid('evt'),
+                kind: 'plan' as const,
+                fromAgentId: 'ceo',
+                toAgentId: item.assigneeId,
+                label: '承認済み・実行を指示',
+                createdAt: nowIso(),
+              })),
+              ...s.officeEvents,
+            ].slice(0, 10),
+            logs: [
+              { id: uid('log'), timestamp: nowIso(), agentId: 'ceo', message: `社長の承認により対応を開始します: ${alert.recommendation}`, taskId: newTasks[0]?.id ?? null, projectId: null, status: 'success' as const },
+              ...s.logs,
+            ].slice(0, 400),
+          });
+          return;
+        }
+        set({
+          ceoAlerts: s.ceoAlerts.map((a) =>
+            a.id === alertId ? { ...a, status: decision === 'later' ? ('later' as const) : ('dismissed' as const), decidedAt: nowIso() } : a,
+          ),
+          // 却下・後で確認は同種の再通知を長めに抑制する
+          alertCooldowns: { ...s.alertCooldowns, [alert.kind]: s.tickCount + (decision === 'dismissed' ? 200 : 100) },
+        });
+      },
+
+      // ---------- 朝会・夕会の再生(手動再生はデモモードOFFでも可能) ----------
+      playAssembly: (kind) => {
+        const s = get();
+        const assembly = generateAssembly(kind, s, buildCompanyContext(s));
+        set({
+          announcements: [
+            { id: uid('ann'), message: assembly.announcement, tone: 'info' as const, createdAt: nowIso() },
+            ...s.announcements,
+          ].slice(0, 6),
+          agentTalks: [...assembly.talks, ...s.agentTalks].slice(0, 20),
+          logs: [
+            { id: uid('log'), timestamp: nowIso(), agentId: 'ceo', message: kind === 'morning' ? '朝会を開催しました。本日の重点方針を共有しています。' : '夕会を開催しました。本日の成果と翌日の優先事項をまとめています。', taskId: null, projectId: null, status: 'info' as const },
+            ...s.logs,
+          ].slice(0, 400),
+        });
+      },
 
       // ---------- AI社員との個別会話 ----------
       openChat: (agentId) => {
@@ -1189,6 +1289,124 @@ export const useOffice = create<OfficeState>()(
           }
         }
 
+        // 10) AI社員同士の自発会話(約15秒に1回。直近と同じ話題は避ける)
+        let lastTalkTopics = s.lastTalkTopics;
+        if (tickCount % 5 === 0) {
+          const talk = generateInterAgentConversation({ ...s, agents, tasks, approvals }, lastTalkTopics);
+          if (talk) {
+            newTalks.push(talk);
+            lastTalkTopics = [talk.topic ?? '', ...lastTalkTopics].slice(0, 3);
+            newLogs.push({
+              id: uid('log'),
+              timestamp: nowIso(),
+              agentId: talk.lines[0].agentId,
+              message: talk.lines[0].text,
+              taskId: talk.taskId,
+              projectId: talk.projectId,
+              status: 'info',
+            });
+          }
+        }
+
+        // 11) 成果イベント(自発報告。約24秒に1回、対象AIを変えながら)
+        let achievements = s.achievements;
+        if (tickCount % 8 === 0) {
+          const candidates = agents.filter((a) => !['paused', 'error'].includes(a.status));
+          const reporterAgent = candidates[(tickCount / 8) % candidates.length];
+          const achievement = reporterAgent ? generateAchievementReport(reporterAgent, { ...s, agents, tasks, approvals }) : null;
+          if (achievement) {
+            achievements = [achievement, ...achievements].slice(0, 50);
+            newLogs.push({
+              id: uid('log'),
+              timestamp: nowIso(),
+              agentId: achievement.agentId,
+              message: `【成果】${achievement.title} — ${achievement.detail}`,
+              taskId: null,
+              projectId: null,
+              status: 'success',
+            });
+            // 控えめな社内リアクション(最大2件)
+            if (Math.random() < 0.6) {
+              const reactors = ['ceo', achievement.agentId === 'deal_mgr' ? 'secretary' : 'deal_mgr'].filter((r) => r !== achievement.agentId).slice(0, 2);
+              newTalks.push({
+                id: uid('talk'),
+                lines: [
+                  { agentId: achievement.agentId, text: `${achievement.title}です。${achievement.detail}` },
+                  ...reactors.slice(0, 2).map((r) => ({ agentId: r, text: generateReaction(r), isReaction: true })),
+                ],
+                taskId: null,
+                projectId: null,
+                timestamp: nowIso(),
+                topic: 'achievement',
+              });
+            }
+            // 本人からの直接報告(未読は1社員2件まで)
+            if ((unread[achievement.agentId] ?? 0) < 2 && Math.random() < 0.4) {
+              const msg: DirectChatMessage = {
+                id: uid('dm'),
+                role: 'agent',
+                content: `ご報告です。${achievement.title}しました。${achievement.detail}`,
+                timestamp: nowIso(),
+              };
+              directChats = { ...directChats, [achievement.agentId]: [...(directChats[achievement.agentId] ?? []), msg].slice(-100) };
+              unread = { ...unread, [achievement.agentId]: (unread[achievement.agentId] ?? 0) + 1 };
+            }
+          }
+        }
+
+        // 12) CEOから社長への能動的な呼びかけ(約45秒周期・同種はクールダウン・最大2件まで)
+        let ceoAlerts = s.ceoAlerts;
+        let alertCooldowns = s.alertCooldowns;
+        if (tickCount % 15 === 0) {
+          const activeAlerts = ceoAlerts.filter((a) => a.status === 'new');
+          if (activeAlerts.length < 2) {
+            const excluded = [
+              ...Object.entries(alertCooldowns)
+                .filter(([, until]) => tickCount < until)
+                .map(([kind]) => kind),
+              ...ceoAlerts.filter((a) => a.status === 'new' || a.status === 'later').map((a) => a.kind),
+            ];
+            const alert = generateCEOAlert(
+              { ...s, agents, tasks, approvals },
+              buildCompanyContext({ ...s, agents, tasks, approvals }),
+              excluded,
+            );
+            if (alert) {
+              ceoAlerts = [alert, ...ceoAlerts].slice(0, 12);
+              alertCooldowns = { ...alertCooldowns, [alert.kind]: tickCount + 100 };
+              unread = { ...unread, ceo: (unread.ceo ?? 0) + 1 };
+              newLogs.push({
+                id: uid('log'),
+                timestamp: nowIso(),
+                agentId: 'ceo',
+                message: alert.conclusion,
+                taskId: null,
+                projectId: null,
+                status: alert.severity === 'high' ? 'warning' : 'info',
+              });
+            }
+          }
+        }
+
+        // 13) 朝会・夕会の自動開催(時間帯が切り替わったとき1回だけ)
+        let lastAssemblyKey = s.lastAssemblyKey;
+        if (s.settings.timeEffects !== false) {
+          const period =
+            (s.settings.clockMode ?? 'real') === 'demo'
+              ? (['morning', 'day', 'evening', 'night'] as const)[Math.floor(tickCount / 40) % 4]
+              : currentPeriod();
+          const key = `${todayKey()}-${period}`;
+          if ((period === 'morning' || period === 'evening') && key !== lastAssemblyKey) {
+            lastAssemblyKey = key;
+            const assembly = generateAssembly(period, { ...s, agents, tasks, approvals }, buildCompanyContext({ ...s, agents, tasks, approvals }));
+            announcements = [
+              { id: uid('ann'), message: assembly.announcement, tone: 'info' as const, createdAt: nowIso() },
+              ...announcements,
+            ].slice(0, 6);
+            newTalks.push(...assembly.talks);
+          }
+        }
+
         dailyStats = dailyStats.map((d, i) => (i === todayIdx ? today : d));
 
         set({
@@ -1204,6 +1422,11 @@ export const useOffice = create<OfficeState>()(
           unread,
           proposals,
           lastProposalTick,
+          achievements,
+          ceoAlerts,
+          alertCooldowns,
+          lastTalkTopics,
+          lastAssemblyKey,
           agentTalks: [...newTalks, ...s.agentTalks].slice(0, 20),
           officeEvents: [...newEvents, ...s.officeEvents].slice(0, 10),
           logs: [...newLogs.reverse(), ...s.logs].slice(0, 400),
@@ -1496,15 +1719,20 @@ export const useOffice = create<OfficeState>()(
           relayQueue: [],
           lastChatAt: {},
           lastProposalTick: 0,
+          alertCooldowns: {},
+          lastTalkTopics: [],
+          lastAssemblyKey: '',
           directChats: seedDirectChats,
           unread: seedUnread,
           proposals: seedProposals,
           agentTalks: seedTalks,
+          achievements: [],
+          ceoAlerts: [],
         }),
     }),
     {
       name: 'aco-store-v1',
-      version: 4,
+      version: 5,
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
       },
@@ -1526,6 +1754,11 @@ export const useOffice = create<OfficeState>()(
           if (!state.proposals) state.proposals = seedProposals;
           if (!state.agentTalks) state.agentTalks = seedTalks;
         }
+        if (version < 5 && state) {
+          // v5: 成果イベント・CEO呼びかけの初期化
+          if (!state.achievements) state.achievements = [];
+          if (!state.ceoAlerts) state.ceoAlerts = [];
+        }
         return state as OfficeState & Record<string, unknown>;
       },
       partialize: (s) => {
@@ -1539,6 +1772,9 @@ export const useOffice = create<OfficeState>()(
           relayQueue,
           lastChatAt,
           lastProposalTick,
+          alertCooldowns,
+          lastTalkTopics,
+          lastAssemblyKey,
           ...rest
         } = s as OfficeState & Record<string, unknown>;
         return rest;
