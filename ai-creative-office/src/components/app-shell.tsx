@@ -1,7 +1,10 @@
 'use client';
 
 // 共通レイアウト: サイドバー + トップバー + デモエンジン起動
+// スマホ(768px未満)ではPC版と別設計の専用アプリUI(MobileApp)へ切り替える
+import { MobileApp } from '@/components/mobile/mobile-shell';
 import { useOffice } from '@/lib/store';
+import { useIsMobile } from '@/lib/use-is-mobile';
 import { cn } from '@/lib/utils';
 import {
   Activity,
@@ -89,6 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
   const totalUnread = useOffice((s) => Object.values(s.unread).reduce((a, b) => a + b, 0));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const badgeCount = (badge?: string) =>
     badge === 'approvals' ? pendingApprovals : badge === 'proposals' ? openProposals : badge === 'unread' ? totalUnread : 0;
@@ -111,6 +115,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
     );
   }
+
+  // スマホ: 「AI会社を持ち歩くアプリ」体験(PC版の管理画面とは別UI)
+  if (isMobile) return <MobileApp />;
 
   const nav = (
     <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
