@@ -52,6 +52,7 @@ import type {
   Achievement,
   ActivityLog,
   Agent,
+  AgentRun,
   AgentStatus,
   AgentTalk,
   AiUsageRecord,
@@ -65,6 +66,7 @@ import type {
   CompanySettings,
   DailyStat,
   Deal,
+  Deliverable,
   DirectChatMessage,
   ErrorRecord,
   ExecutionPlan,
@@ -75,6 +77,7 @@ import type {
   OfficeZone,
   Project,
   Report,
+  RunTask,
   SeoKeyword,
   SnsPost,
   Task,
@@ -119,6 +122,8 @@ interface OfficeState {
   agentTalks: AgentTalk[];
   achievements: Achievement[]; // 成果イベント(MVP算出に使用)
   ceoAlerts: CeoAlert[]; // CEOから社長への呼びかけ
+  agentRuns: AgentRun[]; // AI実働ラン(実際の成果物生成)
+  deliverables: Deliverable[]; // AI生成の成果物(バージョン管理付き)
 
   setHydrated: (v: boolean) => void;
   tick: () => void;
@@ -131,6 +136,15 @@ interface OfficeState {
   decideProposal: (proposalId: string, decision: 'adopted' | 'revision' | 'rejected') => void;
   decideAlert: (alertId: string, decision: 'accepted' | 'later' | 'dismissed') => void;
   playAssembly: (kind: 'morning' | 'evening') => void;
+  // AI実働ラン
+  addAgentRun: (run: AgentRun, chatMessage: string) => void;
+  updateAgentRun: (runId: string, patch: Partial<AgentRun>) => void;
+  updateRunTask: (runId: string, taskId: string, patch: Partial<RunTask>) => void;
+  addDeliverable: (d: Deliverable) => void;
+  updateDeliverable: (id: string, patch: Partial<Deliverable>) => void;
+  saveDeliverableVersion: (id: string, markdown: string, editedBy: 'ai' | 'human', note: string) => void;
+  recordRunUsage: (agentId: string, usage: { provider: string; model: string; inputTokens: number; outputTokens: number; costUSD: number }, taskId: string | null) => void;
+  setAgentRunActivity: (agentId: string, note: string, zone: OfficeZone, progress?: number) => void;
   decideApproval: (id: string, decision: 'approved' | 'rejected' | 'revision_requested') => void;
   updateSettings: (patch: Partial<CompanySettings>) => void;
   sendChat: (content: string) => void;
@@ -414,8 +428,113 @@ export const useOffice = create<OfficeState>()(
       agentTalks: seedTalks,
       achievements: [],
       ceoAlerts: [],
+      agentRuns: [],
+      deliverables: [],
 
       setHydrated: (v) => set({ hydrated: v }),
+
+      // ---------- AI実働ラン ----------
+      addAgentRun: (run, chatMessage) =>
+        set((s) => ({
+          agentRuns: [run, ...s.agentRuns].slice(0, 10),
+          chat: [
+            ...s.chat,
+            { id: uid('chat'), role: 'ceo_ai' as const, content: chatMessage, runId: run.id, timestamp: nowIso() },
+          ],
+        })),
+
+      updateAgentRun: (runId, patch) =>
+        set((s) => ({
+          agentRuns: s.agentRuns.map((r) => (r.id === runId ? { ...r, ...patch } : r)),
+        })),
+
+      updateRunTask: (runId, taskId, patch) =>
+        set((s) => ({
+          agentRuns: s.agentRuns.map((r) =>
+            r.id === runId ? { ...r, tasks: r.tasks.map((t) => (t.id === taskId ? { ...t, ...patch } : t)) } : r,
+          ),
+        })),
+
+      addDeliverable: (d) =>
+        set((s) => ({
+          deliverables: [d, ...s.deliverables].slice(0, 40),
+          agentRuns: s.agentRuns.map((r) =>
+            r.id === d.runId ? { ...r, deliverableIds: [...r.deliverableIds, d.id] } : r,
+          ),
+        })),
+
+      updateDeliverable: (id, patch) =>
+        set((s) => ({
+          deliverables: s.deliverables.map((d) => (d.id === id ? { ...d, ...patch, updatedAt: nowIso() } : d)),
+        })),
+
+      // 新バージョンとして保存(AIによる自動上書きはせず、人間の編集も別バージョンで保持)
+      saveDeliverableVersion: (id, markdown, editedBy, note) =>
+        set((s) => ({
+          deliverables: s.deliverables.map((d) => {
+            if (d.id !== id) return d;
+            const version = d.version + 1;
+            return {
+              ...d,
+              version,
+              markdown,
+              status: editedBy === 'human' ? d.status : ('draft' as const),
+              versions: [...d.versions, { version, markdown, editedBy, note, createdAt: nowIso() }].slice(-10),
+              updatedAt: nowIso(),
+            };
+          }),
+        })),
+
+      // AI呼び出しごとの利用量を記録(実値/推定の区別はusage側のestimatedで管理)
+      recordRunUsage: (agentId, usage, taskId) =>
+        set((s) => ({
+          usage: [
+            {
+              id: uid('usage'),
+              provider: usage.provider,
+              model: usage.model,
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              cachedTokens: 0,
+              usdRateInput: 0,
+              usdRateOutput: 0,
+              costUsd: usage.costUSD,
+              executedAt: nowIso(),
+              agentId,
+              taskId,
+              projectId: null,
+            },
+            ...s.usage,
+          ].slice(0, 300),
+          agents: s.agents.map((a) =>
+            a.id === agentId
+              ? {
+                  ...a,
+                  inputTokens: a.inputTokens + usage.inputTokens,
+                  outputTokens: a.outputTokens + usage.outputTokens,
+                  costUsd: a.costUsd + usage.costUSD,
+                  todayCount: a.todayCount + 1,
+                  monthCount: a.monthCount + 1,
+                }
+              : a,
+          ),
+        })),
+
+      // 実行中AIのオフィス表示(移動・吹き出し・進捗)
+      setAgentRunActivity: (agentId, note, zone, progress) =>
+        set((s) => ({
+          agents: s.agents.map((a) =>
+            a.id === agentId
+              ? {
+                  ...a,
+                  status: (zone === 'desk' && note === '' ? 'idle' : 'working') as AgentStatus,
+                  zone,
+                  statusNote: note || '次の指示を待っています',
+                  progress: progress ?? a.progress,
+                }
+              : a,
+          ),
+        })),
 
       // ---------- CEO呼びかけへの対応(押されるまで実行しない) ----------
       decideAlert: (alertId, decision) => {
@@ -1728,11 +1847,13 @@ export const useOffice = create<OfficeState>()(
           agentTalks: seedTalks,
           achievements: [],
           ceoAlerts: [],
+          agentRuns: [],
+          deliverables: [],
         }),
     }),
     {
       name: 'aco-store-v1',
-      version: 5,
+      version: 6,
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
       },
@@ -1758,6 +1879,11 @@ export const useOffice = create<OfficeState>()(
           // v5: 成果イベント・CEO呼びかけの初期化
           if (!state.achievements) state.achievements = [];
           if (!state.ceoAlerts) state.ceoAlerts = [];
+        }
+        if (version < 6 && state) {
+          // v6: AI実働ラン・成果物の初期化
+          if (!state.agentRuns) state.agentRuns = [];
+          if (!state.deliverables) state.deliverables = [];
         }
         return state as OfficeState & Record<string, unknown>;
       },

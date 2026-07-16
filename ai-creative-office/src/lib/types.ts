@@ -397,6 +397,7 @@ export interface ChatMessage {
   content: string;
   plan?: ExecutionPlan;
   planStatus?: 'proposed' | 'started' | 'discarded';
+  runId?: string; // AI実働ラン(AgentRun)に紐づくメッセージ
   timestamp: string;
 }
 
@@ -533,6 +534,98 @@ export interface CeoAlert {
   decidedAt: string | null;
 }
 
+// ---------- AI実働基盤(実行ラン・成果物) ----------
+
+export type RunTaskStatus = 'pending' | 'running' | 'done' | 'failed' | 'cancelled';
+
+export interface RunTask {
+  id: string;
+  title: string;
+  description: string;
+  assignedAgentId: string; // director / writer / reviewer
+  kind: 'director' | 'writer' | 'reviewer';
+  status: RunTaskStatus;
+  dependsOn: string[];
+  startedAt: string | null;
+  completedAt: string | null;
+  retryCount: number;
+  maxRetries: number;
+  estimatedTokens: number;
+  actualInputTokens: number;
+  actualOutputTokens: number;
+  estimatedCostJPY: number;
+  actualCostJPY: number;
+  model: string | null;
+  provider: string | null;
+  error: string | null;
+  reviewStatus: 'none' | 'approved' | 'needs_fix';
+  deliverableId: string | null;
+}
+
+export type AgentRunStatus =
+  | 'awaiting_approval' // 計画確認待ち(承認前はAIを実行しない)
+  | 'running'
+  | 'revising' // レビュー差し戻しの修正中
+  | 'awaiting_cost_approval' // コスト上限到達で停止・承認待ち
+  | 'done'
+  | 'failed'
+  | 'cancelled';
+
+export interface AgentRun {
+  id: string;
+  request: string; // 社長の依頼文
+  planMarkdown: string; // CEO実行計画(Markdown)
+  planJson: string; // CEO実行計画(構造化JSON文字列)
+  status: AgentRunStatus;
+  tasks: RunTask[];
+  deliverableIds: string[];
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCostJpy: number;
+  isMock: boolean;
+  revisionCount: number;
+  maxRevisions: number; // 修正ループ上限(無限ループ防止)
+  currentActivity: string; // 現在の処理の説明
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export type DeliverableType = 'plan' | 'requirements' | 'copy' | 'review';
+
+export interface DeliverableVersion {
+  version: number;
+  markdown: string;
+  editedBy: 'ai' | 'human';
+  note: string;
+  createdAt: string;
+}
+
+export type DeliverableStatus = 'draft' | 'needs_fix' | 'reviewed' | 'approved' | 'final' | 'rejected';
+
+export interface Deliverable {
+  id: string;
+  runId: string;
+  taskId: string | null;
+  title: string;
+  type: DeliverableType;
+  agentId: string; // 作成AI
+  status: DeliverableStatus;
+  version: number;
+  versions: DeliverableVersion[];
+  markdown: string; // 現行バージョンの内容
+  json: string | null; // 構造化データ(JSON文字列)
+  sourceRequest: string; // 元となった指示
+  model: string;
+  provider: string;
+  isMock: boolean; // デモ生成かどうか
+  inputTokens: number;
+  outputTokens: number;
+  costJpy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Integration {
   id: string;
   name: string;
@@ -565,6 +658,7 @@ export interface CompanySettings {
   investorMode?: boolean; // ダッシュボードの投資家向け表示(未定義はfalse=経営者向け)
   simulation?: SimulationAssumptions; // 投資家モードの算出条件(未定義はDEFAULT_SIMULATION)
   clockMode?: 'real' | 'demo'; // 時間帯演出の基準: 実時刻連動 / デモ時間を進める(未定義はreal)
+  aiRunCostCapJpy?: number; // 1回の実行(依頼)あたりのAI利用料上限(円)。超過時は停止して承認を求める
 }
 
 /** 投資家モードのシミュレーション算出条件(設定画面から変更可能) */

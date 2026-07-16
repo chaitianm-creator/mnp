@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   CheckCircle2,
   FileText,
+  FolderOpen,
   Handshake,
   Inbox,
   LayoutDashboard,
@@ -41,6 +42,7 @@ const NAV = [
   ]},
   { section: '組織', items: [
     { href: '/agents', label: 'AI社員', icon: Users, badge: 'unread' },
+    { href: '/deliverables', label: '成果物', icon: FolderOpen },
     { href: '/tasks', label: 'タスク管理', icon: ListTodo },
     { href: '/logs', label: '活動ログ', icon: Activity },
   ]},

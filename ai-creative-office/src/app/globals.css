@@ -21,6 +21,26 @@ body {
   background: transparent;
 }
 
+/* Markdown表示(成果物ビュー) */
+.md-view h2 {
+  @apply mb-1.5 mt-4 border-b border-slate-100 pb-1 text-base font-bold text-slate-900;
+}
+.md-view h3 {
+  @apply mb-1 mt-3 text-sm font-bold text-slate-800;
+}
+.md-view h4 {
+  @apply mb-1 mt-2 text-[13px] font-semibold text-slate-700;
+}
+.md-view ul {
+  @apply my-1 list-disc space-y-0.5 pl-5;
+}
+.md-view blockquote {
+  @apply my-2 rounded-r-lg border-l-4 border-brand-300 bg-brand-50/50 px-3 py-2 text-sm font-semibold text-slate-800;
+}
+.md-view .md-space {
+  height: 0.4rem;
+}
+
 /* AI思考中の3点ドット(静かな点滅) */
 @keyframes think {
   0%,

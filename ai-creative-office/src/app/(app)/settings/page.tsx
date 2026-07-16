@@ -144,6 +144,8 @@ export default function SettingsPage() {
           </div>
         </Card>
 
+        <AiRunSettingsCard />
+
         <SimulationSettingsCard />
 
         <Card>
@@ -173,6 +175,60 @@ export default function SettingsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// AI実働(実行基盤)の設定
+function AiRunSettingsCard() {
+  const settings = useOffice((s) => s.settings);
+  const updateSettings = useOffice((s) => s.updateSettings);
+  const [status, setStatus] = useState<{ provider: string; model: string; isMock: boolean } | null>(null);
+
+  useState(() => {
+    fetch('/api/agent/status')
+      .then((r) => r.json())
+      .then(setStatus)
+      .catch(() => setStatus(null));
+    return undefined;
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="AI実働の設定"
+        sub="社長指示チャットの「AI実働モード」で使用するプロバイダーとコスト上限です。APIキーはサーバー側の環境変数で管理され、ブラウザへは渡されません"
+      />
+      <div className="space-y-3 p-4">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-xs font-medium text-slate-600">現在のプロバイダー:</span>
+          {status ? (
+            <>
+              <Badge className={status.isMock ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700'}>
+                {status.isMock ? 'モック(デモ生成)' : `実AI: ${status.provider}`}
+              </Badge>
+              <span className="text-xs text-slate-400">モデル: {status.model}</span>
+            </>
+          ) : (
+            <span className="text-xs text-slate-400">確認中…</span>
+          )}
+        </div>
+        <p className="text-[11px] text-slate-400">
+          実AIへ切り替えるには、デプロイ環境の環境変数に <code className="rounded bg-slate-100 px-1">AI_PROVIDER=anthropic</code> と{' '}
+          <code className="rounded bg-slate-100 px-1">ANTHROPIC_API_KEY</code> を設定してください(.env.example参照)。未設定でもモックで安全に動作します。
+        </p>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">1回の実行あたりのAI利用料上限(円)— 超過時は停止して承認を求めます</label>
+          <input
+            type="number"
+            min={0}
+            aria-label="AI実行コスト上限"
+            value={settings.aiRunCostCapJpy ?? 500}
+            onChange={(e) => updateSettings({ aiRunCostCapJpy: Number(e.target.value) || 0 })}
+            className={inputCls + ' max-w-[160px]'}
+          />
+        </div>
+      </div>
+    </Card>
   );
 }
 
