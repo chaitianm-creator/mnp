@@ -3,6 +3,7 @@
 // 会社設定 + デモモード + AI社員設定
 import { Badge, Button, Card, CardHeader, PageHeader } from '@/components/ui';
 import { APPROVAL_TYPE } from '@/lib/labels';
+import { DEFAULT_SIMULATION } from '@/lib/simulation';
 import { useOffice } from '@/lib/store';
 import type { ApprovalType } from '@/lib/types';
 import { useState } from 'react';
@@ -120,6 +121,8 @@ export default function SettingsPage() {
           </div>
         </Card>
 
+        <SimulationSettingsCard />
+
         <Card>
           <CardHeader title="承認が必要な処理" sub="チェックされた処理は実行前に承認センターでの承認が必須になります" />
           <div className="grid grid-cols-1 gap-2 p-4 sm:grid-cols-2">
@@ -147,6 +150,66 @@ export default function SettingsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// 投資家モードのシミュレーション算出条件
+function SimulationSettingsCard() {
+  const simulation = useOffice((s) => s.settings.simulation) ?? DEFAULT_SIMULATION;
+  const updateSettings = useOffice((s) => s.updateSettings);
+  const [saved, setSaved] = useState(false);
+  const [form, setForm] = useState(simulation);
+
+  return (
+    <Card>
+      <CardHeader
+        title="投資家モード シミュレーション条件"
+        sub="年間利益・AI削減人件費・ROIなどの算出条件です。表示値はデモデータを用いたシミュレーションであり、実際の成果を保証するものではありません"
+      />
+      <div className="space-y-3 p-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="1人あたりの想定人件費(月・円)">
+            <input
+              type="number"
+              min={0}
+              className={inputCls}
+              value={form.salaryPerHeadJpy}
+              onChange={(e) => setForm({ ...form, salaryPerHeadJpy: Number(e.target.value) || 0 })}
+            />
+          </Field>
+          <Field label="タスク1件の人間換算作業時間(分)">
+            <input
+              type="number"
+              min={1}
+              className={inputCls}
+              value={form.minutesPerTask}
+              onChange={(e) => setForm({ ...form, minutesPerTask: Number(e.target.value) || 1 })}
+            />
+          </Field>
+          <Field label="月間想定労働時間(時間)">
+            <input
+              type="number"
+              min={1}
+              className={inputCls}
+              value={form.workHoursPerMonth}
+              onChange={(e) => setForm({ ...form, workHoursPerMonth: Number(e.target.value) || 1 })}
+            />
+          </Field>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={() => {
+              updateSettings({ simulation: form });
+              setSaved(true);
+              setTimeout(() => setSaved(false), 2000);
+            }}
+          >
+            算出条件を保存
+          </Button>
+          {saved && <span className="text-xs text-emerald-600">保存しました。投資家モードへ即時反映されます</span>}
+        </div>
+      </div>
+    </Card>
   );
 }
 

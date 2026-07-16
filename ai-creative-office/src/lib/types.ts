@@ -454,4 +454,12 @@ export interface CompanySettings {
   setupCompleted: boolean;
   timeEffects?: boolean; // 時間帯演出(v2で追加。未定義はtrue扱い)
   investorMode?: boolean; // ダッシュボードの投資家向け表示(未定義はfalse=経営者向け)
+  simulation?: SimulationAssumptions; // 投資家モードの算出条件(未定義はDEFAULT_SIMULATION)
+}
+
+/** 投資家モードのシミュレーション算出条件(設定画面から変更可能) */
+export interface SimulationAssumptions {
+  salaryPerHeadJpy: number; // 1人あたりの想定人件費(月額・円)
+  minutesPerTask: number; // タスク1件あたりの人間換算作業時間(分)
+  workHoursPerMonth: number; // 1人あたりの月間想定労働時間(時間)
 }

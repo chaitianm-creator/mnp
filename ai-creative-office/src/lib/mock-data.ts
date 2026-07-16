@@ -64,6 +64,11 @@ export const seedSettings: CompanySettings = {
   demoMode: true,
   setupCompleted: true,
   timeEffects: true,
+  simulation: {
+    salaryPerHeadJpy: 350000,
+    minutesPerTask: 25,
+    workHoursPerMonth: 160,
+  },
 };
 
 // ---------- AI社員(18名) ----------

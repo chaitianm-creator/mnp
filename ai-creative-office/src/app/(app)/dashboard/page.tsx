@@ -7,11 +7,13 @@ import { AnimatedNumber, DeltaBadge } from '@/components/animated-number';
 import { HorizontalBars, TrendBars, TrendLine } from '@/components/charts';
 import { Card, CardHeader, PageHeader, StatCard } from '@/components/ui';
 import { DEPARTMENTS } from '@/lib/labels';
+import { computeInvestorMetrics, DEFAULT_SIMULATION, type SimMetric } from '@/lib/simulation';
 import { selectDashboardStats, useOffice } from '@/lib/store';
 import { cn, num, pct, todayKey, yen } from '@/lib/utils';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ChevronDown, ChevronUp, Info, X } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function DashboardPage() {
   const stats = useOffice(selectDashboardStats);
@@ -63,12 +65,23 @@ export default function DashboardPage() {
     color: '#10b981',
   }));
 
-  // 投資家向け指標(人件費想定: AI社員が代替する業務の人員換算 月35万円/名)
-  const assumedSalaryJpy = 350000;
-  const laborSavedMonthly = agents.length * assumedSalaryJpy - stats.aiCostJpy;
-  const totalCost = stats.aiCostJpy + projects.reduce((a, p) => a + p.productionCostJpy + p.outsourcingCostJpy, 0);
-  const roi = totalCost > 0 ? (stats.grossProfit / totalCost) * 100 : 0;
-  const utilization = (stats.activeAgents / agents.length) * 100;
+  // 投資家向け指標: 固定値ではなく、設定(算出条件)+現在のストアデータから毎回再計算する
+  const simulation = useOffice((s) => s.settings.simulation) ?? DEFAULT_SIMULATION;
+  const [openMetric, setOpenMetric] = useState<string | null>(null);
+  const productionCost = projects.reduce((a, p) => a + p.productionCostJpy + p.outsourcingCostJpy, 0);
+  const periodLabel = dailyStats.length > 0 ? `${dailyStats[0].date} 〜 ${todayKey()}` : '当月';
+  const simMetrics = computeInvestorMetrics({
+    assumptions: simulation,
+    periodLabel,
+    monthTasksDone: stats.monthTasksDone,
+    aiCostJpy: stats.aiCostJpy,
+    revenueJpy: stats.revenue,
+    grossProfitJpy: stats.grossProfit,
+    productionCostJpy: productionCost,
+    activeAgents: stats.activeAgents,
+    totalAgents: agents.length,
+    humanHeadcount: 1,
+  });
 
   return (
     <div>
@@ -88,35 +101,53 @@ export default function DashboardPage() {
       />
 
       {investorMode ? (
-        // ================= 投資家向け =================
+        // ================= 投資家向け(シミュレーション) =================
         <div className="space-y-3">
+          {/* 免責の明記 */}
+          <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
+            <span className="mt-0.5 shrink-0 rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white">
+              SIMULATION
+            </span>
+            <p>
+              表示値は<span className="font-semibold">デモデータを用いたシミュレーション</span>であり、実際の成果を保証するものではありません。
+              各カードをクリックすると算出根拠を確認できます。算出条件は
+              <Link href="/settings" className="mx-0.5 text-brand-600 underline-offset-2 hover:underline">設定画面</Link>
+              から変更できます。
+            </p>
+          </div>
+
+          {/* 上段3指標(ダークヒーロー) */}
           <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-brand-900 to-slate-900 p-6 text-white sm:p-8">
-            <p className="text-xs font-medium tracking-wider text-white/50">ANNUAL OUTLOOK(月次実績×12の推定)</p>
+            <p className="text-xs font-medium tracking-wider text-white/50">
+              ANNUAL OUTLOOK — デモ推定値(月次実績×12のシミュレーション)
+            </p>
             <div className="mt-4 grid gap-6 sm:grid-cols-3">
-              <BigMetric label="年間利益(見込)" value={stats.grossProfit * 12} format={(v) => yen(v)} sub={`月次粗利 ${yen(stats.grossProfit)}`} />
-              <BigMetric label="AI削減人件費(年間)" value={laborSavedMonthly * 12} format={(v) => yen(v)} sub={`${agents.length}名分の業務を月${yen(stats.aiCostJpy)}で代替`} />
-              <BigMetric label="ROI" value={roi} format={(v) => `${v.toFixed(0)}%`} sub="粗利 ÷(AI費+制作原価)" />
+              {simMetrics.slice(0, 3).map((m) => (
+                <MetricButton key={m.key} metric={m} dark onClick={() => setOpenMetric(m.key)} />
+              ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <InvestorCard label="AI稼働率" value={utilization} format={(v) => `${v.toFixed(0)}%`} sub={`${stats.activeAgents}/${agents.length}名が稼働中`} />
-            <InvestorCard label="1人あたり生産性" value={stats.revenue} format={(v) => yen(v)} sub="人間1名+AI社員18名 / 月商" />
-            <InvestorCard label="会社全体効率" value={stats.aiCostJpy > 0 ? stats.monthTasksDone / (stats.aiCostJpy / 10000) : 0} format={(v) => `${v.toFixed(1)}`} sub="完了タスク数 / AI費1万円" />
-            <InvestorCard label="粗利益率" value={stats.grossMargin} format={(v) => `${v.toFixed(1)}%`} sub={`売上 ${yen(stats.revenue)}`} />
+
+          {/* 下段3指標 */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {simMetrics.slice(3).map((m) => (
+              <MetricButton key={m.key} metric={m} onClick={() => setOpenMetric(m.key)} />
+            ))}
           </div>
+
           <div className="grid gap-3 lg:grid-cols-2">
             <Card>
-              <CardHeader title="受注率の推移" />
+              <CardHeader title="受注率の推移" sub="デモデータ" />
               <div className="p-3"><TrendLine data={chartData} dataKey="orderRate" color="#10b981" unit="%" /></div>
             </Card>
             <Card>
-              <CardHeader title="案件別の粗利益" />
+              <CardHeader title="案件別の粗利益" sub="デモデータ" />
               <div className="p-3"><HorizontalBars data={projectProfit} unit="円" /></div>
             </Card>
           </div>
-          <p className="text-[11px] text-slate-400">
-            ※ 投資家向け表示の年間値・削減人件費・ROIは、当月実績とモデル仮定(人員換算 月35万円/名)に基づく推定値です。
-          </p>
+
+          {/* 算出根拠モーダル */}
+          <BasisModal metric={simMetrics.find((m) => m.key === openMetric) ?? null} onClose={() => setOpenMetric(null)} />
         </div>
       ) : (
         // ================= 経営者向け =================
@@ -283,26 +314,130 @@ function LiveStat({ label, value, unit, prev }: { label: string; value: number; 
   );
 }
 
-function BigMetric({ label, value, format, sub }: { label: string; value: number; format: (v: number) => string; sub?: string }) {
+// 投資家向け指標カード(クリックで算出根拠モーダルを開く)
+function MetricButton({ metric, dark, onClick }: { metric: SimMetric; dark?: boolean; onClick: () => void }) {
   return (
-    <div>
-      <p className="text-xs text-white/60">{label}</p>
-      <p className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
-        <AnimatedNumber value={value} format={format} />
+    <button
+      onClick={onClick}
+      aria-label={`${metric.label}の算出根拠を表示`}
+      className={cn(
+        'group rounded-xl text-left outline-none transition-all duration-300',
+        dark
+          ? 'focus-visible:ring-2 focus-visible:ring-white/60'
+          : 'border border-slate-200 bg-white px-5 py-4 shadow-card hover:shadow-md focus-visible:ring-2 focus-visible:ring-brand-500',
+      )}
+    >
+      <p className={cn('flex items-center gap-1.5 text-xs font-medium', dark ? 'text-white/60' : 'text-slate-500')}>
+        {metric.label}
+        <span
+          className={cn(
+            'rounded-full px-1.5 py-px text-[9px] font-semibold tracking-wide',
+            dark ? 'bg-white/10 text-white/70' : 'bg-slate-100 text-slate-500',
+          )}
+        >
+          デモ推定値
+        </span>
       </p>
-      {sub && <p className="mt-1 text-[11px] text-white/50">{sub}</p>}
-    </div>
+      {metric.value === null ? (
+        <p className={cn('mt-1 text-lg font-semibold', dark ? 'text-white/40' : 'text-slate-400')}>算出データ不足</p>
+      ) : (
+        <p className={cn('mt-1 font-bold tracking-tight', dark ? 'text-3xl sm:text-4xl' : 'text-2xl text-slate-900')}>
+          <AnimatedNumber value={metric.value} format={metric.format} />
+        </p>
+      )}
+      <p className={cn('mt-1 flex items-center gap-1 text-[11px]', dark ? 'text-white/50' : 'text-slate-400')}>
+        {metric.value === null ? metric.insufficientReason : metric.sub}
+      </p>
+      <p
+        className={cn(
+          'mt-1.5 flex items-center gap-1 text-[10px] opacity-70 transition-opacity group-hover:opacity-100',
+          dark ? 'text-white/60' : 'text-brand-600',
+        )}
+      >
+        <Info className="h-3 w-3" /> 算出根拠を見る
+      </p>
+    </button>
   );
 }
 
-function InvestorCard({ label, value, format, sub }: { label: string; value: number; format: (v: number) => string; sub?: string }) {
+// 算出根拠モーダル
+function BasisModal({ metric, onClose }: { metric: SimMetric | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!metric) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [metric, onClose]);
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-card">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-        <AnimatedNumber value={value} format={format} />
-      </p>
-      {sub && <p className="mt-1 text-[11px] text-slate-400">{sub}</p>}
-    </div>
+    <AnimatePresence>
+      {metric && (
+        <>
+          <motion.div
+            className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${metric.label}の算出根拠`}
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: 4 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-5 shadow-panel"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                  算出根拠
+                  <span className="rounded-full bg-slate-900 px-1.5 py-px text-[9px] font-semibold tracking-wide text-white">
+                    SIMULATION
+                  </span>
+                </p>
+                <h3 className="mt-0.5 text-base font-bold text-slate-900">{metric.label}</h3>
+              </div>
+              <button onClick={onClose} aria-label="閉じる" className="rounded-lg p-1 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-brand-500">
+                <X className="h-4 w-4 text-slate-500" />
+              </button>
+            </div>
+
+            <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900">
+              {metric.value === null ? (
+                <span className="text-lg font-semibold text-slate-400">算出データ不足</span>
+              ) : (
+                metric.format(metric.value)
+              )}
+            </p>
+            {metric.value === null && metric.insufficientReason && (
+              <p className="mt-1 text-xs text-amber-600">{metric.insufficientReason}</p>
+            )}
+
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2">
+              <p className="text-[10px] font-semibold text-slate-400">計算式</p>
+              <p className="mt-0.5 text-xs text-slate-700">{metric.formula}</p>
+            </div>
+
+            <dl className="mt-3 divide-y divide-slate-50 rounded-lg border border-slate-100">
+              {metric.basis.map((row) => (
+                <div key={row.label} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                  <dt className="text-[11px] text-slate-500">{row.label}</dt>
+                  <dd className="text-[11px] font-semibold tabular-nums text-slate-800">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <p className="mt-3 text-[10px] leading-relaxed text-slate-400">
+              表示値はデモデータを用いたシミュレーションであり、実際の成果を保証するものではありません。算出条件は
+              <Link href="/settings" className="mx-0.5 text-brand-600 hover:underline">設定画面</Link>
+              から変更できます。
+            </p>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
