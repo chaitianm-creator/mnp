@@ -29,7 +29,23 @@ export function MvpCard() {
     [tasks.length, achievements.length, logs.length],
   );
   const agent = mvp ? agents.find((a) => a.id === mvp.agentId) : null;
-  if (!mvp || !agent) return null;
+
+  // 実績がまだない初回状態(スコア0以下は「実績なし」とみなす)
+  if (!mvp || !agent || mvp.score <= 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
+        <div className="flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+            <Award className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-[10px] font-semibold tracking-wide text-slate-400">今日のMVP AI社員(実績データから算出)</p>
+            <p className="mt-0.5 text-sm text-slate-400">まだデータがありません</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const topAchievement = achievements.find((a) => a.agentId === agent.id);
   const topReasons = [...mvp.reasons].sort((a, b) => b.points - a.points).slice(0, 2);

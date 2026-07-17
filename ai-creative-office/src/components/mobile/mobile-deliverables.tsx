@@ -113,7 +113,7 @@ export function MobileDeliverables({ onClose }: { onClose: () => void }) {
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 pb-6 pt-3">
           {deliverables.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 px-4 py-14 text-center text-[12px] text-slate-400">
-              まだ成果物がありません。
+              成果物はまだありません。
               <br />
               チャットからCEO AIに依頼すると、ここに保存されます。
             </div>

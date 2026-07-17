@@ -12,7 +12,7 @@ import { computeInvestorMetrics, DEFAULT_SIMULATION, type SimMetric } from '@/li
 import { selectDashboardStats, useOffice } from '@/lib/store';
 import { cn, num, pct, todayKey, yen } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, ChevronUp, Info, X } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronUp, Info, MessageSquare, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -25,7 +25,12 @@ export default function DashboardPage() {
   const usdJpyRate = useOffice((s) => s.settings.usdJpyRate);
   const investorMode = useOffice((s) => s.settings.investorMode ?? false);
   const updateSettings = useOffice((s) => s.updateSettings);
+  const onboardingDismissed = useOffice((s) => s.onboardingDismissed);
+  const dismissOnboarding = useOffice((s) => s.dismissOnboarding);
   const [showAll, setShowAll] = useState(false);
+
+  // グラフはデータが蓄積されてから表示(初回はプレースホルダー)
+  const hasChartData = dailyStats.length > 0;
 
   const today = dailyStats.find((d) => d.date === todayKey());
   const yesterday = dailyStats.length >= 2 ? dailyStats[dailyStats.length - 2] : undefined;
@@ -86,6 +91,36 @@ export default function DashboardPage() {
 
   return (
     <div>
+      {/* 初回オンボーディング(閉じるまで表示) */}
+      {!onboardingDismissed && (
+        <div className="relative mb-3 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 to-accent-600 px-5 py-5 text-white shadow-card sm:px-6">
+          <p className="text-lg font-extrabold tracking-tight">ようこそ!🎉</p>
+          <p className="mt-1 text-sm text-white/90">まずはCEOへ仕事を依頼してください。AI社員たちが計画を立てて動き出します。</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Link
+              href="/chat"
+              onClick={() => dismissOnboarding()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-xs font-bold text-brand-700 outline-none transition hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <MessageSquare className="h-3.5 w-3.5" /> CEOへ仕事を依頼する
+            </Link>
+            <Link
+              href="/settings"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/30 px-3.5 py-2 text-xs font-medium text-white outline-none transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Demo Modeで動く様子を見る
+            </Link>
+          </div>
+          <button
+            onClick={() => dismissOnboarding()}
+            aria-label="オンボーディングを閉じる"
+            className="absolute right-3 top-3 rounded-lg p-1 text-white/70 outline-none transition hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <PageHeader
         title="経営ダッシュボード"
         sub={investorMode ? '投資家向けサマリー(推定値を含みます)' : 'CEOが毎日確認する重要指標を上から順に配置しています'}
@@ -139,11 +174,11 @@ export default function DashboardPage() {
           <div className="grid gap-3 lg:grid-cols-2">
             <Card>
               <CardHeader title="受注率の推移" sub="デモデータ" />
-              <div className="p-3"><TrendLine data={chartData} dataKey="orderRate" color="#10b981" unit="%" /></div>
+              <div className="p-3">{hasChartData ? <TrendLine data={chartData} dataKey="orderRate" color="#10b981" unit="%" /> : <ChartPlaceholder />}</div>
             </Card>
             <Card>
               <CardHeader title="案件別の粗利益" sub="デモデータ" />
-              <div className="p-3"><HorizontalBars data={projectProfit} unit="円" /></div>
+              <div className="p-3">{projectProfit.length > 0 ? <HorizontalBars data={projectProfit} unit="円" /> : <ChartPlaceholder />}</div>
             </Card>
           </div>
 
@@ -187,19 +222,19 @@ export default function DashboardPage() {
             <StatCard label="稼働AI社員" value={`${stats.activeAgents}名`} tone="brand" sub={`待機 ${stats.idleAgents}名 / 全${agents.length}名`} />
           </div>
 
-          {/* 主要グラフ */}
+          {/* 主要グラフ(データが蓄積されるまではプレースホルダー) */}
           <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
             <Card>
               <CardHeader title="日別タスク完了数" />
-              <div className="p-3"><TrendBars data={chartData} dataKey="tasks" color="#6366f1" unit="件" /></div>
+              <div className="p-3">{hasChartData ? <TrendBars data={chartData} dataKey="tasks" color="#6366f1" unit="件" /> : <ChartPlaceholder />}</div>
             </Card>
             <Card>
               <CardHeader title="営業件数の推移" sub="フォーム+メール送信数" />
-              <div className="p-3"><TrendLine data={chartData} dataKey="outreach" color="#f59e0b" unit="件" /></div>
+              <div className="p-3">{hasChartData ? <TrendLine data={chartData} dataKey="outreach" color="#f59e0b" unit="件" /> : <ChartPlaceholder />}</div>
             </Card>
             <Card>
               <CardHeader title="AI利用料金の推移" />
-              <div className="p-3"><TrendBars data={chartData} dataKey="cost" color="#ec4899" unit="円" /></div>
+              <div className="p-3">{hasChartData ? <TrendBars data={chartData} dataKey="cost" color="#ec4899" unit="円" /> : <ChartPlaceholder />}</div>
             </Card>
           </div>
 
@@ -234,23 +269,23 @@ export default function DashboardPage() {
               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
                 <Card>
                   <CardHeader title="商談化率の推移" />
-                  <div className="p-3"><TrendLine data={chartData} dataKey="meetingRate" color="#8b5cf6" unit="%" /></div>
+                  <div className="p-3">{hasChartData ? <TrendLine data={chartData} dataKey="meetingRate" color="#8b5cf6" unit="%" /> : <ChartPlaceholder />}</div>
                 </Card>
                 <Card>
                   <CardHeader title="受注率の推移" />
-                  <div className="p-3"><TrendLine data={chartData} dataKey="orderRate" color="#10b981" unit="%" /></div>
+                  <div className="p-3">{hasChartData ? <TrendLine data={chartData} dataKey="orderRate" color="#10b981" unit="%" /> : <ChartPlaceholder />}</div>
                 </Card>
                 <Card>
                   <CardHeader title="部署別の本日の処理件数" />
-                  <div className="p-3"><HorizontalBars data={deptData} unit="件" /></div>
+                  <div className="p-3">{deptData.some((d) => d.value > 0) ? <HorizontalBars data={deptData} unit="件" /> : <ChartPlaceholder />}</div>
                 </Card>
                 <Card>
                   <CardHeader title="AI社員別の処理件数(今月・上位10名)" />
-                  <div className="p-3"><HorizontalBars data={agentData} unit="件" /></div>
+                  <div className="p-3">{agentData.some((d) => d.value > 0) ? <HorizontalBars data={agentData} unit="件" /> : <ChartPlaceholder />}</div>
                 </Card>
                 <Card>
                   <CardHeader title="案件別の粗利益" />
-                  <div className="p-3"><HorizontalBars data={projectProfit} unit="円" /></div>
+                  <div className="p-3">{projectProfit.length > 0 ? <HorizontalBars data={projectProfit} unit="円" /> : <ChartPlaceholder />}</div>
                 </Card>
               </div>
 
@@ -307,6 +342,16 @@ export default function DashboardPage() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// グラフの空状態プレースホルダー
+function ChartPlaceholder() {
+  return (
+    <div className="flex h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 text-slate-300">
+      <BarChart3 className="h-5 w-5" />
+      <p className="text-xs text-slate-400">データが蓄積されると表示されます</p>
     </div>
   );
 }

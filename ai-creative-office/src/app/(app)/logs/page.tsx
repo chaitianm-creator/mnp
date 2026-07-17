@@ -34,7 +34,12 @@ export default function LogsPage() {
         }
       />
 
-      <div className="rounded-xl border border-slate-200 bg-white">
+      {filtered.length === 0 && (
+        <div className="rounded-xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-400">
+          まだ活動履歴がありません。AI社員が働き始めると、ここに記録が流れます。
+        </div>
+      )}
+      <div className={filtered.length === 0 ? 'hidden' : 'rounded-xl border border-slate-200 bg-white'}>
         <ul className="divide-y divide-slate-50">
           {filtered.slice(0, 100).map((log, i) => {
             const agent = agents.find((a) => a.id === log.agentId);

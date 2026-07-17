@@ -36,9 +36,35 @@ export function MobileHome({
 
   const working = agents.filter((a) => ['working', 'checking', 'delegating', 'meeting'].includes(a.status)).length;
   const todayDone = dailyStats[dailyStats.length - 1]?.tasksCompleted ?? 0;
+  const onboardingDismissed = useOffice((s) => s.onboardingDismissed);
+  const dismissOnboarding = useOffice((s) => s.dismissOnboarding);
 
   return (
     <div className="h-full space-y-3 overflow-y-auto overscroll-contain px-4 pb-6 pt-3">
+      {/* 初回オンボーディング */}
+      {!onboardingDismissed && (
+        <section className="relative rounded-2xl border border-brand-200 bg-brand-50/60 px-4 py-4">
+          <p className="text-sm font-extrabold text-brand-800">ようこそ!🎉</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-brand-700">まずはCEOへ仕事を依頼してください。AI社員たちが動き出します。</p>
+          <button
+            onClick={() => {
+              dismissOnboarding();
+              onOpenCeoChat();
+            }}
+            className="mt-2.5 w-full rounded-lg bg-brand-600 px-3 py-2.5 text-[12px] font-bold text-white outline-none active:bg-brand-700 focus-visible:ring-2 focus-visible:ring-brand-500"
+          >
+            CEOへ仕事を依頼する
+          </button>
+          <button
+            onClick={() => dismissOnboarding()}
+            aria-label="オンボーディングを閉じる"
+            className="absolute right-2.5 top-2.5 rounded-full p-1 text-brand-400 outline-none active:bg-brand-100 focus-visible:ring-2 focus-visible:ring-brand-500"
+          >
+            ✕
+          </button>
+        </section>
+      )}
+
       {/* あいさつ */}
       <section className="rounded-2xl bg-gradient-to-br from-brand-600 to-accent-600 px-4 py-4 text-white shadow-card">
         <p className="text-sm font-bold">{greeting()}</p>

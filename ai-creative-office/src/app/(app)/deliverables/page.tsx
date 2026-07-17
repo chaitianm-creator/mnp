@@ -51,7 +51,9 @@ export default function DeliverablesPage() {
       />
       {deliverables.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-400">
-          まだ成果物がありません。社長指示チャットの「AI実働モード」から依頼すると、ここに成果物が保存されます。
+          成果物はまだありません。
+          <br />
+          社長指示チャットの「AI実働モード」から依頼すると、ここに成果物が保存されます。
         </div>
       ) : (
         <div className="space-y-3">

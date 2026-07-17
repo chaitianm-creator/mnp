@@ -24,6 +24,7 @@ import {
 import { currentPeriod } from './office';
 import {
   AGENT_PERSONAS,
+  emptyAgents,
   mergePersona,
   seedAgents,
   seedDirectChats,
@@ -124,8 +125,11 @@ interface OfficeState {
   ceoAlerts: CeoAlert[]; // CEOから社長への呼びかけ
   agentRuns: AgentRun[]; // AI実働ラン(実際の成果物生成)
   deliverables: Deliverable[]; // AI生成の成果物(バージョン管理付き)
+  onboardingDismissed: boolean; // 初回オンボーディングカードを閉じたか
 
   setHydrated: (v: boolean) => void;
+  dismissOnboarding: () => void;
+  setDemoMode: (on: boolean) => void; // Demo Mode切り替え(ダミーデータの表示/非表示)
   tick: () => void;
   pauseAgent: (agentId: string) => void;
   resumeAgent: (agentId: string) => void;
@@ -387,8 +391,8 @@ function buildPlan(instruction: string): ExecutionPlan {
   };
 }
 
-const initialData = {
-  settings: seedSettings,
+// デモモード用のダミーデータ一式(削除せず保持。Demo Mode ONでいつでも表示できる)
+const demoData = {
   agents: seedAgents,
   tasks: seedTasks,
   approvals: seedApprovals,
@@ -404,8 +408,41 @@ const initialData = {
   dailyStats: seedDailyStats,
   reports: seedReports,
   errors: seedErrors,
-  integrations: seedIntegrations,
   chat: seedChat,
+  directChats: seedDirectChats,
+  unread: seedUnread,
+  proposals: seedProposals,
+  agentTalks: seedTalks,
+};
+
+// 通常モード(初回利用者)の初期値: 実績ゼロ・全員待機中
+const emptyData = {
+  agents: emptyAgents,
+  tasks: [] as Task[],
+  approvals: [] as Approval[],
+  leads: [] as Lead[],
+  campaigns: [] as Campaign[],
+  inquiries: [] as Inquiry[],
+  deals: [] as Deal[],
+  projects: [] as Project[],
+  snsPosts: [] as SnsPost[],
+  seoKeywords: [] as SeoKeyword[],
+  logs: [] as ActivityLog[],
+  usage: [] as AiUsageRecord[],
+  dailyStats: [] as DailyStat[],
+  reports: [] as Report[],
+  errors: [] as ErrorRecord[],
+  chat: [] as ChatMessage[],
+  directChats: {} as Record<string, DirectChatMessage[]>,
+  unread: {} as Record<string, number>,
+  proposals: [] as CeoProposal[],
+  agentTalks: [] as AgentTalk[],
+};
+
+const initialData = {
+  settings: { ...seedSettings, demoMode: false },
+  ...emptyData,
+  integrations: seedIntegrations,
 };
 
 export const useOffice = create<OfficeState>()(
@@ -422,16 +459,35 @@ export const useOffice = create<OfficeState>()(
       alertCooldowns: {},
       lastTalkTopics: [],
       lastAssemblyKey: '',
-      directChats: seedDirectChats,
-      unread: seedUnread,
-      proposals: seedProposals,
-      agentTalks: seedTalks,
       achievements: [],
       ceoAlerts: [],
       agentRuns: [],
       deliverables: [],
+      onboardingDismissed: false,
 
       setHydrated: (v) => set({ hydrated: v }),
+
+      dismissOnboarding: () => set({ onboardingDismissed: true }),
+
+      // Demo Mode切り替え: ONでダミーデータ表示+自動デモ演出、OFFで初期値0の実運用モード
+      // (どちらの場合も、あなたが作成した成果物・AI実行履歴・設定は保持される)
+      setDemoMode: (on) =>
+        set((s) => ({
+          settings: { ...s.settings, demoMode: on },
+          ...(on ? demoData : emptyData),
+          officeEvents: [],
+          announcements: [],
+          tickCount: 0,
+          relayQueue: [],
+          lastChatAt: {},
+          lastProposalTick: 0,
+          alertCooldowns: {},
+          lastTalkTopics: [],
+          lastAssemblyKey: '',
+          achievements: [],
+          ceoAlerts: [],
+          onboardingDismissed: on ? true : s.onboardingDismissed,
+        })),
 
       // ---------- AI実働ラン ----------
       addAgentRun: (run, chatMessage) =>
@@ -1847,6 +1903,7 @@ export const useOffice = create<OfficeState>()(
         })),
 
       resetAll: () =>
+        // 初回利用者と同じ空状態(実績ゼロ・通常モード)へ戻す
         set({
           ...initialData,
           officeEvents: [],
@@ -1858,19 +1915,16 @@ export const useOffice = create<OfficeState>()(
           alertCooldowns: {},
           lastTalkTopics: [],
           lastAssemblyKey: '',
-          directChats: seedDirectChats,
-          unread: seedUnread,
-          proposals: seedProposals,
-          agentTalks: seedTalks,
           achievements: [],
           ceoAlerts: [],
           agentRuns: [],
           deliverables: [],
+          onboardingDismissed: false,
         }),
     }),
     {
       name: 'aco-store-v1',
-      version: 6,
+      version: 7,
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
       },
@@ -1901,6 +1955,10 @@ export const useOffice = create<OfficeState>()(
           // v6: AI実働ラン・成果物の初期化
           if (!state.agentRuns) state.agentRuns = [];
           if (!state.deliverables) state.deliverables = [];
+        }
+        if (version < 7 && state) {
+          // v7: 初回オンボーディング。既存利用者(デモデータで利用中)には表示しない
+          if (state.onboardingDismissed === undefined) state.onboardingDismissed = true;
         }
         return state as OfficeState & Record<string, unknown>;
       },
@@ -1936,7 +1994,9 @@ export function selectDashboardStats(s: OfficeState) {
   const todayStat = s.dailyStats.find((d) => d.date === todayKey());
   const monthTasksDone = s.dailyStats.reduce((acc, d) => acc + d.tasksCompleted, 0);
   const totalCostUsd = s.agents.reduce((acc, a) => acc + a.costUsd, 0);
-  const revenue = s.deals.filter((d) => d.status === 'won').reduce((acc, d) => acc + d.amountJpy, 0) + 850000; // 過去受注分含む
+  // 固定のダミー実績はデモモードのみ加算(通常モードは実データのみ=初期値0)
+  const demo = s.settings.demoMode;
+  const revenue = s.deals.filter((d) => d.status === 'won').reduce((acc, d) => acc + d.amountJpy, 0) + (demo ? 850000 : 0); // デモ時のみ過去受注分含む
   const aiCostJpy = Math.round(totalCostUsd * usdJpy);
   const productionCost = s.projects.reduce((acc, p) => acc + p.productionCostJpy + p.outsourcingCostJpy, 0);
   const grossProfit = revenue - aiCostJpy - productionCost;
@@ -1948,16 +2008,16 @@ export function selectDashboardStats(s: OfficeState) {
     todayTasksDone: todayStat?.tasksCompleted ?? 0,
     monthTasksDone,
     leadsTotal: s.leads.length,
-    formDrafts: s.tasks.filter((t) => t.assigneeId === 'form_sales' && ['waiting_approval', 'running'].includes(t.status)).length + 16,
-    formsSent: 214,
-    emailDrafts: 36,
-    emailsSent: 306,
+    formDrafts: s.tasks.filter((t) => t.assigneeId === 'form_sales' && ['waiting_approval', 'running'].includes(t.status)).length + (demo ? 16 : 0),
+    formsSent: demo ? 214 : 0,
+    emailDrafts: demo ? 36 : 0,
+    emailsSent: demo ? 306 : 0,
     inquiries: s.inquiries.length,
     deals: s.deals.length,
     meetings: s.deals.filter((d) => ['meeting_set', 'met', 'proposing'].includes(d.status)).length,
     orders: s.deals.filter((d) => d.status === 'won').length,
     activeProjects: s.projects.filter((p) => p.status === 'active').length,
-    doneProjects: 7,
+    doneProjects: demo ? 7 : 0,
     revenue,
     aiCostJpy,
     grossProfit,

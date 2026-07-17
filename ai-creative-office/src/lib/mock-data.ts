@@ -646,6 +646,31 @@ export const seedAgents: Agent[] = [
   currentMood: '安定',
 })) as Agent[];
 
+/**
+ * 初回利用者向けの空状態AI社員(通常モードの初期値)
+ * 人格・プロフィールは保持し、実績・状態だけをゼロにする
+ */
+export const emptyAgents: Agent[] = seedAgents.map((a) => ({
+  ...a,
+  status: 'idle' as const,
+  statusNote: '待機中',
+  currentTaskId: null,
+  progress: 0,
+  todayCount: 0,
+  monthCount: 0,
+  kpis: a.kpis.map((k) => ({ ...k, value: 0 })),
+  inputTokens: 0,
+  outputTokens: 0,
+  costUsd: 0,
+  zone: 'desk' as const,
+  focus: 80,
+  fatigue: 5,
+  doneFlashUntil: undefined,
+  signatureStat: undefined,
+  weeklyHighlight: undefined,
+  currentMood: '待機中・いつでも動けます',
+}));
+
 /** 人格データを既存エージェントへ補完(persistマイグレーション用) */
 export function mergePersona(agent: Agent): Agent {
   const persona = AGENT_PERSONAS[agent.id];
