@@ -107,6 +107,7 @@ export function Button({
   className,
   disabled,
   type = 'button',
+  'aria-label': ariaLabel,
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -114,6 +115,7 @@ export function Button({
   className?: string;
   disabled?: boolean;
   type?: 'button' | 'submit';
+  'aria-label'?: string;
 }) {
   const variants = {
     primary:
@@ -128,6 +130,7 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
       className={cn(
         'inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition',
         variants[variant],

@@ -5,6 +5,7 @@ import type {
   DepartmentId,
   InquiryStatus,
   LeadStatus,
+  ProposalStatus,
   SnsPostStatus,
   TaskPriority,
   TaskStatus,
@@ -100,6 +101,18 @@ export const INQUIRY_STATUS: Record<InquiryStatus, { label: string; color: strin
   replied: { label: '返信済み', color: 'text-emerald-700', bg: 'bg-emerald-50' },
   converted: { label: '商談化', color: 'text-violet-700', bg: 'bg-violet-50' },
   closed: { label: '完了', color: 'text-slate-500', bg: 'bg-slate-100' },
+};
+
+export const PROPOSAL_STATUS: Record<ProposalStatus, { label: string; color: string; bg: string }> = {
+  new: { label: '新規', color: 'text-brand-700', bg: 'bg-brand-50' },
+  reviewing: { label: '確認中', color: 'text-sky-700', bg: 'bg-sky-50' },
+  adopted: { label: '採用', color: 'text-emerald-700', bg: 'bg-emerald-50' },
+  revision: { label: '修正依頼', color: 'text-orange-700', bg: 'bg-orange-50' },
+  rejected: { label: '却下', color: 'text-slate-500', bg: 'bg-slate-100' },
+  queued: { label: '実行待ち', color: 'text-cyan-700', bg: 'bg-cyan-50' },
+  executing: { label: '実行中', color: 'text-emerald-700', bg: 'bg-emerald-50' },
+  done: { label: '完了', color: 'text-teal-700', bg: 'bg-teal-50' },
+  failed: { label: '失敗', color: 'text-red-700', bg: 'bg-red-50' },
 };
 
 export const SNS_STATUS: Record<SnsPostStatus, { label: string; color: string; bg: string }> = {

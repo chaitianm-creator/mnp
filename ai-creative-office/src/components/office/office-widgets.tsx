@@ -189,6 +189,155 @@ export function LiveFeed({
   );
 }
 
+// ---------- CEO AIから社長への呼びかけ(承認されるまで実行しない) ----------
+
+export function CeoAlertBar() {
+  const alerts = useOffice((s) => s.ceoAlerts);
+  const decideAlert = useOffice((s) => s.decideAlert);
+  const reduced = useReducedMotion();
+  const newAlerts = alerts.filter((a) => a.status === 'new');
+  const alert = newAlerts[0];
+  if (!alert) return null;
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={alert.id}
+        initial={reduced ? false : { opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={reduced ? undefined : { opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        role="region"
+        aria-live="polite"
+        aria-label="CEO AIからの呼びかけ"
+        className={cn(
+          'rounded-xl border bg-white p-3.5 shadow-card',
+          alert.severity === 'high' ? 'border-amber-300' : 'border-brand-200',
+        )}
+      >
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-slate-400">
+              👔 CEO AIからの呼びかけ
+              <span
+                className={cn(
+                  'rounded-full px-1.5 py-px text-[9px] font-bold',
+                  alert.severity === 'high' ? 'bg-amber-100 text-amber-700' : 'bg-brand-50 text-brand-700',
+                )}
+              >
+                {alert.severity === 'high' ? '重要' : '提案'}
+              </span>
+              {newAlerts.length > 1 && <span className="text-slate-400">他{newAlerts.length - 1}件</span>}
+            </p>
+            <p className="mt-1 text-[13px] font-bold text-slate-900">{alert.conclusion}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              根拠: {alert.evidence.join(' / ')}
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-600">推奨: {alert.recommendation}</p>
+            <p className="mt-0.5 text-[11px] text-emerald-600">想定効果: {alert.expectedEffect}</p>
+            {alert.risk && <p className="mt-0.5 text-[11px] text-amber-600">リスク: {alert.risk}</p>}
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-1.5">
+            <button
+              onClick={() => decideAlert(alert.id, 'accepted')}
+              className="rounded-lg bg-gradient-to-r from-brand-600 to-accent-600 px-3 py-1.5 text-xs font-semibold text-white outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              承認して実行
+            </button>
+            <button
+              onClick={() => decideAlert(alert.id, 'later')}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              後で確認
+            </button>
+            <button
+              onClick={() => decideAlert(alert.id, 'dismissed')}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-400 outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              却下
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// ---------- 社内会話(AI社員同士の短い会話・重要イベント時のみ) ----------
+
+export function TalkFeed({ onSelectAgent }: { onSelectAgent: (agentId: string) => void }) {
+  const talks = useOffice((s) => s.agentTalks);
+  const agents = useOffice((s) => s.agents);
+  if (talks.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white">
+      <div className="border-b border-slate-100 px-4 py-3">
+        <p className="text-sm font-semibold text-slate-800">社内会話</p>
+        <p className="text-[10px] text-slate-400">AI社員同士のやりとり(重要イベント時のみ)</p>
+      </div>
+      <ul className="max-h-72 space-y-3 overflow-y-auto px-3 py-3">
+        {talks.slice(0, 6).map((talk) => (
+          <li key={talk.id} className="space-y-1.5 border-l-2 border-slate-100 pl-2">
+            {talk.topic === 'standup' && (
+              <span className="rounded-full bg-violet-50 px-1.5 py-px text-[9px] font-semibold text-violet-600">
+                朝会・夕会
+              </span>
+            )}
+            {talk.topic === 'achievement' && (
+              <span className="rounded-full bg-emerald-50 px-1.5 py-px text-[9px] font-semibold text-emerald-600">
+                成果報告
+              </span>
+            )}
+            {talk.lines.map((line, i) => {
+              const agent = agents.find((a) => a.id === line.agentId);
+              return (
+                <div key={i} className={cn('flex items-start gap-2', line.isReaction && 'pl-4 opacity-80')}>
+                  <button
+                    onClick={() => onSelectAgent(line.agentId)}
+                    aria-label={`${agent?.name ?? line.agentId}の詳細を開く`}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                    style={{
+                      backgroundColor: `${agent?.color ?? '#94a3b8'}18`,
+                      border: `1.5px solid ${agent?.color ?? '#94a3b8'}55`,
+                    }}
+                  >
+                    {agent?.avatar ?? '🤖'}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold text-slate-600">{agent?.name ?? line.agentId}</p>
+                    <p
+                      className={cn(
+                        'rounded-lg rounded-tl-sm px-2 py-1 text-[11px] leading-snug text-slate-600',
+                        line.isReaction ? 'bg-white ring-1 ring-slate-100' : 'bg-slate-50',
+                      )}
+                    >
+                      {line.text}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex items-center gap-2 pl-8">
+              <span className="text-[9px] tabular-nums text-slate-300">{timeAgo(talk.timestamp)}</span>
+              {talk.taskId && (
+                <Link href={`/tasks/${talk.taskId}`} className="text-[10px] text-brand-600 hover:underline">
+                  関連タスク →
+                </Link>
+              )}
+              {talk.projectId && (
+                <Link href={`/projects/${talk.projectId}`} className="text-[10px] text-brand-600 hover:underline">
+                  関連案件 →
+                </Link>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ---------- 進行中の主要タスク ----------
 
 export function RunningTasksBar() {

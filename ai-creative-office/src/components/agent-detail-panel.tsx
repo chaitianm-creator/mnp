@@ -12,11 +12,14 @@ import { MapPin, Pause, Play, Send, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { AgentAvatar, AgentStatusBadge, DepartmentBadge } from './agent-bits';
+import { AgentChat } from './agent-chat';
 import { Button, ProgressBar } from './ui';
+import { cn } from '@/lib/utils';
 
 export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onClose: () => void }) {
   const tasks = useOffice((s) => s.tasks);
   const logs = useOffice((s) => s.logs);
+  const projects = useOffice((s) => s.projects);
   const usdJpyRate = useOffice((s) => s.settings.usdJpyRate);
   const instructAgent = useOffice((s) => s.instructAgent);
   const pauseAgent = useOffice((s) => s.pauseAgent);
@@ -25,6 +28,10 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
   const panelRef = useRef<HTMLElement>(null);
   const [instruction, setInstruction] = useState('');
   const [sent, setSent] = useState(false);
+  const [tab, setTab] = useState<'chat' | 'profile'>('chat');
+
+  // 別の社員を開いたら会話タブに戻す
+  useEffect(() => setTab('chat'), [agent?.id]);
 
   // Escで閉じる + 簡易フォーカストラップ
   useEffect(() => {
@@ -58,6 +65,10 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
   const errorCount = agent
     ? logs.filter((l) => l.agentId === agent.id && l.status === 'error').length
     : 0;
+  const assignedProjects = agent ? projects.filter((p) => p.memberIds.includes(agent.id)) : [];
+  const latestAchievement = useOffice((s) =>
+    agent ? s.achievements.find((a) => a.agentId === agent.id) : undefined,
+  );
 
   const sendInstruction = () => {
     if (!agent || !instruction.trim()) return;
@@ -90,9 +101,9 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
             animate={reduced ? { opacity: 1 } : { x: 0, opacity: 1 }}
             exit={reduced ? { opacity: 0 } : { x: 420, opacity: 0 }}
             transition={reduced ? { duration: 0.1 } : { type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-slate-200 bg-white shadow-panel outline-none"
+            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-panel outline-none"
           >
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur">
+            <div className="z-10 flex items-start justify-between gap-3 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur">
               <div className="flex items-center gap-3">
                 <AgentAvatar agent={agent} size="lg" />
                 <div>
@@ -107,7 +118,7 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
                     <AgentStatusBadge agent={agent} />
                   </div>
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
-                    <MapPin className="h-3 w-3" /> 現在の居場所: {agentZoneLabel(agent)}
+                    <MapPin className="h-3 w-3" /> {agentZoneLabel(agent)} ・ {agent.statusNote}
                   </p>
                 </div>
               </div>
@@ -120,6 +131,38 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
               </button>
             </div>
 
+            {/* タブ */}
+            <div className="flex gap-1 border-b border-slate-100 px-5 pt-2" role="tablist" aria-label="表示切り替え">
+              {(
+                [
+                  ['chat', '会話'],
+                  ['profile', 'プロフィール'],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  role="tab"
+                  aria-selected={tab === key}
+                  onClick={() => setTab(key)}
+                  className={cn(
+                    'rounded-t-lg border-b-2 px-3 py-1.5 text-xs font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-500',
+                    tab === key ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-400 hover:text-slate-600',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* 会話タブ */}
+            {tab === 'chat' && (
+              <div className="min-h-0 flex-1 px-4 pb-3">
+                <AgentChat agent={agent} onClose={onClose} />
+              </div>
+            )}
+
+            {/* プロフィールタブ */}
+            <div className={cn('min-h-0 flex-1 overflow-y-auto', tab !== 'profile' && 'hidden')}>
             <div className="space-y-5 px-5 py-4">
               <section>
                 <p className="text-xs text-slate-500">{agent.description}</p>
@@ -167,6 +210,36 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
                       </div>
                     </div>
                   )}
+                  {/* 集中度・疲労度 */}
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <Meter label="集中度" value={agent.focus ?? 75} color="#6366f1" />
+                    <Meter label="疲労度" value={agent.fatigue ?? 20} color={(agent.fatigue ?? 20) > 65 ? '#ef4444' : '#f59e0b'} />
+                  </div>
+                  {agent.weeklyHighlight && (
+                    <p className="mt-3 rounded-lg bg-white px-2.5 py-1.5 text-[11px] text-slate-600 shadow-sm">
+                      🏆 <span className="font-semibold">今週の成果:</span> {agent.weeklyHighlight}
+                    </p>
+                  )}
+                </section>
+              )}
+
+              {/* 担当案件 */}
+              {assignedProjects.length > 0 && (
+                <section>
+                  <p className="mb-2 text-xs font-semibold text-slate-500">担当案件</p>
+                  <div className="space-y-1.5">
+                    {assignedProjects.map((p) => (
+                      <Link
+                        key={p.id}
+                        href={`/projects/${p.id}`}
+                        className="flex items-center gap-2 rounded-lg border border-slate-100 px-2.5 py-2 outline-none transition-colors hover:border-brand-300 focus-visible:ring-2 focus-visible:ring-brand-500"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-700">{p.name}</span>
+                        <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] text-brand-700">{p.phase}</span>
+                        <span className="shrink-0 text-[10px] tabular-nums text-slate-400">{p.progress}%</span>
+                      </Link>
+                    ))}
+                  </div>
                 </section>
               )}
 
@@ -216,6 +289,12 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
                     </div>
                   ))}
                 </div>
+              </section>
+
+              {/* 勤務履歴(概算・デモデータと当日イベントから算出) */}
+              <section>
+                <p className="mb-2 text-xs font-semibold text-slate-500">本日の勤務履歴(概算)</p>
+                <WorkHistory agent={agent} doneCount={doneCount} errorCount={errorCount} costJpy={agent.costUsd * usdJpyRate} latestAchievement={latestAchievement?.title ?? null} />
               </section>
 
               <section>
@@ -269,10 +348,80 @@ export function AgentDetailPanel({ agent, onClose }: { agent: Agent | null; onCl
                 </Link>
               </div>
             </div>
+            </div>
           </motion.aside>
         </>
       )}
     </AnimatePresence>
+  );
+}
+
+// 勤務履歴(概算): 処理件数・疲労度・現在時刻から導出する。稼働と待機を分けて表示
+function WorkHistory({
+  agent,
+  doneCount,
+  errorCount,
+  costJpy,
+  latestAchievement,
+}: {
+  agent: Agent;
+  doneCount: number;
+  errorCount: number;
+  costJpy: number;
+  latestAchievement: string | null;
+}) {
+  const now = new Date();
+  const startHour = 9;
+  const elapsedMin = Math.max(0, (now.getHours() - startHour) * 60 + now.getMinutes());
+  const workMin = Math.min(elapsedMin, agent.todayCount * 14);
+  const meetingMin = agent.status === 'meeting' ? 30 : 15;
+  const idleMin = Math.max(0, elapsedMin - workMin - meetingMin);
+  const breaks = Math.max(1, Math.floor((agent.fatigue ?? 20) / 30));
+  const fmt = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}時間${min % 60}分` : `${min}分`);
+  const rows: [string, string][] = [
+    ['本日の開始', '09:00(出社)'],
+    ['作業時間', fmt(workMin)],
+    ['待機時間', fmt(idleMin)],
+    ['会議時間', fmt(meetingMin)],
+    ['休憩回数', `${breaks}回`],
+    ['完了タスク', `${doneCount}件`],
+    ['エラー', `${errorCount}件`],
+    ['利用料金', yen(costJpy)],
+  ];
+  return (
+    <div>
+      <dl className="grid grid-cols-2 gap-x-4 divide-slate-50 rounded-lg border border-slate-100 px-3 py-2 text-[11px]">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between py-1">
+            <dt className="text-slate-400">{label}</dt>
+            <dd className="font-semibold tabular-nums text-slate-700">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {latestAchievement && (
+        <p className="mt-1.5 rounded-lg bg-emerald-50/60 px-2.5 py-1.5 text-[11px] text-emerald-700">
+          主な成果: {latestAchievement}
+        </p>
+      )}
+      <p className="mt-1 text-[10px] text-slate-400">※ 稼働と待機を分けた概算値です(デモデータ基準)</p>
+    </div>
+  );
+}
+
+function Meter({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-slate-400">{label}</p>
+        <p className="text-[10px] font-semibold tabular-nums text-slate-600">{Math.round(value)}%</p>
+      </div>
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+        <div
+          className="h-full rounded-full transition-all duration-1000 ease-out"
+          style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color }}
+        />
+      </div>
+    </div>
   );
 }
 

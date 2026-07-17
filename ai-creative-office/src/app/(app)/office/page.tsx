@@ -5,13 +5,16 @@
 // モバイル(390px)では「オフィス表示」と「社員リスト表示」を切り替えられる
 import { AgentDetailPanel } from '@/components/agent-detail-panel';
 import { AgentAvatar, AgentStatusBadge } from '@/components/agent-bits';
-import { OfficeMap } from '@/components/office-map';
+import { OfficeSimulator } from '@/components/office/office-simulator';
 import {
+  CeoAlertBar,
   CeoAnnouncement,
   LiveFeed,
   OfficeSummary,
   RunningTasksBar,
+  TalkFeed,
 } from '@/components/office/office-widgets';
+import { SystemMonitor } from '@/components/office/system-monitor';
 import { ProgressBar } from '@/components/ui';
 import { agentZoneLabel } from '@/lib/office';
 import { useOffice } from '@/lib/store';
@@ -45,9 +48,11 @@ export default function OfficePage() {
 
   return (
     <div className="space-y-3">
-      {/* 上部: サマリー + CEOアナウンス */}
+      {/* 上部: サマリー + システムモニター + CEOアナウンス + CEO呼びかけ */}
       <OfficeSummary />
+      <SystemMonitor />
       <CeoAnnouncement />
+      <CeoAlertBar />
 
       {/* モバイル: 表示切り替え */}
       <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 lg:hidden">
@@ -78,9 +83,9 @@ export default function OfficePage() {
       {/* 中央 + 右 */}
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-3">
-          {/* デスクトップは常にオフィス。モバイルは切り替え */}
+          {/* デスクトップは常にオフィス(箱庭シミュレーター)。モバイルは切り替え */}
           <div className={cn(mobileView === 'list' && 'hidden lg:block')}>
-            <OfficeMap onSelect={(a) => setSelectedId(a.id)} />
+            <OfficeSimulator onSelect={(a) => setSelectedId(a.id)} />
           </div>
 
           {/* モバイル用: 社員リスト表示 */}
@@ -122,11 +127,12 @@ export default function OfficePage() {
             社内ライブフィード
             {feedOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
-          <div className={cn(!feedOpen && 'hidden xl:block')}>
+          <div className={cn('space-y-3', !feedOpen && 'hidden xl:block')}>
             <LiveFeed
               onSelectAgent={(id) => setSelectedId(id)}
-              className="max-h-[420px] xl:max-h-[calc(100vh-190px)] xl:min-h-[500px]"
+              className="max-h-[380px] xl:max-h-[calc(100vh-480px)] xl:min-h-[320px]"
             />
+            <TalkFeed onSelectAgent={(id) => setSelectedId(id)} />
           </div>
         </div>
       </div>

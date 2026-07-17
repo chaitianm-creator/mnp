@@ -1,7 +1,10 @@
 'use client';
 
 // 共通レイアウト: サイドバー + トップバー + デモエンジン起動
+// スマホ(768px未満)ではPC版と別設計の専用アプリUI(MobileApp)へ切り替える
+import { MobileApp } from '@/components/mobile/mobile-shell';
 import { useOffice } from '@/lib/store';
+import { useIsMobile } from '@/lib/use-is-mobile';
 import { cn } from '@/lib/utils';
 import {
   Activity,
@@ -13,9 +16,11 @@ import {
   CalendarCheck,
   CheckCircle2,
   FileText,
+  FolderOpen,
   Handshake,
   Inbox,
   LayoutDashboard,
+  Lightbulb,
   Link2,
   ListTodo,
   Megaphone,
@@ -35,10 +40,12 @@ const NAV = [
     { href: '/dashboard', label: '経営ダッシュボード', icon: LayoutDashboard },
     { href: '/office', label: 'バーチャルオフィス', icon: Building2 },
     { href: '/chat', label: '社長指示チャット', icon: MessageSquare },
+    { href: '/proposals', label: 'CEO提案センター', icon: Lightbulb, badge: 'proposals' },
     { href: '/approvals', label: '承認センター', icon: CheckCircle2, badge: 'approvals' },
   ]},
   { section: '組織', items: [
-    { href: '/agents', label: 'AI社員', icon: Users },
+    { href: '/agents', label: 'AI社員', icon: Users, badge: 'unread' },
+    { href: '/deliverables', label: '成果物', icon: FolderOpen },
     { href: '/tasks', label: 'タスク管理', icon: ListTodo },
     { href: '/logs', label: '活動ログ', icon: Activity },
   ]},
@@ -80,7 +87,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const companyName = useOffice((s) => s.settings.companyName);
   const demoMode = useOffice((s) => s.settings.demoMode);
   const pendingApprovals = useOffice((s) => s.approvals.filter((a) => a.status === 'pending').length);
+  const openProposals = useOffice(
+    (s) => s.proposals.filter((p) => ['new', 'reviewing', 'revision'].includes(p.status)).length,
+  );
+  const totalUnread = useOffice((s) => Object.values(s.unread).reduce((a, b) => a + b, 0));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isMobile = useIsMobile();
+
+  const badgeCount = (badge?: string) =>
+    badge === 'approvals' ? pendingApprovals : badge === 'proposals' ? openProposals : badge === 'unread' ? totalUnread : 0;
 
   useDemoEngine();
 
@@ -100,6 +115,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
     );
   }
+
+  // スマホ: 「AI会社を持ち歩くアプリ」体験(PC版の管理画面とは別UI)
+  if (isMobile) return <MobileApp />;
 
   const nav = (
     <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
@@ -125,14 +143,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="flex-1">{item.label}</span>
-                    {'badge' in item && item.badge === 'approvals' && pendingApprovals > 0 && (
+                    {'badge' in item && badgeCount(item.badge) > 0 && (
                       <span
                         className={cn(
                           'rounded-full px-1.5 py-0.5 text-[10px] font-bold',
-                          active ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700',
+                          active
+                            ? 'bg-white/20 text-white'
+                            : item.badge === 'unread'
+                              ? 'bg-brand-100 text-brand-700'
+                              : 'bg-amber-100 text-amber-700',
                         )}
+                        aria-label={`${item.label}の未処理 ${badgeCount(item.badge)}件`}
                       >
-                        {pendingApprovals}
+                        {badgeCount(item.badge)}
                       </span>
                     )}
                   </Link>

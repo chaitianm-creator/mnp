@@ -42,6 +42,7 @@ const AgentDesk = memo(function AgentDesk({
   compact?: boolean;
 }) {
   const reduced = useReducedMotion();
+  const unreadCount = useOffice((s) => s.unread[agent.id] ?? 0);
   const st = AGENT_STATUS[agent.status];
   const busy = ['working', 'checking', 'delegating'].includes(agent.status);
   const isDone = agent.status === 'done';
@@ -55,9 +56,13 @@ const AgentDesk = memo(function AgentDesk({
       layout
       data-agent-chip={agent.id}
       onClick={() => onSelect(agent)}
-      whileHover={reduced ? undefined : { scale: 1.03 }}
-      whileTap={reduced ? undefined : { scale: 0.97 }}
-      transition={reduced ? { duration: 0 } : { type: 'spring', damping: 22, stiffness: 170 }}
+      whileHover={reduced ? undefined : { scale: 1.02 }}
+      whileTap={reduced ? undefined : { scale: 0.98 }}
+      transition={{
+        // 移動(layout)は歩くようにゆっくり、ホバーは即座に反応させる
+        layout: reduced ? { duration: 0 } : { type: 'tween', duration: 1.2, ease: [0.22, 1, 0.36, 1] },
+        scale: { type: 'spring', stiffness: 420, damping: 32 },
+      }}
       aria-label={`${agent.name}(${st.label})の詳細を開く`}
       className={cn(
         'relative w-full rounded-lg border bg-white px-2.5 py-2 text-left shadow-sm outline-none transition-colors',
@@ -70,6 +75,14 @@ const AgentDesk = memo(function AgentDesk({
         busy && !reduced && 'motion-safe:shadow-[0_0_14px_rgba(99,102,241,0.22)]',
       )}
     >
+      {unreadCount > 0 && (
+        <span
+          className="absolute -left-1.5 -top-1.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[9px] font-bold text-white shadow"
+          aria-label={`未読メッセージ ${unreadCount}件`}
+        >
+          {unreadCount}
+        </span>
+      )}
       <div className="flex items-center gap-2">
         <div
           className={cn(
@@ -103,7 +116,16 @@ const AgentDesk = memo(function AgentDesk({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[11px] font-bold tracking-tight text-slate-800">{agent.name}</p>
-          <p className={cn('truncate text-[10px] font-medium', st.color)}>{st.label}</p>
+          <p className={cn('flex items-center gap-1 truncate text-[10px] font-medium', st.color)}>
+            {st.label}
+            {busy && (
+              <span className="inline-flex gap-0.5" aria-hidden>
+                <span className="think-dot h-0.5 w-0.5 rounded-full bg-current" />
+                <span className="think-dot h-0.5 w-0.5 rounded-full bg-current" style={{ animationDelay: '0.2s' }} />
+                <span className="think-dot h-0.5 w-0.5 rounded-full bg-current" style={{ animationDelay: '0.4s' }} />
+              </span>
+            )}
+          </p>
         </div>
       </div>
       {/* 吹き出し(状態メモ) */}
@@ -122,8 +144,15 @@ const AgentDesk = memo(function AgentDesk({
         {agent.statusNote}
       </p>
       {busy && !compact && <ProgressBar value={agent.progress} className="mt-1.5 h-1" />}
-      {/* デスク(家具表現) */}
-      <div className="mx-auto mt-1.5 h-1 w-3/4 rounded-full bg-slate-200/80" aria-hidden />
+      {/* デスク(家具表現)+ 作業中の書類 */}
+      <div className="relative mx-auto mt-1.5 h-1 w-3/4 rounded-full bg-slate-200/80" aria-hidden>
+        {busy && (
+          <span className="absolute -top-1 right-0 flex flex-col gap-px">
+            <span className="h-px w-2.5 rounded bg-slate-300" />
+            <span className="h-px w-2 rounded bg-slate-300/80" />
+          </span>
+        )}
+      </div>
     </motion.button>
   );
 });
@@ -178,6 +207,9 @@ function CeoSpot({ onSelect }: { onSelect: (a: Agent) => void }) {
   const running = useOffice((s) => s.tasks.filter((t) => t.status === 'running').length);
   const errors = useOffice((s) => s.agents.filter((a) => a.status === 'error').length);
   const latest = useOffice((s) => s.announcements[0]);
+  const openProposals = useOffice(
+    (s) => s.proposals.filter((p) => ['new', 'reviewing', 'revision'].includes(p.status)).length,
+  );
   if (!ceo) return null;
   return (
     <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,180px)_1fr]">
@@ -202,6 +234,14 @@ function CeoSpot({ onSelect }: { onSelect: (a: Agent) => void }) {
         <p className="col-span-2 truncate rounded-lg bg-brand-50/70 px-2 py-1 text-[10px] text-brand-700">
           🎯 {latest?.message ?? '本日の重点方針を策定中です'}
         </p>
+        {openProposals > 0 && (
+          <Link
+            href="/proposals"
+            className="col-span-2 flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700 outline-none hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-500"
+          >
+            💡 新しい経営提案が{openProposals}件あります → 提案センターへ
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -220,14 +260,21 @@ export function OfficeMap({ onSelect }: { onSelect: (a: Agent) => void }) {
   const agents = useOffice((s) => s.agents);
   const ceoName = useOffice((s) => s.settings.ceoName);
   const timeEffects = useOffice((s) => s.settings.timeEffects ?? true);
+  const clockMode = useOffice((s) => s.settings.clockMode ?? 'real');
+  const tickCount = useOffice((s) => s.tickCount);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [period, setPeriod] = useState(() => currentPeriod());
+  const [realPeriod, setRealPeriod] = useState(() => currentPeriod());
 
   useEffect(() => {
-    const id = setInterval(() => setPeriod(currentPeriod()), 60_000);
+    const id = setInterval(() => setRealPeriod(currentPeriod()), 60_000);
     return () => clearInterval(id);
   }, []);
 
+  // デモ時間モードでは約2分で1日分の時間帯が巡る
+  const period =
+    clockMode === 'demo'
+      ? (['morning', 'day', 'evening', 'night'] as const)[Math.floor(tickCount / 40) % 4]
+      : realPeriod;
   const meta = PERIOD_META[timeEffects ? period : 'day'];
   const inZone = (zone: OfficeZone, dept?: DepartmentId) =>
     agents.filter(
@@ -308,8 +355,26 @@ export function OfficeMap({ onSelect }: { onSelect: (a: Agent) => void }) {
             );
           })}
 
-          {/* 会議室 */}
-          <Area name="会議室" icon={<Presentation className="h-3.5 w-3.5" />} color="#8b5cf6" className="sm:col-span-2" deco="🖥️">
+          {/* 会議室(使用中ランプ付き) */}
+          <Area
+            name="会議室"
+            icon={<Presentation className="h-3.5 w-3.5" />}
+            color="#8b5cf6"
+            className="sm:col-span-2"
+            deco={
+              <span className="flex items-center gap-1 text-[9px] font-medium">
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    meeting.length > 0 ? 'bg-red-400 motion-safe:animate-pulse' : 'bg-emerald-400',
+                  )}
+                />
+                <span className={meeting.length > 0 ? 'text-red-500' : 'text-emerald-600'}>
+                  {meeting.length > 0 ? '使用中' : '空室'}
+                </span>
+              </span>
+            }
+          >
             {/* ホワイトボード(装飾) */}
             <div className="mt-2 rounded-md border border-slate-200 bg-white/90 px-2 py-1" aria-hidden>
               <div className="h-0.5 w-2/3 rounded bg-violet-200" />
