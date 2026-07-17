@@ -12,6 +12,7 @@ export default function SettingsPage() {
   const settings = useOffice((s) => s.settings);
   const agents = useOffice((s) => s.agents);
   const updateSettings = useOffice((s) => s.updateSettings);
+  const setDemoMode = useOffice((s) => s.setDemoMode);
   const resetAll = useOffice((s) => s.resetAll);
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({
@@ -43,18 +44,26 @@ export default function SettingsPage() {
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Card>
-          <CardHeader title="デモモード" sub="AI社員が自動的に働き、数値・進捗・ログが動きます" />
-          <div className="flex items-center gap-3 p-4">
-            <button
-              onClick={() => updateSettings({ demoMode: !settings.demoMode })}
-              className={`relative h-6 w-11 rounded-full transition ${settings.demoMode ? 'bg-emerald-500' : 'bg-slate-300'}`}
-              aria-label="デモモード切り替え"
-            >
-              <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${settings.demoMode ? 'left-[22px]' : 'left-0.5'}`}
-              />
-            </button>
-            <p className="text-sm text-slate-700">{settings.demoMode ? '稼働中(約3秒ごとに小さな変化、約18秒ごとに大イベント)' : '停止中'}</p>
+          <CardHeader title="Demo Mode" sub="デモ用ダミーデータの表示と自動デモ演出を切り替えます" />
+          <div className="p-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setDemoMode(!settings.demoMode)}
+                className={`relative h-6 w-11 rounded-full transition ${settings.demoMode ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                aria-label="Demo Mode切り替え"
+                aria-pressed={settings.demoMode}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${settings.demoMode ? 'left-[22px]' : 'left-0.5'}`}
+                />
+              </button>
+              <p className="text-sm text-slate-700">
+                {settings.demoMode ? 'ON: ダミーデータを表示中(AI社員が自動で働く様子を確認できます)' : 'OFF: 通常モード(実データのみ・初期値0)'}
+              </p>
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+              切り替えてもあなたが作成した成果物・AI実行履歴・会社設定は保持されます。ダミーの実績・ログ・案件はDemo Mode ONのときだけ表示されます。
+            </p>
           </div>
           <div className="flex items-center gap-3 border-t border-slate-100 p-4">
             <button

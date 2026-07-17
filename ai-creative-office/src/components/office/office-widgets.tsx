@@ -118,6 +118,13 @@ export function LiveFeed({
         </Link>
       </div>
       <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-2">
+        {logs.length === 0 && (
+          <li className="px-3 py-8 text-center text-xs text-slate-400">
+            まだ活動履歴がありません。
+            <br />
+            CEOへ仕事を依頼すると、ここに記録が流れます。
+          </li>
+        )}
         <AnimatePresence initial={false}>
           {logs.slice(0, limit).map((log) => {
             const agent = agents.find((a) => a.id === log.agentId);
