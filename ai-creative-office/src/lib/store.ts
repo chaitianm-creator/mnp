@@ -62,6 +62,7 @@ import type {
   Campaign,
   CeoAlert,
   CeoProposal,
+  CeoUserProfile,
   ChatAction,
   ChatMessage,
   CompanySettings,
@@ -126,9 +127,11 @@ interface OfficeState {
   agentRuns: AgentRun[]; // AI実働ラン(実際の成果物生成)
   deliverables: Deliverable[]; // AI生成の成果物(バージョン管理付き)
   onboardingDismissed: boolean; // 初回オンボーディングカードを閉じたか
+  ceoProfile: CeoUserProfile; // 会話から更新するユーザー(社長)分析
 
   setHydrated: (v: boolean) => void;
   dismissOnboarding: () => void;
+  mergeCeoProfile: (insights: Partial<Omit<CeoUserProfile, 'updatedAt'>>) => void;
   setDemoMode: (on: boolean) => void; // Demo Mode切り替え(ダミーデータの表示/非表示)
   tick: () => void;
   pauseAgent: (agentId: string) => void;
@@ -464,10 +467,30 @@ export const useOffice = create<OfficeState>()(
       agentRuns: [],
       deliverables: [],
       onboardingDismissed: false,
+      ceoProfile: { criteria: [], values: [], phrases: [], patterns: [], strengths: [], weaknesses: [], updatedAt: null },
 
       setHydrated: (v) => set({ hydrated: v }),
 
       dismissOnboarding: () => set({ onboardingDismissed: true }),
+
+      // ユーザー分析: 会話から見えた特徴をマージ(重複除去・各カテゴリ最大8件)
+      mergeCeoProfile: (insights) =>
+        set((s) => {
+          const merge = (cur: string[], add?: string[]) =>
+            Array.from(new Set([...(cur ?? []), ...(add ?? [])])).slice(-8);
+          const p = s.ceoProfile;
+          return {
+            ceoProfile: {
+              criteria: merge(p.criteria, insights.criteria),
+              values: merge(p.values, insights.values),
+              phrases: merge(p.phrases, insights.phrases),
+              patterns: merge(p.patterns, insights.patterns),
+              strengths: merge(p.strengths, insights.strengths),
+              weaknesses: merge(p.weaknesses, insights.weaknesses),
+              updatedAt: nowIso(),
+            },
+          };
+        }),
 
       // Demo Mode切り替え: ONでダミーデータ表示+自動デモ演出、OFFで初期値0の実運用モード
       // (どちらの場合も、あなたが作成した成果物・AI実行履歴・設定は保持される)
@@ -1920,6 +1943,7 @@ export const useOffice = create<OfficeState>()(
           agentRuns: [],
           deliverables: [],
           onboardingDismissed: false,
+          ceoProfile: { criteria: [], values: [], phrases: [], patterns: [], strengths: [], weaknesses: [], updatedAt: null },
         }),
     }),
     {

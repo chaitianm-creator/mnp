@@ -4,7 +4,7 @@
 // 「AI実働」: 依頼→CEO計画→承認→ディレクター/ライター/レビュアーが実際の成果物を生成
 import { RunCard } from '@/components/run-card';
 import { Button, PageHeader } from '@/components/ui';
-import { answerCeoConsultation, getPendingConsult, proceedWithoutAnswers, startCeoConsultation } from '@/lib/agent-runner';
+import { getPendingConsult, getPendingResearch, handleCeoMessage, proceedWithoutAnswers } from '@/lib/agent-runner';
 import { useOffice } from '@/lib/store';
 import { formatDateTime, uid, yen } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -57,6 +57,7 @@ export default function ChatPage() {
   const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? id;
 
   const pendingConsult = chat.length > 0 ? getPendingConsult() : null;
+  const pendingResearch = chat.length > 0 ? getPendingResearch() : null;
 
   const submit = async () => {
     const request = input.trim();
@@ -66,18 +67,13 @@ export default function ChatPage() {
       sendChat(request);
       return;
     }
-    // AI実働: CEOがまず依頼を理解・目的整理・提案し、必要なら確認質問(承認まで実行しない)
+    // CEOの統一入口: 経営相談 / ディープリサーチ / 制作依頼(→ディレクター引き継ぎ)を自動判定
     useOffice.setState((s) => ({
       chat: [...s.chat, { id: uid('chat'), role: 'ceo_user' as const, content: request, timestamp: new Date().toISOString() }],
     }));
     setPlanning(true);
     try {
-      const pending = getPendingConsult();
-      if (pending) {
-        await answerCeoConsultation(pending.messageId, request); // 確認への回答として計画作成へ
-      } else {
-        await startCeoConsultation(request); // 相談 → (質問なしなら)計画作成
-      }
+      await handleCeoMessage(request);
     } catch (e) {
       const message = e instanceof Error ? e.message : '計画の作成に失敗しました';
       useOffice.setState((s) => ({
@@ -294,7 +290,15 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
-            placeholder={pendingConsult ? 'CEOの確認事項へのご回答を入力…' : aiMode ? 'AI社員への依頼を入力…(例: 採用サイトの企画案を作って)' : 'CEO AIへ指示を入力…'}
+            placeholder={
+              pendingConsult
+                ? 'ディレクターの確認事項へのご回答を入力…'
+                : pendingResearch
+                  ? '5つの確認へのご回答を入力…(まとめてでOK)'
+                  : aiMode
+                    ? '依頼・経営相談・「テーマ: ◯◯」でリサーチ…'
+                    : 'CEO AIへ指示を入力…'
+            }
             disabled={planning}
             className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-brand-400 disabled:opacity-60"
           />

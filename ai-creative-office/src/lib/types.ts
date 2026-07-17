@@ -399,6 +399,23 @@ export interface CeoConsultMeta {
   detail?: string; // 「詳しく見る」で展開する詳細(目的整理・提案・判断根拠・制作方法)
 }
 
+/** ディープリサーチの状態(テーマ提示→5つの質問→回答→調査) */
+export interface CeoResearchMeta {
+  theme: string; // テーマ
+  answered?: boolean; // 5つの質問へ回答済み(調査実行済み)
+}
+
+/** 会話から更新するユーザー(社長)分析プロファイル */
+export interface CeoUserProfile {
+  criteria: string[]; // 判断基準
+  values: string[]; // 大切にしている価値観
+  phrases: string[]; // よく使う言葉
+  patterns: string[]; // 思考パターン
+  strengths: string[]; // 得意なこと
+  weaknesses: string[]; // 苦手なこと
+  updatedAt: string | null;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'ceo_user' | 'ceo_ai';
@@ -409,6 +426,7 @@ export interface ChatMessage {
   planStatus?: 'proposed' | 'started' | 'discarded';
   runId?: string; // AI実働ラン(AgentRun)に紐づくメッセージ
   consult?: CeoConsultMeta; // 相談メッセージ(質問が残っていれば回答待ち)
+  research?: CeoResearchMeta; // ディープリサーチ(5つの質問への回答待ちなど)
   timestamp: string;
 }
 

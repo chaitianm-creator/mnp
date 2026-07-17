@@ -5,7 +5,7 @@
 import { AgentChat } from '@/components/agent-chat';
 import { AgentAvatar, AgentStatusBadge } from '@/components/agent-bits';
 import { RunCard } from '@/components/run-card';
-import { answerCeoConsultation, getPendingConsult, proceedWithoutAnswers, startCeoConsultation } from '@/lib/agent-runner';
+import { getPendingConsult, getPendingResearch, handleCeoMessage, proceedWithoutAnswers } from '@/lib/agent-runner';
 import { useOffice } from '@/lib/store';
 import { cn, formatDateTime, uid, yen } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Loader2, Play, Send, Sparkles, Trash2 } from 'lucide-react';
@@ -149,6 +149,7 @@ function CeoThread({ onBack }: { onBack: () => void }) {
   const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? id;
 
   const pendingConsult = chat.length > 0 ? getPendingConsult() : null;
+  const pendingResearch = chat.length > 0 ? getPendingResearch() : null;
 
   const submit = async () => {
     const request = input.trim();
@@ -163,12 +164,7 @@ function CeoThread({ onBack }: { onBack: () => void }) {
     }));
     setPlanning(true);
     try {
-      const pending = getPendingConsult();
-      if (pending) {
-        await answerCeoConsultation(pending.messageId, request);
-      } else {
-        await startCeoConsultation(request);
-      }
+      await handleCeoMessage(request);
     } catch (e) {
       const message = e instanceof Error ? e.message : '計画の作成に失敗しました';
       useOffice.setState((s) => ({
@@ -367,7 +363,7 @@ function CeoThread({ onBack }: { onBack: () => void }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
-            placeholder={pendingConsult ? '確認事項へのご回答を入力…' : aiMode ? 'AI社員への依頼を入力…' : 'CEO AIへ指示を入力…'}
+            placeholder={pendingConsult ? '確認事項へのご回答を入力…' : pendingResearch ? '5つの確認へのご回答を入力…' : aiMode ? '依頼・相談・「テーマ: ◯◯」…' : 'CEO AIへ指示を入力…'}
             disabled={planning}
             aria-label="CEO AIへのメッセージ入力"
             className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 disabled:opacity-60"
