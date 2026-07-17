@@ -8,7 +8,7 @@ import { answerCeoConsultation, getPendingConsult, proceedWithoutAnswers, startC
 import { useOffice } from '@/lib/store';
 import { formatDateTime, uid, yen } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { Loader2, Play, Send, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Play, Send, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 // AI実働の依頼テンプレート(クリックでたたき台を入力)
@@ -39,7 +39,16 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [planning, setPlanning] = useState(false);
   const [aiMode, setAiMode] = useState(true); // true=AI実働(実成果物) / false=デモプラン
+  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set()); // 「詳しく見る」の展開状態
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const toggleDetail = (id: string) =>
+    setExpandedDetails((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -128,7 +137,12 @@ export default function ChatPage() {
           >
             <div className={msg.role === 'ceo_user' ? 'max-w-[85%]' : 'w-full max-w-[95%] sm:max-w-[85%]'}>
               <p className="mb-1 flex items-center gap-2 text-[11px] text-slate-400">
-                {msg.role === 'ceo_user' ? 'あなた(社長)' : '👔 CEO AI'}
+                {msg.role === 'ceo_user' ? 'あなた(社長)' : (msg.speakerName ?? '👔 CEO AI')}
+                {msg.role === 'ceo_ai' && (
+                  <span className={`rounded-full px-1.5 py-px text-[9px] font-semibold ${msg.speakerName ? 'bg-sky-50 text-sky-600' : 'bg-brand-50 text-brand-600'}`}>
+                    {msg.speakerName ? '制作判断' : '経営判断'}
+                  </span>
+                )}
                 <span className="tabular-nums">{formatDateTime(msg.timestamp)}</span>
               </p>
               <div
@@ -187,7 +201,25 @@ export default function ChatPage() {
                     )}
                   </div>
                 )}
-                {/* CEOの確認質問(選択肢クリックで回答を入力欄へ) */}
+                {/* 詳しく見る(判断根拠・詳細説明の展開) */}
+                {msg.consult?.detail && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => toggleDetail(msg.id)}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 outline-none transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+                      aria-expanded={expandedDetails.has(msg.id)}
+                    >
+                      {expandedDetails.has(msg.id) ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      {expandedDetails.has(msg.id) ? '詳細を閉じる' : '詳しく見る(判断根拠)'}
+                    </button>
+                    {expandedDetails.has(msg.id) && (
+                      <div className="mt-2 whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-600">
+                        {msg.consult.detail}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* ディレクターの確認質問(選択肢クリックで回答を入力欄へ) */}
                 {msg.consult && msg.consult.questions.length > 0 && (
                   <div className="mt-3 rounded-xl border border-brand-200 bg-brand-50/40 p-3">
                     <p className="text-xs font-bold text-brand-800">💬 確認事項への回答</p>

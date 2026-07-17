@@ -131,7 +131,16 @@ function CeoThread({ onBack }: { onBack: () => void }) {
   const [input, setInput] = useState('');
   const [planning, setPlanning] = useState(false);
   const [aiMode, setAiMode] = useState(true);
+  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const toggleDetail = (id: string) =>
+    setExpandedDetails((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -212,8 +221,14 @@ function CeoThread({ onBack }: { onBack: () => void }) {
         {chat.map((msg) => (
           <div key={msg.id} className={msg.role === 'ceo_user' ? 'flex justify-end' : 'flex justify-start'}>
             <div className={msg.role === 'ceo_user' ? 'max-w-[88%]' : 'w-full max-w-[95%]'}>
-              <p className="mb-0.5 px-1 text-[10px] tabular-nums text-slate-400">
-                {msg.role === 'ceo_user' ? 'あなた(社長)' : '👔 CEO AI'} ・ {formatDateTime(msg.timestamp)}
+              <p className="mb-0.5 flex items-center gap-1 px-1 text-[10px] tabular-nums text-slate-400">
+                {msg.role === 'ceo_user' ? 'あなた(社長)' : (msg.speakerName ?? '👔 CEO AI')}
+                {msg.role === 'ceo_ai' && (
+                  <span className={`rounded-full px-1 py-px text-[8.5px] font-semibold ${msg.speakerName ? 'bg-sky-50 text-sky-600' : 'bg-brand-50 text-brand-600'}`}>
+                    {msg.speakerName ? '制作判断' : '経営判断'}
+                  </span>
+                )}
+                ・ {formatDateTime(msg.timestamp)}
               </p>
               <div
                 className={cn(
@@ -266,7 +281,24 @@ function CeoThread({ onBack }: { onBack: () => void }) {
                     )}
                   </div>
                 )}
-                {/* CEOの確認質問(スマホ: 選択肢タップで回答を入力欄へ) */}
+                {/* 詳しく見る(判断根拠の展開) */}
+                {msg.consult?.detail && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => toggleDetail(msg.id)}
+                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10.5px] font-medium text-slate-600 outline-none active:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+                      aria-expanded={expandedDetails.has(msg.id)}
+                    >
+                      {expandedDetails.has(msg.id) ? '詳細を閉じる ▲' : '詳しく見る(判断根拠) ▼'}
+                    </button>
+                    {expandedDetails.has(msg.id) && (
+                      <div className="mt-1.5 whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-2.5 text-[11px] leading-relaxed text-slate-600">
+                        {msg.consult.detail}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* ディレクターの確認質問(スマホ: 選択肢タップで回答を入力欄へ) */}
                 {msg.consult && msg.consult.questions.length > 0 && (
                   <div className="mt-2.5 rounded-xl border border-brand-200 bg-brand-50/40 p-2.5">
                     <p className="text-[11px] font-bold text-brand-800">💬 確認事項への回答</p>

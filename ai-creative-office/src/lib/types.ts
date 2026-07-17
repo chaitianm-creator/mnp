@@ -396,16 +396,19 @@ export interface CeoConsultMeta {
   request: string; // 元の依頼文
   questions: { question: string; why: string; options: string[] }[]; // 最大2件
   answered?: boolean; // 回答済み(または「お任せ」で進行済み)
+  detail?: string; // 「詳しく見る」で展開する詳細(目的整理・提案・判断根拠・制作方法)
 }
 
 export interface ChatMessage {
   id: string;
   role: 'ceo_user' | 'ceo_ai';
   content: string;
+  speakerId?: string; // 発言したAI社員のID(未指定はCEO AI)
+  speakerName?: string; // 表示名(例: 📣 SNSディレクター)。未指定は 👔 CEO AI
   plan?: ExecutionPlan;
   planStatus?: 'proposed' | 'started' | 'discarded';
   runId?: string; // AI実働ラン(AgentRun)に紐づくメッセージ
-  consult?: CeoConsultMeta; // CEOの相談メッセージ(質問が残っていれば回答待ち)
+  consult?: CeoConsultMeta; // 相談メッセージ(質問が残っていれば回答待ち)
   timestamp: string;
 }
 

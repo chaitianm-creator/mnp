@@ -124,13 +124,15 @@ export const DistributionPlanSchema = z.object({
 });
 export type DistributionPlanOutput = z.infer<typeof DistributionPlanSchema>;
 
-/** CEOの相談出力(経営者・クリエイティブディレクターとしての一次回答) */
+/** CEOの相談出力(CEO=経営判断の短い一次回答 + ディレクター=制作判断の引き継ぎ) */
 export const CeoConsultSchema = z.object({
-  understanding: z.string(), // ①依頼内容の理解
-  objective: z.string(), // ②目的の整理(本当のゴール)
-  proposal: z.string(), // ③成果を出す方法の提案
-  reasoning: z.string(), // 判断根拠
-  productionApproach: z.string(), // ⑤最適な制作方法(フロー・チーム)
+  shortReply: z.string(), // CEOの一次回答(100〜200字: 依頼の理解+簡単な提案のみ)
+  directorComment: z.string(), // 引き継いだ専門ディレクターの一言(制作視点・100〜200字)
+  understanding: z.string(), // 依頼内容の理解(詳細)
+  objective: z.string(), // 目的の整理(詳細。「詳しく見る」で表示)
+  proposal: z.string(), // 成果を出す方法の提案(詳細)
+  reasoning: z.string(), // 判断根拠(詳細)
+  productionApproach: z.string(), // 最適な制作方法(詳細)
   questions: z
     .array(
       z.object({
@@ -139,7 +141,7 @@ export const CeoConsultSchema = z.object({
         options: z.array(z.string()), // 選択肢(2〜4個。自由回答でもよい)
       }),
     )
-    .max(2), // ④追加質問は最大2件。成果物の質に大きく影響する点のみ
+    .max(2), // 追加質問は最大2件。成果物の質に大きく影響する点のみ(ディレクターが質問する)
   readyToProceed: z.boolean(), // trueなら質問なしで制作へ進める
 });
 export type CeoConsultOutput = z.infer<typeof CeoConsultSchema>;

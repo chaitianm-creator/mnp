@@ -131,25 +131,15 @@ function makeDeliverable(
 //   CEOは「言われた仕事を流す人」ではなく「成果を出す方法を考える人」
 // ============================================================
 
-function consultToMessage(c: CeoConsultOutput, caseLabel: string): string {
-  const parts = [
-    `承知しました。「${caseLabel}」のご依頼として、進め方を整理しました。`,
-    `\n■ ご依頼の理解\n${c.understanding}`,
+/** 「詳しく見る」で展開する詳細(目的整理・提案・判断根拠・制作方法) */
+function consultDetail(c: CeoConsultOutput): string {
+  return [
+    `■ ご依頼の理解\n${c.understanding}`,
     `\n■ 目的の整理\n${c.objective}`,
     `\n■ 成果を出すための提案\n${c.proposal}`,
     `\n■ 判断根拠\n${c.reasoning}`,
     `\n■ 制作の進め方\n${c.productionApproach}`,
-  ];
-  if (c.questions.length > 0) {
-    parts.push(
-      `\n■ 開始前に${c.questions.length}点だけ確認させてください(成果物の質に直結するためです)`,
-      ...c.questions.map((q, i) => `${i + 1}. ${q.question}\n(理由: ${q.why})`),
-      `\nご回答は次のメッセージでお送りください。判断をお任せいただく場合は「お任せで進める」を押してください。`,
-    );
-  } else {
-    parts.push(`\nこの内容で実行計画の作成に進みます。`);
-  }
-  return parts.join('\n');
+  ].join('\n');
 }
 
 /** 回答待ちのCEO相談メッセージを取得(あれば次の入力は回答として扱う) */
@@ -174,41 +164,55 @@ function markConsultAnswered(messageId: string) {
   }));
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /**
- * CEOへの依頼の入口: まず相談(理解・目的・提案・確認)を返す。
- * 確認質問がなければそのまま実行計画の作成まで進む。
+ * CEOへの依頼の入口。
+ * CEO(経営判断)が100〜200字で一次回答し、専門ディレクター(制作判断)が会話を引き継ぐ。
+ * 判断根拠などの詳細は「詳しく見る」で展開。確認質問がなければ実行計画の作成まで進む。
  * @returns 'asked'=質問への回答待ち / 'planned'=実行計画を作成済み
  */
 export async function startCeoConsultation(request: string): Promise<'asked' | 'planned'> {
   const store = useOffice.getState();
   const caseDef = CASE_DEFS[classifyRequest(request)];
   store.setAgentRunActivity('ceo', '依頼の目的を整理しています', 'desk', 15);
-  pushLog('ceo', `社長の依頼を受領しました: 「${request.slice(0, 50)}」目的の整理と進め方の検討を開始します。`);
+  pushLog('ceo', `社長の依頼を受領しました: 「${request.slice(0, 50)}」経営判断を行い、担当ディレクターへ引き継ぎます。`);
 
   const { data, usage } = await callAgent('consult', request, undefined, undefined, caseDef.label);
   const consult = data as CeoConsultOutput;
   useOffice.getState().recordRunUsage('ceo', usage, null);
 
-  const meta: CeoConsultMeta = {
-    request,
-    questions: consult.questions,
-    answered: consult.questions.length === 0,
-  };
-  const msg: ChatMessage = {
+  // ① CEO: 経営判断の短い一次回答(詳細は「詳しく見る」)
+  const ceoMsg: ChatMessage = {
     id: uid('chat'),
     role: 'ceo_ai',
-    content: consultToMessage(consult, caseDef.label),
-    consult: meta,
+    content: consult.shortReply,
+    consult: { request, questions: [], answered: true, detail: consultDetail(consult) },
     timestamp: nowIso(),
   };
-  useOffice.setState((s) => ({ chat: [...s.chat, msg] }));
+  useOffice.setState((s) => ({ chat: [...s.chat, ceoMsg] }));
+  pushSignal('ceo', caseDef.directorAgentId, `${caseDef.label}を引き継ぎ`);
+
+  // ② 専門ディレクター: 制作判断として会話を引き継ぐ(確認質問もディレクターから)
+  await sleep(900);
+  const directorMsg: ChatMessage = {
+    id: uid('chat'),
+    role: 'ceo_ai',
+    content: consult.directorComment,
+    speakerId: caseDef.directorAgentId,
+    speakerName: caseDef.directorLabel,
+    consult: { request, questions: consult.questions, answered: consult.questions.length === 0 },
+    timestamp: nowIso(),
+  };
+  useOffice.setState((s) => ({ chat: [...s.chat, directorMsg] }));
+  pushLog(caseDef.directorAgentId, `CEOから「${caseDef.label}」を引き継ぎました。制作判断を担当します。`, 'info');
 
   if (consult.questions.length > 0) {
-    useOffice.getState().setAgentRunActivity('ceo', '社長への確認事項の回答待ち', 'desk', 40);
-    pushLog('ceo', `成果物の質に影響する確認事項${consult.questions.length}件を社長へ質問しました。`, 'info');
+    useOffice.getState().setAgentRunActivity(caseDef.directorAgentId, '社長への確認事項の回答待ち', 'desk', 40);
+    pushLog(caseDef.directorAgentId, `成果物の質に影響する確認事項${consult.questions.length}件を社長へ質問しました。`, 'info');
     return 'asked';
   }
-  pushLog('ceo', '目的と進め方を整理しました。実行計画の作成へ進みます。', 'success');
+  pushLog(caseDef.directorAgentId, '制作内容を確定しました。実行計画の作成へ進みます。', 'success');
   await createRunPlan(request);
   return 'planned';
 }

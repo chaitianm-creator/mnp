@@ -41,6 +41,8 @@ export interface CaseDef {
   pipeline: PipelineKind;
   steps: PipelineStep[]; // レビュー(reviewer)は全パイプライン共通で最後に実行
   revisionKind: PipelineStep['kind']; // レビュー差し戻し時に修正する工程
+  directorAgentId: string; // 会話を引き継ぐ専門ディレクターのAI社員ID
+  directorLabel: string; // 例: 📣 SNSディレクター(制作判断の担当として表示)
 }
 
 // ---- 工程テンプレート ----
@@ -169,6 +171,8 @@ const sns = (type: CaseType, label: string): CaseDef => ({
   pipeline: 'sns',
   steps: snsSteps(label),
   revisionKind: 'content',
+  directorAgentId: 'sns',
+  directorLabel: '📣 SNSディレクター',
 });
 
 export const CASE_DEFS: Record<CaseType, CaseDef> = {
@@ -185,6 +189,8 @@ export const CASE_DEFS: Record<CaseType, CaseDef> = {
     pipeline: 'docs',
     steps: docsSteps('ブログ記事', 'seo'),
     revisionKind: 'content',
+    directorAgentId: 'seo',
+    directorLabel: '📝 編集ディレクター',
   },
   lp: {
     type: 'lp',
@@ -193,6 +199,8 @@ export const CASE_DEFS: Record<CaseType, CaseDef> = {
     pipeline: 'web',
     steps: webSteps,
     revisionKind: 'writer',
+    directorAgentId: 'director',
+    directorLabel: '🗂 Webディレクター',
   },
   website: {
     type: 'website',
@@ -201,6 +209,8 @@ export const CASE_DEFS: Record<CaseType, CaseDef> = {
     pipeline: 'web',
     steps: webSteps,
     revisionKind: 'writer',
+    directorAgentId: 'director',
+    directorLabel: '🗂 Webディレクター',
   },
   banner: {
     type: 'banner',
@@ -209,6 +219,8 @@ export const CASE_DEFS: Record<CaseType, CaseDef> = {
     pipeline: 'design',
     steps: designSteps('バナー', true),
     revisionKind: 'visual',
+    directorAgentId: 'designer',
+    directorLabel: '🎨 アートディレクター',
   },
   flyer: {
     type: 'flyer',
@@ -217,6 +229,8 @@ export const CASE_DEFS: Record<CaseType, CaseDef> = {
     pipeline: 'design',
     steps: designSteps('チラシ', true),
     revisionKind: 'visual',
+    directorAgentId: 'designer',
+    directorLabel: '🎨 アートディレクター',
   },
   logo: {
     type: 'logo',
@@ -225,6 +239,8 @@ export const CASE_DEFS: Record<CaseType, CaseDef> = {
     pipeline: 'design',
     steps: designSteps('ロゴ', false),
     revisionKind: 'visual',
+    directorAgentId: 'designer',
+    directorLabel: '🎨 アートディレクター',
   },
   proposal: {
     type: 'proposal',
@@ -233,6 +249,8 @@ export const CASE_DEFS: Record<CaseType, CaseDef> = {
     pipeline: 'docs',
     steps: docsSteps('提案書', 'director'),
     revisionKind: 'content',
+    directorAgentId: 'director',
+    directorLabel: '🗂 ディレクター',
   },
   planning_doc: {
     type: 'planning_doc',
@@ -241,6 +259,8 @@ export const CASE_DEFS: Record<CaseType, CaseDef> = {
     pipeline: 'docs',
     steps: docsSteps('企画書', 'director'),
     revisionKind: 'content',
+    directorAgentId: 'director',
+    directorLabel: '🗂 ディレクター',
   },
 };
 
