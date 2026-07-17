@@ -13,7 +13,7 @@ export const ExecutionPlanSchema = z.object({
     z.object({
       title: z.string(),
       description: z.string(),
-      assignedAgentRole: z.enum(['director', 'writer', 'reviewer']),
+      assignedAgentRole: z.enum(['director', 'writer', 'reviewer', 'sns', 'designer', 'seo']),
       dependsOn: z.array(z.number()),
       canRunInParallel: z.boolean(),
       requiresApproval: z.boolean(),
@@ -72,7 +72,59 @@ export const ReviewResultSchema = z.object({
 });
 export type ReviewResultOutput = z.infer<typeof ReviewResultSchema>;
 
-export const RUN_KINDS = ['plan', 'director', 'writer', 'reviewer'] as const;
+// ---- 案件種別別パイプライン用スキーマ(SNS/デザイン/ドキュメント) ----
+
+/** 企画・構成案(SNSディレクター/ディレクター/SEO・AIO) */
+export const CreativeBriefSchema = z.object({
+  overview: z.string(),
+  objective: z.string(),
+  target: z.string(),
+  keyMessage: z.string(),
+  toneOfVoice: z.string(),
+  structure: z.array(z.object({ name: z.string(), purpose: z.string() })), // カルーセル枚数/リール尺/章立て等
+  constraints: z.array(z.string()),
+  referenceIdeas: z.array(z.string()),
+  openQuestions: z.array(z.string()),
+});
+export type CreativeBriefOutput = z.infer<typeof CreativeBriefSchema>;
+
+/** 本文・キャプション(ライター) */
+export const ContentDraftSchema = z.object({
+  title: z.string(),
+  mainText: z.string(),
+  variations: z.array(z.string()),
+  hashtags: z.array(z.string()),
+  cta: z.string(),
+  notes: z.array(z.string()),
+});
+export type ContentDraftOutput = z.infer<typeof ContentDraftSchema>;
+
+/** ビジュアル・デザイン案(デザイナー) */
+export const VisualDesignSchema = z.object({
+  concept: z.string(),
+  layoutIdeas: z.array(z.object({ name: z.string(), description: z.string() })),
+  colorPalette: z.array(z.string()),
+  typography: z.string(),
+  imageDirections: z.array(z.string()),
+  sizeVariations: z.array(z.string()),
+  notes: z.array(z.string()),
+});
+export type VisualDesignOutput = z.infer<typeof VisualDesignSchema>;
+
+/** 配信戦略・KPI(マーケティング) */
+export const DistributionPlanSchema = z.object({
+  bestTiming: z.string(),
+  frequency: z.string(),
+  kpis: z.array(z.string()),
+  hashtagStrategy: z.string(),
+  abTestIdeas: z.array(z.string()),
+  crossChannelIdeas: z.array(z.string()),
+  expectedEffect: z.string(),
+  notes: z.array(z.string()),
+});
+export type DistributionPlanOutput = z.infer<typeof DistributionPlanSchema>;
+
+export const RUN_KINDS = ['plan', 'director', 'writer', 'reviewer', 'brief', 'content', 'visual', 'distribution'] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
 
 export const SCHEMA_BY_KIND = {
@@ -80,6 +132,10 @@ export const SCHEMA_BY_KIND = {
   director: DirectorDocSchema,
   writer: WriterCopySchema,
   reviewer: ReviewResultSchema,
+  brief: CreativeBriefSchema,
+  content: ContentDraftSchema,
+  visual: VisualDesignSchema,
+  distribution: DistributionPlanSchema,
 } as const;
 
 /** /api/agent/run のリクエスト(入力サイズも制限) */
@@ -89,6 +145,7 @@ export const RunRequestSchema = z.object({
   context: z.string().max(24000).optional(), // 前工程の成果物など
   revision: z.boolean().optional(), // 修正版の生成か
   revisionNotes: z.string().max(4000).optional(),
+  caseLabel: z.string().max(40).optional(), // 案件種別の表示名(例: Instagram投稿)
 });
 export type RunRequest = z.infer<typeof RunRequestSchema>;
 

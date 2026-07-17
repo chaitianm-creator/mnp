@@ -2,9 +2,22 @@
 // 単なる待機ではなく、依頼文を織り込んだ現実的なサンプル成果物を生成する。
 // 生成物には isMock=true が付与され、画面上で「デモ生成」と表示される。
 import 'server-only';
+import { CASE_DEFS, classifyRequest, type CaseDef } from '../../case-types';
 import { BaseProvider, type GenerateOptions, type GenerateResult } from './provider';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** プロンプトから案件種別を復元(【案件種別】ラベル優先、なければ依頼文から判定) */
+function caseOf(prompt: string): CaseDef {
+  const m = prompt.match(/【案件種別】(.+)/);
+  if (m) {
+    const label = m[1].trim();
+    const hit = Object.values(CASE_DEFS).find((d) => d.label === label);
+    if (hit) return hit;
+  }
+  const req = prompt.match(/【社長の依頼】\n([\s\S]+?)(\n\n|$)/)?.[1] ?? prompt;
+  return CASE_DEFS[classifyRequest(req)];
+}
 
 /** 依頼文から題材キーワードを推定(モック成果物の現実感用) */
 function themeOf(request: string): { theme: string; audience: string; siteType: string } {
@@ -46,19 +59,126 @@ export class MockAIProvider extends BaseProvider {
     let payload: unknown;
 
     if (options.system.includes('[ROLE:CEO]')) {
+      // 案件種別に応じた実行計画(担当部署への振り分けを反映)
+      const def = caseOf(request);
+      const roleOf: Record<string, string> = { sns: 'sns', writer: 'writer', designer: 'designer', seo: 'seo', director: 'director' };
+      const stepTasks = def.steps.map((st, i) => ({
+        title: st.title,
+        description: st.description,
+        assignedAgentRole: roleOf[st.agentId] ?? 'director',
+        dependsOn: i === 0 ? [] : [i - 1],
+        canRunInParallel: false,
+        requiresApproval: false,
+        estimatedTokens: 2400 + i * 400,
+        estimatedCostJPY: 0,
+      }));
       payload = {
-        summary: `${siteType}の企画案作成(${audience}向け)`,
-        goal: `${audience}の課題に応える${siteType}の企画・構成・原稿を作成し、社長が確認できる状態にする`,
-        assumptions: ['ブランドトーンは既存の会社設定(誠実・提案型)を踏襲します', '公開・共有は行わず、社内確認用の成果物とします'],
+        summary: `${def.label}の制作(${audience}向け)— 担当: ${def.departmentLabel}`,
+        goal: `${audience}に届く${def.label}の成果物一式を作成し、社長が確認できる状態にする`,
+        assumptions: ['ブランドトーンは既存の会社設定(誠実・提案型)を踏襲します', '公開・投稿・共有は行わず、社内確認用の成果物とします'],
         missingInformation: ['具体的な顧客社名・実績数値(あれば品質が向上します)'],
-        deliverables: ['要件整理書(ディレクターAI)', 'キャッチコピー・Web原稿(ライターAI)', 'レビュー報告書(レビュアーAI)'],
+        deliverables: [...def.steps.map((st) => `${st.deliverableTitle}(担当: ${st.agentId})`), 'レビュー報告書(レビュアーAI)'],
         tasks: [
-          { title: '要件整理とサイト構成の作成', description: 'ターゲット・ペルソナ・サイトマップ・トップページ構成を整理', assignedAgentRole: 'director', dependsOn: [], canRunInParallel: false, requiresApproval: false, estimatedTokens: 2600, estimatedCostJPY: 0 },
-          { title: 'キャッチコピー・原稿の作成', description: '構成に沿ってコピーと本文を執筆', assignedAgentRole: 'writer', dependsOn: [0], canRunInParallel: false, requiresApproval: false, estimatedTokens: 3200, estimatedCostJPY: 0 },
-          { title: '品質レビュー', description: '整合性・誇大表現・誤字・SEO・要確認事項をチェック', assignedAgentRole: 'reviewer', dependsOn: [1], canRunInParallel: false, requiresApproval: false, estimatedTokens: 1800, estimatedCostJPY: 0 },
+          ...stepTasks,
+          { title: '品質レビュー', description: '整合性・誇大表現・誤字・要確認事項をチェック', assignedAgentRole: 'reviewer', dependsOn: [stepTasks.length - 1], canRunInParallel: false, requiresApproval: false, estimatedTokens: 1800, estimatedCostJPY: 0 },
         ],
         risks: ['実績・数値は仮置きのため、公開前に実データへの差し替えが必要です'],
-        completionCriteria: ['レビュー承認済みの構成資料と原稿が成果物として保存されている'],
+        completionCriteria: ['レビュー承認済みの成果物一式が保存されている'],
+      };
+    } else if (options.system.includes('[ROLE:PLANNER]')) {
+      // 企画・構成案(SNSディレクター/ディレクター/SEOディレクター)
+      const def = caseOf(request);
+      const isCarousel = def.type === 'instagram_carousel';
+      const isReel = def.type === 'instagram_reel';
+      const structure = isCarousel
+        ? [
+            { name: '1枚目: 表紙', purpose: `「${theme}」の悩みに刺さるフックで手を止めさせる` },
+            { name: '2枚目: 共感', purpose: 'ターゲットの悩みを言語化して自分ごと化する' },
+            { name: '3〜5枚目: 本編', purpose: '解決策を1枚1メッセージで解説する' },
+            { name: '6枚目: まとめ', purpose: '要点を1枚に整理し保存を促す' },
+            { name: '7枚目: CTA', purpose: 'プロフィール遷移・保存・フォローを促す' },
+          ]
+        : isReel
+          ? [
+              { name: '0-2秒: フック', purpose: '最初の2秒で離脱を防ぐ(テキストオーバーレイ必須)' },
+              { name: '2-15秒: 本編', purpose: 'テンポよく3つのポイントを見せる' },
+              { name: '15-25秒: 実例', purpose: 'ビフォーアフターで納得感を作る' },
+              { name: 'ラスト: CTA', purpose: 'フォローと保存を促す' },
+            ]
+          : def.pipeline === 'docs'
+            ? [
+                { name: '導入', purpose: '読み手の課題を提示し、読む理由を作る' },
+                { name: '現状分析', purpose: '課題の構造を整理する' },
+                { name: '提案内容', purpose: '解決策と実行プランを示す' },
+                { name: '期待効果', purpose: '成果イメージと根拠を示す' },
+                { name: '次のステップ', purpose: '意思決定に必要な行動を明確にする' },
+              ]
+            : [
+                { name: 'メインビジュアル', purpose: `${def.label}の第一印象で目を引く` },
+                { name: 'キーメッセージ', purpose: '伝えたい価値を一言で伝える' },
+                { name: 'CTA', purpose: '次の行動へ迷いなく誘導する' },
+              ];
+      payload = {
+        overview: `${def.label}の企画・構成案。依頼内容:「${request.match(/【社長の依頼】\n(.+)/)?.[1]?.slice(0, 60) ?? request.slice(0, 60)}」`,
+        objective: `${audience}との接点を増やし、保存・問い合わせなどの反応につなげる`,
+        target: `${audience}(スマホ閲覧が中心)`,
+        keyMessage: `${theme}の悩みは、正しい手順で解決できる`,
+        toneOfVoice: '誠実で親しみやすく、専門用語を避けたやさしい言葉',
+        structure,
+        constraints: def.pipeline === 'design' ? ['媒体・サイズは要確認(constraints)', 'ブランドカラーを踏襲する'] : ['プラットフォームの推奨仕様に準拠する', '誇大表現・断定表現を使わない'],
+        referenceIdeas: ['同業他社の高保存率投稿の構成', '自社の過去反応が良かったトーン'],
+        openQuestions: ['実績数値・事例の使用可否', 'ブランドカラー・ロゴデータの有無'],
+      };
+    } else if (options.system.includes('[ROLE:CONTENT]')) {
+      // 本文・キャプション(ライター)
+      const def = caseOf(request);
+      const revised = request.includes('[修正指示]') || request.includes('【修正指示】');
+      const isX = def.type === 'x_post';
+      payload = {
+        title: revised ? `【保存版】${theme}で失敗しないための3つのポイント` : `${theme}、なんとなくで進めていませんか?`,
+        mainText: isX
+          ? `${theme}で成果が出ない会社の共通点は「順番」でした。\n\n1. 目的を決める\n2. 相手を決める\n3. 伝え方を決める\n\nこの順番を守るだけで反応は変わります。詳しくはプロフィールへ。`
+          : `「${theme}、やったほうがいいのは分かってるけど、何から始めれば…」\n\nそんな声をよくいただきます。実は、成果が出ない一番の原因はセンスではなく「順番」です。\n\n✅ ポイント1: 目的をひとつに絞る\n✅ ポイント2: 相手の悩みから逆算する\n✅ ポイント3: 次の行動を明確にする\n\nこの3つを押さえるだけで、反応は大きく変わります。\n\n詳しい手順は保存して見返してください👇`,
+        variations: [revised ? `${theme}の正解、実は3つだけ` : `もう迷わない、${theme}の始め方`, `${audience}のための${theme}入門`],
+        hashtags: def.pipeline === 'sns' ? [`#${theme}`, '#中小企業', '#経営者', '#マーケティング', '#仕事術', '#ビジネスハック', '#起業家', '#個人事業主', '#集客', '#社長'] : [],
+        cta: def.pipeline === 'sns' ? '役に立ったら保存🔖 プロフィールから無料相談も受付中' : '無料相談で課題を整理する',
+        notes: ['実績・数値は仮置きです([実績情報をご提供ください])', isX ? '本文は140字以内に収めています' : 'キャプションは冒頭2行で興味を引く構成です'],
+      };
+    } else if (options.system.includes('[ROLE:VISUAL]')) {
+      // ビジュアル・デザイン案(デザイナー)
+      const def = caseOf(request);
+      const revised = request.includes('[修正指示]') || request.includes('【修正指示】');
+      payload = {
+        concept: revised
+          ? `${def.label}の修正版: 視認性を最優先に、余白を広げて1メッセージ1画面へ整理`
+          : `「やさしく、信頼できる」を軸に、${audience}が3秒で内容を理解できるデザイン`,
+        layoutIdeas: [
+          { name: 'A案: 大胆タイポ', description: 'キーメッセージを画面の60%で見せる。情報量を絞り、瞬間的な理解を狙う' },
+          { name: 'B案: 図解型', description: '3ステップを図解で見せる。保存されやすく、じっくり読まれる投稿向き' },
+          def.pipeline === 'design'
+            ? { name: 'C案: 写真主体', description: '人物写真で信頼感を演出し、コピーを添える構成' }
+            : { name: 'C案: ビフォーアフター', description: '左右比較で変化を直感的に伝える' },
+        ],
+        colorPalette: ['#4F46E5(メイン: 信頼のブルー系)', '#F5D76E(アクセント: 注目の黄色)', '#FDFAF3(背景: やわらかい生成り)', '#1F2937(テキスト: 読みやすい濃灰)'],
+        typography: '見出し: 太めのゴシック(Noto Sans JP Bold)/ 本文: Noto Sans JP Regular。スマホの小画面でも読める級数を確保',
+        imageDirections: def.type === 'instagram_carousel'
+          ? ['1枚目: キーメッセージ+人物または象徴的なアイコン', '2枚目以降: 1枚1メッセージの図解', '最終枚: CTAボタン風の要素で行動を明示']
+          : ['メインビジュアルはターゲットが「自分ごと」と感じる場面写真またはイラスト', 'テキストオーバーレイはコントラスト比4.5:1以上を確保'],
+        sizeVariations: def.type === 'banner' ? ['300×250(レクタングル)', '728×90(リーダーボード)', '1080×1080(SNS用)'] : def.pipeline === 'sns' ? ['1080×1350(フィード推奨)', '1080×1920(ストーリーズ転用)'] : ['A4(チラシ標準)'],
+        notes: ['ロゴデータ・ブランドガイドラインの提供をお願いします', '写真素材は権利クリアなものを使用します'],
+      };
+    } else if (options.system.includes('[ROLE:MARKETER]')) {
+      // 配信戦略・KPI(マーケティングAI)
+      const def = caseOf(request);
+      payload = {
+        bestTiming: `${audience}の閲覧が多い平日7:30前後(通勤時間)と21:00前後(就寝前)。まずは火・木の21:00投稿を推奨`,
+        frequency: def.type === 'instagram_reel' ? '週2本(品質優先)。フィード投稿と交互に運用' : '週3回(月・水・金)を基本に、反応を見て調整',
+        kpis: ['保存率 3%以上(目安)', 'プロフィール遷移率 1.5%以上(目安)', 'フォロワー純増 週+50(目安)', 'リーチに対するエンゲージメント率 5%(目安)'],
+        hashtagStrategy: '大(10万件超)3個・中(1〜10万件)5個・小(1万件未満)5個の構成で、検索流入と関連表示の両方を狙う',
+        abTestIdeas: ['1枚目のフック文言を2案でテスト', '投稿時間 7:30 vs 21:00 の反応比較', 'CTA「保存」vs「プロフィールへ」の遷移率比較'],
+        crossChannelIdeas: ['反応の良い投稿をThreadsへ転用', 'カルーセルをブログ記事化してSEO流入も獲得'],
+        expectedEffect: '4週間の継続運用で、保存数とプロフィール遷移の増加を想定(数値はデモの目安であり、成果を保証するものではありません)',
+        notes: ['投稿の実行(外部送信)は行いません。社長の承認後、手動での投稿をお願いします'],
       };
     } else if (options.system.includes('[ROLE:DIRECTOR]')) {
       payload = {

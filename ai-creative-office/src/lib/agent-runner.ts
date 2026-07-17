@@ -8,31 +8,63 @@
 // - 承認前は実行しない / コスト上限で停止して承認を求める
 // - 依存タスク完了まで後続を開始しない(本チェーンは直列)
 // ============================================================
-import { directorToMarkdown, planToMarkdown, reviewToMarkdown, writerToMarkdown } from './ai/markdown';
+import {
+  briefToMarkdown,
+  contentToMarkdown,
+  directorToMarkdown,
+  distributionToMarkdown,
+  planToMarkdown,
+  reviewToMarkdown,
+  visualToMarkdown,
+  writerToMarkdown,
+} from './ai/markdown';
 import type {
+  ContentDraftOutput,
+  CreativeBriefOutput,
   DirectorDocOutput,
+  DistributionPlanOutput,
   ExecutionPlanOutput,
   ReviewResultOutput,
   RunKind,
   RunResponse,
   RunUsage,
+  VisualDesignOutput,
   WriterCopyOutput,
 } from './ai/schemas';
+import { CASE_DEFS, classifyRequest, type CaseDef, type PipelineStep } from './case-types';
 import { useOffice } from './store';
 import type { AgentRun, Deliverable, DeliverableType, RunTask } from './types';
 import { uid } from './utils';
 
 const nowIso = () => new Date().toISOString();
 
-async function callAgent(kind: RunKind, request: string, context?: string, revisionNotes?: string) {
+async function callAgent(kind: RunKind, request: string, context?: string, revisionNotes?: string, caseLabel?: string) {
   const res = await fetch('/api/agent/run', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ kind, request, context, revisionNotes }),
+    body: JSON.stringify({ kind, request, context, revisionNotes, caseLabel }),
   });
   const json = (await res.json()) as RunResponse;
   if (!json.ok || !json.data || !json.usage) throw new Error(json.error ?? 'AI実行に失敗しました');
   return { data: json.data, usage: json.usage };
+}
+
+/** 工程種別ごとの構造化出力→Markdown変換 */
+function stepToMarkdown(step: PipelineStep, data: unknown): string {
+  switch (step.kind) {
+    case 'brief':
+      return briefToMarkdown(data as CreativeBriefOutput, step.deliverableTitle);
+    case 'content':
+      return contentToMarkdown(data as ContentDraftOutput, step.deliverableTitle);
+    case 'visual':
+      return visualToMarkdown(data as VisualDesignOutput, step.deliverableTitle);
+    case 'distribution':
+      return distributionToMarkdown(data as DistributionPlanOutput, step.deliverableTitle);
+    case 'director':
+      return directorToMarkdown(data as DirectorDocOutput);
+    case 'writer':
+      return writerToMarkdown(data as WriterCopyOutput);
+  }
 }
 
 function usageToJpy(usage: RunUsage): number {
@@ -93,31 +125,37 @@ function makeDeliverable(
   };
 }
 
-/** ① 社長の依頼 → CEO AIが実行計画を作成(実行はまだしない) */
+/** ① 社長の依頼 → CEO AIが案件種別を判定し、実行計画を作成(実行はまだしない) */
 export async function createRunPlan(request: string): Promise<string> {
   const store = useOffice.getState();
   store.setAgentRunActivity('ceo', '社長の依頼を分析しています', 'desk', 20);
   pushLog('ceo', `社長の依頼を受領しました: 「${request.slice(0, 50)}」分析を開始します。`);
 
-  const { data, usage } = await callAgent('plan', request);
+  // 案件種別の判定と担当部署への振り分け(Web制作/SNS/デザイン/ドキュメントで完全分岐)
+  const caseDef = CASE_DEFS[classifyRequest(request)];
+  pushLog('ceo', `案件種別を「${caseDef.label}」と判定しました。${caseDef.departmentLabel}へ振り分けます。`, 'success');
+  pushSignal('ceo', caseDef.steps[0].agentId, `${caseDef.label}を依頼`);
+
+  const { data, usage } = await callAgent('plan', request, undefined, undefined, caseDef.label);
   const plan = data as ExecutionPlanOutput;
 
-  const mkTask = (i: number, t: ExecutionPlanOutput['tasks'][number]): RunTask => ({
+  // タスクは案件種別の標準フローから決定的に構成する(AI計画は説明資料として保持)
+  const mkStepTask = (i: number, st: PipelineStep): RunTask => ({
     id: `rt_${i}`,
-    title: t.title,
-    description: t.description,
-    assignedAgentId: t.assignedAgentRole,
-    kind: t.assignedAgentRole,
+    title: st.title,
+    description: st.description,
+    assignedAgentId: st.agentId,
+    kind: st.kind,
     status: 'pending',
-    dependsOn: t.dependsOn.map((d) => `rt_${d}`),
+    dependsOn: i === 0 ? [] : [`rt_${i - 1}`],
     startedAt: null,
     completedAt: null,
     retryCount: 0,
     maxRetries: 2,
-    estimatedTokens: t.estimatedTokens,
+    estimatedTokens: 2400 + i * 400,
     actualInputTokens: 0,
     actualOutputTokens: 0,
-    estimatedCostJPY: t.estimatedCostJPY,
+    estimatedCostJPY: plan.tasks[i]?.estimatedCostJPY ?? 0,
     actualCostJPY: 0,
     model: null,
     provider: null,
@@ -125,14 +163,29 @@ export async function createRunPlan(request: string): Promise<string> {
     reviewStatus: 'none',
     deliverableId: null,
   });
+  const reviewTask: RunTask = {
+    ...mkStepTask(caseDef.steps.length, {
+      kind: 'content',
+      agentId: 'reviewer',
+      title: '品質レビュー',
+      description: '整合性・誇大表現・誤字・要確認事項をチェック',
+      deliverableType: 'review',
+      deliverableTitle: 'レビュー報告書',
+      activity: '成果物を確認中',
+    }),
+    kind: 'reviewer',
+    assignedAgentId: 'reviewer',
+  };
 
   const run: AgentRun = {
     id: uid('run'),
     request,
+    caseType: caseDef.type,
+    caseLabel: caseDef.label,
     planMarkdown: planToMarkdown(plan),
     planJson: JSON.stringify(plan, null, 2),
     status: 'awaiting_approval',
-    tasks: plan.tasks.map((t, i) => mkTask(i, t)),
+    tasks: [...caseDef.steps.map((st, i) => mkStepTask(i, st)), reviewTask],
     deliverableIds: [],
     totalInputTokens: usage.inputTokens,
     totalOutputTokens: usage.outputTokens,
@@ -150,7 +203,7 @@ export async function createRunPlan(request: string): Promise<string> {
   store2.recordRunUsage('ceo', usage, null);
   store2.addAgentRun(
     run,
-    `実行計画を作成しました${usage.isMock ? '(デモ生成)' : ''}。内容をご確認のうえ「この内容で開始」を押してください。開始まで実行しません。`,
+    `案件種別を「${caseDef.label}」と判定し、${caseDef.departmentLabel}へ振り分けました${usage.isMock ? '(デモ生成)' : ''}。実行計画をご確認のうえ「この内容で開始」を押してください。開始まで実行しません。`,
   );
   store2.setAgentRunActivity('ceo', '実行計画の承認待ち', 'desk', 100);
   pushLog('ceo', `実行計画を作成しました(タスク${run.tasks.length}件)。社長の承認待ちです。`, 'success');
@@ -229,24 +282,27 @@ async function executeRunInner(runId: string, opts: { ignoreCap?: boolean } = {}
   const doneDeliverable = (type: DeliverableType) =>
     s().deliverables.find((d) => d.runId === runId && d.type === type);
 
+  const caseLabel = run.caseLabel;
+
   const runStep = async <T>(
     kind: RunKind,
     taskKind: RunTask['kind'],
     activity: string,
     context: string | undefined,
     revisionNotes: string | undefined,
+    agentIdOverride?: string,
   ): Promise<{ data: T; usage: RunUsage; taskId: string } | null> => {
     if (isStopped(runId)) return null;
     if (!checkCostCap(runId, opts.ignoreCap ?? false)) return null;
     const task = findTask(taskKind);
     const taskId = task?.id ?? `rt_${taskKind}`;
-    const agentId = taskKind;
+    const agentId = agentIdOverride ?? task?.assignedAgentId ?? taskKind;
     s().updateRunTask(runId, taskId, { status: 'running', startedAt: nowIso() });
     s().updateAgentRun(runId, { currentActivity: activity });
     s().setAgentRunActivity(agentId, activity, 'project', 30);
     pushLog(agentId, activity);
     try {
-      const result = await callAgent(kind, getRun(runId)!.request, context, revisionNotes);
+      const result = await callAgent(kind, getRun(runId)!.request, context, revisionNotes, caseLabel);
       addUsageToRun(runId, taskId, result.usage);
       s().updateRunTask(runId, taskId, { status: 'done', completedAt: nowIso() });
       s().setAgentRunActivity(agentId, '', 'desk', 0);
@@ -268,6 +324,109 @@ async function executeRunInner(runId: string, opts: { ignoreCap?: boolean } = {}
   };
 
   const request = run.request;
+
+  /** 完了処理(共通): アナウンス + CEOからの報告DM */
+  const finishRun = (approve: boolean, deliverableTitles: string[]) => {
+    s().updateAgentRun(runId, {
+      status: 'done',
+      completedAt: nowIso(),
+      currentActivity: approve ? 'レビュー承認済み。最終成果物の確定は成果物画面から行えます' : '要修正のまま完了しました',
+    });
+    const finalRun = getRun(runId)!;
+    useOffice.setState((st) => ({
+      announcements: [
+        { id: uid('ann'), message: `成果物が完成しました(${finalRun.isMock ? 'デモ生成' : 'AI生成'})。成果物画面でご確認ください`, tone: 'success' as const, createdAt: nowIso() },
+        ...st.announcements,
+      ].slice(0, 6),
+      directChats: {
+        ...st.directChats,
+        ceo: [
+          ...(st.directChats.ceo ?? []),
+          {
+            id: uid('dm'),
+            role: 'agent' as const,
+            content: `ご依頼の件、完了しました。\n結論: ${deliverableTitles.join('・')}の${deliverableTitles.length}点が完成しています。\n根拠: レビュー${approve ? '承認済み' : 'は要修正1件(上限到達のため人間確認へ)'}、総コスト¥${Math.round(finalRun.totalCostJpy).toLocaleString()}。\n提案: 成果物画面でご確認のうえ、「最終版に設定」をお願いします。`,
+            timestamp: nowIso(),
+          },
+        ].slice(-100),
+      },
+      unread: { ...st.unread, ceo: (st.unread.ceo ?? 0) + 1 },
+    }));
+    pushLog('ceo', '全工程が完了しました。成果物を承認待ちとして保存しています。', 'success');
+  };
+
+  /** 案件種別パイプライン(SNS/デザイン/ドキュメント。Web制作フローとは完全分岐) */
+  const executeCasePipeline = async (def: CaseDef): Promise<void> => {
+    let prevAgent = 'ceo';
+    const produced: { step: PipelineStep; dlv: Deliverable }[] = [];
+    let revisionTarget: { dlv: Deliverable; step: PipelineStep } | null = null;
+
+    for (const stp of def.steps) {
+      // 再開時: 既に成果物があればスキップ
+      let dlv = doneDeliverable(stp.deliverableType);
+      if (!dlv) {
+        pushSignal(prevAgent, stp.agentId, stp.title.length > 14 ? `${stp.title.slice(0, 13)}…` : stp.title);
+        const context = produced.length > 0 ? produced.map((p) => p.dlv.markdown).join('\n\n---\n\n') : getRun(runId)!.planMarkdown;
+        const step = await runStep<unknown>(stp.kind, stp.kind, stp.activity, context, undefined);
+        if (!step) return;
+        dlv = makeDeliverable(runId, step.taskId, stp.deliverableTitle, stp.deliverableType, stp.agentId, stepToMarkdown(stp, step.data), step.data, request, step.usage);
+        s().addDeliverable(dlv);
+        s().updateRunTask(runId, step.taskId, { deliverableId: dlv.id });
+        pushLog(stp.agentId, `「${stp.deliverableTitle}」が完成しました。次の工程へ引き渡します。`, 'success');
+      }
+      produced.push({ step: stp, dlv });
+      if (stp.kind === def.revisionKind) revisionTarget = { dlv, step: stp };
+      prevAgent = stp.agentId;
+    }
+
+    // レビュアーAI: 品質確認(差し戻しは1回まで)
+    pushSignal(prevAgent, 'reviewer', 'レビューを依頼');
+    const allMd = () => produced.map((p) => (useOffice.getState().deliverables.find((d) => d.id === p.dlv.id) ?? p.dlv).markdown).join('\n\n---\n\n');
+    const review1 = await runStep<ReviewResultOutput>('reviewer', 'reviewer', `${def.label}の成果物を確認中`, allMd(), undefined);
+    if (!review1) return;
+    let reviewData = review1.data;
+    const reviewDlv = makeDeliverable(runId, review1.taskId, 'レビュー報告書', 'review', 'reviewer', reviewToMarkdown(reviewData), reviewData, request, review1.usage);
+    s().addDeliverable(reviewDlv);
+
+    if (!reviewData.approve && revisionTarget) {
+      const currentRun = getRun(runId)!;
+      if (currentRun.revisionCount >= currentRun.maxRevisions) {
+        s().updateDeliverable(revisionTarget.dlv.id, { status: 'needs_fix' });
+        s().updateAgentRun(runId, { status: 'done', completedAt: nowIso(), currentActivity: '修正上限に達したため、要修正のまま完了しました。成果物画面から編集または修正依頼できます' });
+        return;
+      }
+      s().updateAgentRun(runId, { status: 'revising', revisionCount: currentRun.revisionCount + 1, currentActivity: 'レビュー指摘を反映した修正版を作成中' });
+      s().updateDeliverable(revisionTarget.dlv.id, { status: 'needs_fix' });
+      pushSignal('reviewer', revisionTarget.step.agentId, '修正指示を送付');
+      pushLog('reviewer', `重大な問題${reviewData.criticalIssues.length}件を検出しました。${revisionTarget.step.agentId === 'designer' ? 'デザイナーAI' : 'ライターAI'}へ修正を依頼します。`, 'warning');
+
+      const notes = [...reviewData.criticalIssues, ...reviewData.minorIssues].join('\n');
+      const revision = await runStep<unknown>(revisionTarget.step.kind, revisionTarget.step.kind, 'レビュー指摘を反映した修正版を作成中', produced[0].dlv.markdown, notes);
+      if (!revision) return;
+      s().saveDeliverableVersion(revisionTarget.dlv.id, stepToMarkdown(revisionTarget.step, revision.data), 'ai', `レビュー指摘${reviewData.criticalIssues.length + reviewData.minorIssues.length}件を反映した修正版`);
+      s().updateDeliverable(revisionTarget.dlv.id, { json: JSON.stringify(revision.data, null, 2) });
+
+      pushSignal(revisionTarget.step.agentId, 'reviewer', '修正版のレビューを依頼');
+      const review2 = await runStep<ReviewResultOutput>('reviewer', 'reviewer', '修正版を確認中', allMd(), '修正版の確認です');
+      if (!review2) return;
+      reviewData = review2.data;
+      s().saveDeliverableVersion(reviewDlv.id, reviewToMarkdown(reviewData), 'ai', '修正版の再レビュー');
+    }
+
+    // 完了処理
+    const finalStatus = reviewData.approve ? ('reviewed' as const) : ('needs_fix' as const);
+    for (const p of produced) {
+      s().updateDeliverable(p.dlv.id, { status: p.dlv.id === revisionTarget?.dlv.id ? finalStatus : 'reviewed' });
+    }
+    finishRun(reviewData.approve, [...produced.map((p) => p.step.deliverableTitle), 'レビュー報告書']);
+  };
+
+  // 案件種別によりパイプラインを分岐(SNS/デザイン/ドキュメントはWeb制作と完全分岐)
+  const caseDef = run.caseType ? CASE_DEFS[run.caseType as keyof typeof CASE_DEFS] : undefined;
+  if (caseDef && caseDef.pipeline !== 'web') {
+    await executeCasePipeline(caseDef);
+    return;
+  }
 
   // --- ディレクターAI: 要件整理(既に成果物があれば再開時はスキップ) ---
   let directorDlv = doneDeliverable('requirements');
