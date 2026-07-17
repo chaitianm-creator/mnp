@@ -12,11 +12,12 @@ import { ChevronLeft, ChevronRight, Loader2, Play, Send, Sparkles, Trash2 } from
 import { useEffect, useRef, useState } from 'react';
 
 const RUN_TEMPLATES = [
-  { label: '採用サイト企画', text: '採用に困っている中小企業向けに、採用サイトの企画案を作って' },
-  { label: 'コーポレートサイト構成', text: '製造業の中小企業向けに、信頼感のあるコーポレートサイトの構成案を作って' },
+  { label: 'Instagram投稿', text: '中小企業の経営者向けに、Web制作の豆知識を伝えるInstagram投稿を作って' },
+  { label: 'Instagramカルーセル', text: 'ホームページ改善のポイントをまとめたInstagramカルーセル投稿を作って' },
+  { label: 'X投稿', text: 'Web制作の役立ち情報をXに投稿する文章を作って' },
+  { label: 'ブログ記事', text: '「ホームページ リニューアル 費用」で上位を狙うブログ記事を作って' },
   { label: 'LP構成とコピー', text: '新サービスのランディングページの構成とキャッチコピーを作って。ターゲットは中小企業の経営者' },
-  { label: 'サービス紹介ページ', text: 'Web制作サービスの紹介ページの構成と原稿を作って' },
-  { label: 'SEO記事構成', text: '「ホームページ リニューアル 費用」で上位を狙うSEO記事の構成を作って' },
+  { label: 'バナー制作', text: '無料相談キャンペーンの告知バナーを作って' },
 ];
 
 export function MobileChat({ thread, setThread }: { thread: string | null; setThread: (t: string | null) => void }) {

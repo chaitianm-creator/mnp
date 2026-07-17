@@ -14,6 +14,11 @@ const TYPE_LABEL: Record<Deliverable['type'], string> = {
   requirements: '要件整理書',
   copy: 'Web原稿',
   review: 'レビュー報告書',
+  brief: '企画・構成案',
+  sns_content: 'SNS本文・コピー',
+  visual: 'ビジュアル案',
+  distribution: '配信戦略',
+  document: '文書原稿',
 };
 
 const STATUS: Record<DeliverableStatus, { label: string; cls: string }> = {

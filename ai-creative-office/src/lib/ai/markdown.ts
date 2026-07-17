@@ -1,5 +1,14 @@
 // 構造化出力 → Markdown 変換(クライアント・サーバー共用)
-import type { DirectorDocOutput, ExecutionPlanOutput, ReviewResultOutput, WriterCopyOutput } from './schemas';
+import type {
+  ContentDraftOutput,
+  CreativeBriefOutput,
+  DirectorDocOutput,
+  DistributionPlanOutput,
+  ExecutionPlanOutput,
+  ReviewResultOutput,
+  VisualDesignOutput,
+  WriterCopyOutput,
+} from './schemas';
 
 const list = (items: string[], prefix = '- ') => items.map((i) => `${prefix}${i}`).join('\n');
 
@@ -59,6 +68,68 @@ export function writerToMarkdown(w: WriterCopyOutput): string {
     `\n## 会社紹介\n${w.companyIntro}`,
     w.recruitMessage ? `\n## 採用向けメッセージ\n${w.recruitMessage}` : '',
     `\n## SEO\n- タイトル: ${w.seoTitle}\n- メタディスクリプション: ${w.metaDescription}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+export function briefToMarkdown(b: CreativeBriefOutput, title = '企画・構成案'): string {
+  return [
+    `# ${title}`,
+    `\n## 概要\n${b.overview}`,
+    `\n## 目的\n${b.objective}`,
+    `\n## ターゲット\n${b.target}`,
+    `\n## キーメッセージ\n> ${b.keyMessage}`,
+    `\n## トーン\n${b.toneOfVoice}`,
+    `\n## 構成\n${b.structure.map((s, i) => `${i + 1}. **${s.name}** — ${s.purpose}`).join('\n')}`,
+    b.constraints.length ? `\n## 制約・前提\n${list(b.constraints)}` : '',
+    b.referenceIdeas.length ? `\n## 参考アイデア\n${list(b.referenceIdeas)}` : '',
+    b.openQuestions.length ? `\n## 未確定事項\n${list(b.openQuestions)}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+export function contentToMarkdown(c: ContentDraftOutput, title = '本文・キャプション'): string {
+  return [
+    `# ${title}`,
+    `\n## タイトル・フック\n> ${c.title}`,
+    `\n## 本文\n${c.mainText}`,
+    c.variations.length ? `\n## 別案\n${c.variations.map((v, i) => `**案${i + 2}:** ${v}`).join('\n\n')}` : '',
+    c.hashtags.length ? `\n## ハッシュタグ\n${c.hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`)).join(' ')}` : '',
+    `\n## CTA\n${c.cta}`,
+    c.notes.length ? `\n## 補足・注意事項\n${list(c.notes)}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+export function visualToMarkdown(v: VisualDesignOutput, title = 'ビジュアル案'): string {
+  return [
+    `# ${title}`,
+    `\n## デザインコンセプト\n${v.concept}`,
+    `\n## レイアウト案\n${v.layoutIdeas.map((l, i) => `${i + 1}. **${l.name}** — ${l.description}`).join('\n')}`,
+    `\n## カラーパレット\n${list(v.colorPalette)}`,
+    `\n## タイポグラフィ\n${v.typography}`,
+    `\n## 画像ディレクション\n${list(v.imageDirections)}`,
+    v.sizeVariations.length ? `\n## サイズ展開\n${list(v.sizeVariations)}` : '',
+    v.notes.length ? `\n## 補足\n${list(v.notes)}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+export function distributionToMarkdown(d: DistributionPlanOutput, title = '配信戦略・KPI設計'): string {
+  return [
+    `# ${title}`,
+    `\n## 最適な投稿タイミング\n${d.bestTiming}`,
+    `\n## 投稿頻度\n${d.frequency}`,
+    `\n## KPI\n${list(d.kpis)}`,
+    `\n## ハッシュタグ戦略\n${d.hashtagStrategy}`,
+    d.abTestIdeas.length ? `\n## A/Bテスト案\n${list(d.abTestIdeas)}` : '',
+    d.crossChannelIdeas.length ? `\n## 他チャネル展開\n${list(d.crossChannelIdeas)}` : '',
+    `\n## 想定効果\n${d.expectedEffect}`,
+    d.notes.length ? `\n## 補足\n${list(d.notes)}` : '',
   ]
     .filter(Boolean)
     .join('\n');

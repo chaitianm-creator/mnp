@@ -542,8 +542,8 @@ export interface RunTask {
   id: string;
   title: string;
   description: string;
-  assignedAgentId: string; // director / writer / reviewer
-  kind: 'director' | 'writer' | 'reviewer';
+  assignedAgentId: string; // director / writer / reviewer / sns / designer / seo
+  kind: 'director' | 'writer' | 'reviewer' | 'brief' | 'content' | 'visual' | 'distribution';
   status: RunTaskStatus;
   dependsOn: string[];
   startedAt: string | null;
@@ -574,6 +574,8 @@ export type AgentRunStatus =
 export interface AgentRun {
   id: string;
   request: string; // 社長の依頼文
+  caseType?: string; // 案件種別(instagram_post等。CEO AIが依頼文から判定)
+  caseLabel?: string; // 案件種別の表示名(例: Instagram投稿)
   planMarkdown: string; // CEO実行計画(Markdown)
   planJson: string; // CEO実行計画(構造化JSON文字列)
   status: AgentRunStatus;
@@ -591,7 +593,16 @@ export interface AgentRun {
   completedAt: string | null;
 }
 
-export type DeliverableType = 'plan' | 'requirements' | 'copy' | 'review';
+export type DeliverableType =
+  | 'plan' // CEO実行計画
+  | 'requirements' // 要件整理書(Web制作)
+  | 'copy' // Web原稿
+  | 'review' // レビュー報告書
+  | 'brief' // 企画・構成案(SNS/デザイン/ドキュメント)
+  | 'sns_content' // SNS本文・キャプション/掲載コピー
+  | 'visual' // ビジュアル・デザイン案
+  | 'distribution' // 配信戦略・KPI設計
+  | 'document'; // 文書・記事の本文(提案書/企画書/ブログ)
 
 export interface DeliverableVersion {
   version: number;

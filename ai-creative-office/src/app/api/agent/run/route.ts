@@ -37,7 +37,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<RunResponse>>
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: '入力の検証に失敗しました(サイズ上限超過または必須項目不足)' }, { status: 400 });
   }
-  const { kind, request, context, revisionNotes } = parsed.data;
+  const { kind, request, context, revisionNotes, caseLabel } = parsed.data;
 
   const provider = getProvider();
   const maxTokens = Math.min(Number(process.env.AI_MAX_TOKENS_PER_TASK ?? 4000) || 4000, 8000);
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<RunResponse>>
   try {
     const result = await provider.generateStructuredOutput({
       system: SYSTEM_PROMPTS[kind],
-      prompt: buildUserPrompt(kind, request, context, revisionNotes),
+      prompt: buildUserPrompt(kind, request, context, revisionNotes, caseLabel),
       schema: SCHEMA_BY_KIND[kind] as ZodType<unknown>,
       maxTokens,
       maxRetries: 2,
