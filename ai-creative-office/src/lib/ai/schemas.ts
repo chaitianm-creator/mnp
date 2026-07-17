@@ -124,7 +124,27 @@ export const DistributionPlanSchema = z.object({
 });
 export type DistributionPlanOutput = z.infer<typeof DistributionPlanSchema>;
 
-export const RUN_KINDS = ['plan', 'director', 'writer', 'reviewer', 'brief', 'content', 'visual', 'distribution'] as const;
+/** CEOの相談出力(経営者・クリエイティブディレクターとしての一次回答) */
+export const CeoConsultSchema = z.object({
+  understanding: z.string(), // ①依頼内容の理解
+  objective: z.string(), // ②目的の整理(本当のゴール)
+  proposal: z.string(), // ③成果を出す方法の提案
+  reasoning: z.string(), // 判断根拠
+  productionApproach: z.string(), // ⑤最適な制作方法(フロー・チーム)
+  questions: z
+    .array(
+      z.object({
+        question: z.string(),
+        why: z.string(), // なぜ聞くか(成果物の質への影響)
+        options: z.array(z.string()), // 選択肢(2〜4個。自由回答でもよい)
+      }),
+    )
+    .max(2), // ④追加質問は最大2件。成果物の質に大きく影響する点のみ
+  readyToProceed: z.boolean(), // trueなら質問なしで制作へ進める
+});
+export type CeoConsultOutput = z.infer<typeof CeoConsultSchema>;
+
+export const RUN_KINDS = ['plan', 'director', 'writer', 'reviewer', 'brief', 'content', 'visual', 'distribution', 'consult'] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
 
 export const SCHEMA_BY_KIND = {
@@ -136,6 +156,7 @@ export const SCHEMA_BY_KIND = {
   content: ContentDraftSchema,
   visual: VisualDesignSchema,
   distribution: DistributionPlanSchema,
+  consult: CeoConsultSchema,
 } as const;
 
 /** /api/agent/run のリクエスト(入力サイズも制限) */

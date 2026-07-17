@@ -58,7 +58,38 @@ export class MockAIProvider extends BaseProvider {
     const { theme, audience, siteType } = themeOf(request);
     let payload: unknown;
 
-    if (options.system.includes('[ROLE:CEO]')) {
+    if (options.system.includes('[ROLE:CEO_CONSULT]')) {
+      // CEOの相談(経営者・クリエイティブディレクターとしての一次回答)
+      const def = caseOf(request);
+      const req = request.match(/【社長の依頼】\n([\s\S]+?)(\n\n|$)/)?.[1] ?? request;
+      // 曖昧さの判定: ターゲットと目的が読み取れない短い依頼は確認質問をする
+      const hasTarget = /向け|ターゲット|経営者|求職者|顧客|(\d0代)|既存客|新規/.test(req);
+      const hasPurpose = /目的|ため|増や|獲得|認知|集客|採用|問い合わせ|売上|紹介|告知|豆知識|改善|リニューアル/.test(req);
+      const questions: { question: string; why: string; options: string[] }[] = [];
+      if (!hasTarget) {
+        questions.push({
+          question: `この${def.label}は、どなたに届けたいですか?`,
+          why: 'ターゲットが変わると、言葉選び・デザイン・構成のすべてが変わります。ここが成果物の質を最も左右します',
+          options: ['中小企業の経営者', '一般消費者', '求職者(採用目的)', '既存のお客様'],
+        });
+      }
+      if (!hasPurpose) {
+        questions.push({
+          question: 'いちばん優先したい成果はどれですか?',
+          why: 'ゴールによって「何を強調し、何を削るか」の判断基準が変わるためです',
+          options: ['問い合わせ・相談を増やす', '認知を広げる(まず知ってもらう)', '信頼感を高める(ブランディング)', '採用応募を増やす'],
+        });
+      }
+      payload = {
+        understanding: `ご依頼は「${req.slice(0, 60)}」、種別としては${def.label}案件と受け取りました。単発の制作物ではなく、会社の${def.pipeline === 'sns' ? '認知獲得と見込み顧客との接点づくり' : def.pipeline === 'docs' ? '意思決定を前に進めるコミュニケーション' : '信頼獲得と問い合わせ導線'}の一手として捉えています。`,
+        objective: `本当のゴールは「${def.label}を作ること」ではなく、それを通じて${def.pipeline === 'sns' ? 'ターゲットの手を止め、保存・プロフィール訪問という次の行動につなげること' : def.pipeline === 'docs' ? '読み手が迷わず「次に進む」と判断できる材料を渡すこと' : 'ターゲットに「ここなら任せられる」と感じてもらい、行動につなげること'}だと整理しました。制作前にこのゴールを固定することで、途中の判断がぶれなくなります。`,
+        proposal: `成果を出すために、(1)ターゲットを1人まで絞り込み、その人の悩みから逆算して構成する、(2)伝えたいことを詰め込まず「1${def.pipeline === 'sns' ? '投稿' : '成果物'}=1メッセージ」に絞る、(3)完成後に反応を測る指標(${def.pipeline === 'sns' ? '保存率・プロフィール遷移' : '問い合わせ数・読了率'})を先に決めておく、の3点を提案します。特に(1)が品質の8割を決めます。`,
+        reasoning: `${def.label}で成果が出ないケースの多くは、内容の質ではなく「誰に何を伝えるか」の設計不足が原因です。逆にここが固まっていれば、後工程のライティングもデザインも判断が速く、修正も減ります。費用対効果の面でも、上流の整理に時間を使うのが最も効率的です。`,
+        productionApproach: `${def.departmentLabel}の${def.pipeline === 'sns' ? 'SNSディレクター→ライター→デザイナー→マーケティング→レビュアーの5工程' : def.pipeline === 'web' ? 'ディレクター→ライター→レビュアーの3工程' : def.pipeline === 'design' ? 'ディレクター→(ライター)→デザイナー→レビュアーの工程' : '構成→本文→レビューの3工程'}で制作します。各工程の成果物はすべて確認可能で、レビューで品質を担保してからお届けします。`,
+        questions,
+        readyToProceed: questions.length === 0,
+      };
+    } else if (options.system.includes('[ROLE:CEO]')) {
       // 案件種別に応じた実行計画(担当部署への振り分けを反映)
       const def = caseOf(request);
       const roleOf: Record<string, string> = { sns: 'sns', writer: 'writer', designer: 'designer', seo: 'seo', director: 'director' };

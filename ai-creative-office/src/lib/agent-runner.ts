@@ -19,6 +19,7 @@ import {
   writerToMarkdown,
 } from './ai/markdown';
 import type {
+  CeoConsultOutput,
   ContentDraftOutput,
   CreativeBriefOutput,
   DirectorDocOutput,
@@ -33,7 +34,7 @@ import type {
 } from './ai/schemas';
 import { CASE_DEFS, classifyRequest, type CaseDef, type PipelineStep } from './case-types';
 import { useOffice } from './store';
-import type { AgentRun, Deliverable, DeliverableType, RunTask } from './types';
+import type { AgentRun, CeoConsultMeta, ChatMessage, Deliverable, DeliverableType, RunTask } from './types';
 import { uid } from './utils';
 
 const nowIso = () => new Date().toISOString();
@@ -123,6 +124,113 @@ function makeDeliverable(
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
+}
+
+// ============================================================
+// ⓪ CEO相談フェーズ: 依頼理解 → 目的整理 → 提案 → (必要なら質問1〜2件) → 計画へ
+//   CEOは「言われた仕事を流す人」ではなく「成果を出す方法を考える人」
+// ============================================================
+
+function consultToMessage(c: CeoConsultOutput, caseLabel: string): string {
+  const parts = [
+    `承知しました。「${caseLabel}」のご依頼として、進め方を整理しました。`,
+    `\n■ ご依頼の理解\n${c.understanding}`,
+    `\n■ 目的の整理\n${c.objective}`,
+    `\n■ 成果を出すための提案\n${c.proposal}`,
+    `\n■ 判断根拠\n${c.reasoning}`,
+    `\n■ 制作の進め方\n${c.productionApproach}`,
+  ];
+  if (c.questions.length > 0) {
+    parts.push(
+      `\n■ 開始前に${c.questions.length}点だけ確認させてください(成果物の質に直結するためです)`,
+      ...c.questions.map((q, i) => `${i + 1}. ${q.question}\n(理由: ${q.why})`),
+      `\nご回答は次のメッセージでお送りください。判断をお任せいただく場合は「お任せで進める」を押してください。`,
+    );
+  } else {
+    parts.push(`\nこの内容で実行計画の作成に進みます。`);
+  }
+  return parts.join('\n');
+}
+
+/** 回答待ちのCEO相談メッセージを取得(あれば次の入力は回答として扱う) */
+export function getPendingConsult(): { messageId: string; request: string } | null {
+  const chat = useOffice.getState().chat;
+  for (let i = chat.length - 1; i >= 0; i--) {
+    const m = chat[i];
+    if (m.role === 'ceo_user') continue; // 直前の社長メッセージは読み飛ばす
+    if (m.consult && !m.consult.answered && m.consult.questions.length > 0) {
+      return { messageId: m.id, request: m.consult.request };
+    }
+    return null; // 直近のCEOメッセージが回答待ちの相談でなければ、通常の新規依頼として扱う
+  }
+  return null;
+}
+
+function markConsultAnswered(messageId: string) {
+  useOffice.setState((s) => ({
+    chat: s.chat.map((m) =>
+      m.id === messageId && m.consult ? { ...m, consult: { ...m.consult, answered: true } } : m,
+    ),
+  }));
+}
+
+/**
+ * CEOへの依頼の入口: まず相談(理解・目的・提案・確認)を返す。
+ * 確認質問がなければそのまま実行計画の作成まで進む。
+ * @returns 'asked'=質問への回答待ち / 'planned'=実行計画を作成済み
+ */
+export async function startCeoConsultation(request: string): Promise<'asked' | 'planned'> {
+  const store = useOffice.getState();
+  const caseDef = CASE_DEFS[classifyRequest(request)];
+  store.setAgentRunActivity('ceo', '依頼の目的を整理しています', 'desk', 15);
+  pushLog('ceo', `社長の依頼を受領しました: 「${request.slice(0, 50)}」目的の整理と進め方の検討を開始します。`);
+
+  const { data, usage } = await callAgent('consult', request, undefined, undefined, caseDef.label);
+  const consult = data as CeoConsultOutput;
+  useOffice.getState().recordRunUsage('ceo', usage, null);
+
+  const meta: CeoConsultMeta = {
+    request,
+    questions: consult.questions,
+    answered: consult.questions.length === 0,
+  };
+  const msg: ChatMessage = {
+    id: uid('chat'),
+    role: 'ceo_ai',
+    content: consultToMessage(consult, caseDef.label),
+    consult: meta,
+    timestamp: nowIso(),
+  };
+  useOffice.setState((s) => ({ chat: [...s.chat, msg] }));
+
+  if (consult.questions.length > 0) {
+    useOffice.getState().setAgentRunActivity('ceo', '社長への確認事項の回答待ち', 'desk', 40);
+    pushLog('ceo', `成果物の質に影響する確認事項${consult.questions.length}件を社長へ質問しました。`, 'info');
+    return 'asked';
+  }
+  pushLog('ceo', '目的と進め方を整理しました。実行計画の作成へ進みます。', 'success');
+  await createRunPlan(request);
+  return 'planned';
+}
+
+/** 確認質問への回答を受けて実行計画を作成する */
+export async function answerCeoConsultation(messageId: string, answer: string): Promise<string> {
+  const pending = getPendingConsult();
+  const request = pending?.messageId === messageId ? pending.request : (pending?.request ?? answer);
+  markConsultAnswered(messageId);
+  pushLog('ceo', '社長からの回答を受領しました。内容を反映して実行計画を作成します。', 'success');
+  const combined = `${request}\n\n【社長からの補足(確認への回答)】\n${answer}`;
+  return createRunPlan(combined);
+}
+
+/** 「お任せで進める」: 質問には回答せず、CEOの妥当な仮定で進める */
+export async function proceedWithoutAnswers(messageId: string): Promise<string> {
+  const pending = getPendingConsult();
+  const request = pending?.messageId === messageId ? pending.request : (pending?.request ?? '');
+  markConsultAnswered(messageId);
+  pushLog('ceo', '社長より一任いただきました。妥当な仮定を明記して実行計画を作成します。', 'info');
+  const combined = `${request}\n\n【社長からの補足】確認事項は一任します。妥当な仮定を明記して進めてください。`;
+  return createRunPlan(combined);
 }
 
 /** ① 社長の依頼 → CEO AIが案件種別を判定し、実行計画を作成(実行はまだしない) */

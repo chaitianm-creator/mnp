@@ -391,6 +391,13 @@ export interface ErrorRecord {
   resolved: boolean;
 }
 
+/** CEO AIの相談(依頼理解→目的整理→提案→確認質問)メタデータ */
+export interface CeoConsultMeta {
+  request: string; // 元の依頼文
+  questions: { question: string; why: string; options: string[] }[]; // 最大2件
+  answered?: boolean; // 回答済み(または「お任せ」で進行済み)
+}
+
 export interface ChatMessage {
   id: string;
   role: 'ceo_user' | 'ceo_ai';
@@ -398,6 +405,7 @@ export interface ChatMessage {
   plan?: ExecutionPlan;
   planStatus?: 'proposed' | 'started' | 'discarded';
   runId?: string; // AI実働ラン(AgentRun)に紐づくメッセージ
+  consult?: CeoConsultMeta; // CEOの相談メッセージ(質問が残っていれば回答待ち)
   timestamp: string;
 }
 

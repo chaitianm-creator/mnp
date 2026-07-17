@@ -5,7 +5,7 @@
 import { AgentChat } from '@/components/agent-chat';
 import { AgentAvatar, AgentStatusBadge } from '@/components/agent-bits';
 import { RunCard } from '@/components/run-card';
-import { createRunPlan } from '@/lib/agent-runner';
+import { answerCeoConsultation, getPendingConsult, proceedWithoutAnswers, startCeoConsultation } from '@/lib/agent-runner';
 import { useOffice } from '@/lib/store';
 import { cn, formatDateTime, uid, yen } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Loader2, Play, Send, Sparkles, Trash2 } from 'lucide-react';
@@ -139,6 +139,8 @@ function CeoThread({ onBack }: { onBack: () => void }) {
 
   const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? id;
 
+  const pendingConsult = chat.length > 0 ? getPendingConsult() : null;
+
   const submit = async () => {
     const request = input.trim();
     if (!request || planning) return;
@@ -152,15 +154,32 @@ function CeoThread({ onBack }: { onBack: () => void }) {
     }));
     setPlanning(true);
     try {
-      await createRunPlan(request);
+      const pending = getPendingConsult();
+      if (pending) {
+        await answerCeoConsultation(pending.messageId, request);
+      } else {
+        await startCeoConsultation(request);
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : '計画の作成に失敗しました';
       useOffice.setState((s) => ({
         chat: [
           ...s.chat,
-          { id: uid('chat'), role: 'ceo_ai' as const, content: `申し訳ありません、実行計画の作成に失敗しました: ${message}\nもう一度お試しください。`, timestamp: new Date().toISOString() },
+          { id: uid('chat'), role: 'ceo_ai' as const, content: `申し訳ありません、処理に失敗しました: ${message}\nもう一度お試しください。`, timestamp: new Date().toISOString() },
         ],
       }));
+    } finally {
+      setPlanning(false);
+    }
+  };
+
+  const omakase = async (messageId: string) => {
+    if (planning) return;
+    setPlanning(true);
+    try {
+      await proceedWithoutAnswers(messageId);
+    } catch {
+      // エラーはチャット側のメッセージで通知済み
     } finally {
       setPlanning(false);
     }
@@ -247,6 +266,41 @@ function CeoThread({ onBack }: { onBack: () => void }) {
                     )}
                   </div>
                 )}
+                {/* CEOの確認質問(スマホ: 選択肢タップで回答を入力欄へ) */}
+                {msg.consult && msg.consult.questions.length > 0 && (
+                  <div className="mt-2.5 rounded-xl border border-brand-200 bg-brand-50/40 p-2.5">
+                    <p className="text-[11px] font-bold text-brand-800">💬 確認事項への回答</p>
+                    {msg.consult.answered ? (
+                      <p className="mt-1.5 rounded-lg bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700">✅ 回答済み。実行計画を作成しました。</p>
+                    ) : (
+                      <>
+                        {msg.consult.questions.map((q, qi) => (
+                          <div key={qi} className="mt-1.5">
+                            <p className="text-[11px] font-semibold text-slate-700">{qi + 1}. {q.question}</p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {q.options.map((opt) => (
+                                <button
+                                  key={opt}
+                                  onClick={() => setInput((cur) => (cur ? `${cur} / ${opt}` : `${q.question} → ${opt}`))}
+                                  className="rounded-full border border-brand-200 bg-white px-2 py-1 text-[10.5px] text-brand-700 outline-none active:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => omakase(msg.id)}
+                          disabled={planning}
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-[11px] font-medium text-slate-600 outline-none active:bg-slate-50 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+                        >
+                          お任せで進める
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
                 {msg.runId && <RunCard runId={msg.runId} onModify={(req) => setInput(req)} />}
               </div>
             </div>
@@ -281,7 +335,7 @@ function CeoThread({ onBack }: { onBack: () => void }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
-            placeholder={aiMode ? 'AI社員への依頼を入力…' : 'CEO AIへ指示を入力…'}
+            placeholder={pendingConsult ? '確認事項へのご回答を入力…' : aiMode ? 'AI社員への依頼を入力…' : 'CEO AIへ指示を入力…'}
             disabled={planning}
             aria-label="CEO AIへのメッセージ入力"
             className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 disabled:opacity-60"

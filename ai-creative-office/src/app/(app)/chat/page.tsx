@@ -4,7 +4,7 @@
 // 「AI実働」: 依頼→CEO計画→承認→ディレクター/ライター/レビュアーが実際の成果物を生成
 import { RunCard } from '@/components/run-card';
 import { Button, PageHeader } from '@/components/ui';
-import { createRunPlan } from '@/lib/agent-runner';
+import { answerCeoConsultation, getPendingConsult, proceedWithoutAnswers, startCeoConsultation } from '@/lib/agent-runner';
 import { useOffice } from '@/lib/store';
 import { formatDateTime, uid, yen } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -47,6 +47,8 @@ export default function ChatPage() {
 
   const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? id;
 
+  const pendingConsult = chat.length > 0 ? getPendingConsult() : null;
+
   const submit = async () => {
     const request = input.trim();
     if (!request || planning) return;
@@ -55,20 +57,40 @@ export default function ChatPage() {
       sendChat(request);
       return;
     }
-    // AI実働: CEO AIが実行計画を生成(承認まで実行しない)
+    // AI実働: CEOがまず依頼を理解・目的整理・提案し、必要なら確認質問(承認まで実行しない)
     useOffice.setState((s) => ({
       chat: [...s.chat, { id: uid('chat'), role: 'ceo_user' as const, content: request, timestamp: new Date().toISOString() }],
     }));
     setPlanning(true);
     try {
-      await createRunPlan(request);
+      const pending = getPendingConsult();
+      if (pending) {
+        await answerCeoConsultation(pending.messageId, request); // 確認への回答として計画作成へ
+      } else {
+        await startCeoConsultation(request); // 相談 → (質問なしなら)計画作成
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : '計画の作成に失敗しました';
       useOffice.setState((s) => ({
         chat: [
           ...s.chat,
-          { id: uid('chat'), role: 'ceo_ai' as const, content: `申し訳ありません、実行計画の作成に失敗しました: ${message}\nもう一度お試しください。`, timestamp: new Date().toISOString() },
+          { id: uid('chat'), role: 'ceo_ai' as const, content: `申し訳ありません、処理に失敗しました: ${message}\nもう一度お試しください。`, timestamp: new Date().toISOString() },
         ],
+      }));
+    } finally {
+      setPlanning(false);
+    }
+  };
+
+  const omakase = async (messageId: string) => {
+    if (planning) return;
+    setPlanning(true);
+    try {
+      await proceedWithoutAnswers(messageId);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '計画の作成に失敗しました';
+      useOffice.setState((s) => ({
+        chat: [...s.chat, { id: uid('chat'), role: 'ceo_ai' as const, content: `申し訳ありません、処理に失敗しました: ${message}`, timestamp: new Date().toISOString() }],
       }));
     } finally {
       setPlanning(false);
@@ -112,8 +134,8 @@ export default function ChatPage() {
               <div
                 className={
                   msg.role === 'ceo_user'
-                    ? 'rounded-2xl rounded-tr-sm bg-gradient-to-r from-brand-600 to-accent-600 px-4 py-2.5 text-sm text-white'
-                    : 'rounded-2xl rounded-tl-sm border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700'
+                    ? 'whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-gradient-to-r from-brand-600 to-accent-600 px-4 py-2.5 text-sm text-white'
+                    : 'whitespace-pre-wrap rounded-2xl rounded-tl-sm border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm leading-relaxed text-slate-700'
                 }
               >
                 {msg.content}
@@ -165,6 +187,40 @@ export default function ChatPage() {
                     )}
                   </div>
                 )}
+                {/* CEOの確認質問(選択肢クリックで回答を入力欄へ) */}
+                {msg.consult && msg.consult.questions.length > 0 && (
+                  <div className="mt-3 rounded-xl border border-brand-200 bg-brand-50/40 p-3">
+                    <p className="text-xs font-bold text-brand-800">💬 確認事項への回答</p>
+                    {msg.consult.answered ? (
+                      <p className="mt-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-700">✅ 回答済み。実行計画を作成しました。</p>
+                    ) : (
+                      <>
+                        {msg.consult.questions.map((q, qi) => (
+                          <div key={qi} className="mt-2">
+                            <p className="text-xs font-semibold text-slate-700">{qi + 1}. {q.question}</p>
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              {q.options.map((opt) => (
+                                <button
+                                  key={opt}
+                                  onClick={() => setInput((cur) => (cur ? `${cur} / ${opt}` : `${q.question} → ${opt}`))}
+                                  className="rounded-full border border-brand-200 bg-white px-2.5 py-1 text-[11px] text-brand-700 outline-none transition hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="mt-2.5 flex items-center gap-2">
+                          <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => omakase(msg.id)} disabled={planning}>
+                            お任せで進める
+                          </Button>
+                          <p className="text-[10px] text-slate-400">選択肢をクリックするか、下の入力欄へ直接ご回答ください</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
                 {msg.runId && <RunCard runId={msg.runId} onModify={(req) => setInput(req)} />}
               </div>
             </div>
@@ -173,7 +229,7 @@ export default function ChatPage() {
         {planning && (
           <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
-            CEO AIが依頼を分析し、実行計画を作成しています…
+            CEO AIが依頼の目的を整理し、進め方を検討しています…
           </div>
         )}
         <div ref={bottomRef} />
@@ -206,7 +262,7 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
-            placeholder={aiMode ? 'AI社員への依頼を入力…(例: 採用サイトの企画案を作って)' : 'CEO AIへ指示を入力…'}
+            placeholder={pendingConsult ? 'CEOの確認事項へのご回答を入力…' : aiMode ? 'AI社員への依頼を入力…(例: 採用サイトの企画案を作って)' : 'CEO AIへ指示を入力…'}
             disabled={planning}
             className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-brand-400 disabled:opacity-60"
           />
