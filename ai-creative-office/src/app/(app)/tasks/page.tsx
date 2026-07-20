@@ -15,14 +15,16 @@ type ViewMode = 'kanban' | 'list' | 'agent';
 export default function TasksPage() {
   const tasks = useOffice((s) => s.tasks);
   const agents = useOffice((s) => s.agents);
+  const taskRooms = useOffice((s) => s.taskRooms);
   const [view, setView] = useState<ViewMode>('kanban');
   const agentName = (id: string | null) => agents.find((a) => a.id === id)?.name ?? '—';
+  const unreadOf = (taskId: string) => taskRooms[taskId]?.unreadCount ?? 0;
 
   return (
     <div>
       <PageHeader
         title="タスク管理"
-        sub={`全${tasks.length}件`}
+        sub={`全${tasks.length}件 — タスクをクリックすると専用の案件ルームが開きます`}
         action={
           <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
             {(
@@ -63,7 +65,7 @@ export default function TasksPage() {
                   </div>
                   <div className="space-y-2">
                     {columnTasks.map((task) => (
-                      <TaskCard key={task.id} task={task} agentName={agentName(task.assigneeId)} />
+                      <TaskCard key={task.id} task={task} agentName={agentName(task.assigneeId)} unread={unreadOf(task.id)} />
                     ))}
                     {columnTasks.length === 0 && (
                       <p className="rounded-lg border border-dashed border-slate-200 py-4 text-center text-[10px] text-slate-400">
@@ -100,6 +102,11 @@ export default function TasksPage() {
                     </Link>
                     {task.category && (
                       <span className="ml-1.5 rounded bg-sky-50 px-1 py-0.5 text-[9px] font-medium text-sky-700">{task.category}</span>
+                    )}
+                    {unreadOf(task.id) > 0 && (
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                        {unreadOf(task.id)}
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-slate-500">{agentName(task.assigneeId)}</td>
@@ -140,7 +147,7 @@ export default function TasksPage() {
                   </div>
                   <div className="space-y-2">
                     {agentTasks.slice(0, 5).map((task) => (
-                      <TaskCard key={task.id} task={task} agentName="" />
+                      <TaskCard key={task.id} task={task} agentName="" unread={unreadOf(task.id)} />
                     ))}
                   </div>
                 </Card>
@@ -152,25 +159,41 @@ export default function TasksPage() {
   );
 }
 
-function TaskCard({ task, agentName }: { task: Task; agentName: string }) {
+function TaskCard({ task, agentName, unread = 0 }: { task: Task; agentName: string; unread?: number }) {
+  const st = TASK_STATUS[task.status];
   return (
     <motion.div layout initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}>
       <Link
         href={`/tasks/${task.id}`}
+        aria-label={`案件ルームを開く: ${task.title}`}
         className="block rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm transition hover:border-brand-300"
       >
-        <p className="text-xs font-semibold leading-snug text-slate-800">{task.title}</p>
-        <div className="mt-1.5 flex items-center gap-1.5">
+        <div className="flex items-start gap-1.5">
+          <p className="min-w-0 flex-1 text-xs font-semibold leading-snug text-slate-800">{task.title}</p>
+          {unread > 0 && (
+            <span
+              className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white"
+              aria-label={`未対応${unread}件`}
+            >
+              {unread}
+            </span>
+          )}
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           {task.category && (
             <span className="rounded bg-sky-50 px-1 py-0.5 text-[9px] font-medium text-sky-700">{task.category}</span>
           )}
-          {agentName && <span className="truncate text-[10px] text-slate-400">{agentName}</span>}
+          <span className={cn('rounded px-1 py-0.5 text-[9px] font-medium', st.bg, st.color)}>{st.label}</span>
           <span className={cn('ml-auto text-[10px] font-semibold', TASK_PRIORITY[task.priority].color)}>
             {TASK_PRIORITY[task.priority].label}
           </span>
           {task.needsApproval && (
             <span className="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-medium text-amber-700">要承認</span>
           )}
+        </div>
+        <div className="mt-1.5 flex items-center gap-1.5 text-[9.5px] text-slate-400">
+          {agentName && <span className="truncate">🤖 {agentName}</span>}
+          <span className="ml-auto tabular-nums">{task.deadline ? `期限 ${formatDate(task.deadline)}` : '期限なし'}</span>
         </div>
         {task.status === 'running' && (
           <div className="mt-1.5 flex items-center gap-1.5">

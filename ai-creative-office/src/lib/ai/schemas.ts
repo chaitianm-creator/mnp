@@ -190,7 +190,21 @@ export const CeoResearchSchema = z.object({
 });
 export type CeoResearchOutput = z.infer<typeof CeoResearchSchema>;
 
-export const RUN_KINDS = ['plan', 'director', 'writer', 'reviewer', 'brief', 'content', 'visual', 'distribution', 'consult', 'advise', 'research'] as const;
+/** 案件ルームのタスクアシスタント(秘書AI): 返信+提案整理+必要なら成果物下書き */
+export const TaskWorkSchema = z.object({
+  reply: z.string(), // 案件チャットへの返信(簡潔に)
+  suggestions: z.object({
+    approaches: z.array(z.string()).max(4), // 対応方針の提案
+    checkpoints: z.array(z.string()).max(4), // 確認すべきこと
+    nextActions: z.array(z.string()).max(4), // 次のアクション
+    missingInfo: z.array(z.string()).max(4), // 不足している情報
+  }),
+  // 返信文・下書きなどの成果物が求められている場合のみ作成(不要ならnull)
+  artifact: z.object({ title: z.string(), kind: z.string(), content: z.string() }).nullable(),
+});
+export type TaskWorkOutput = z.infer<typeof TaskWorkSchema>;
+
+export const RUN_KINDS = ['plan', 'director', 'writer', 'reviewer', 'brief', 'content', 'visual', 'distribution', 'consult', 'advise', 'research', 'taskwork'] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
 
 export const SCHEMA_BY_KIND = {
@@ -205,6 +219,7 @@ export const SCHEMA_BY_KIND = {
   consult: CeoConsultSchema,
   advise: CeoAdviceSchema,
   research: CeoResearchSchema,
+  taskwork: TaskWorkSchema,
 } as const;
 
 /** /api/agent/run のリクエスト(入力サイズも制限) */

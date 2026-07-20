@@ -130,6 +130,58 @@ export interface Task {
   createdAt: string;
 }
 
+// ---------- 案件ルーム(1タスク=1ルーム。会話・成果物・提案を案件ごとに完全分離) ----------
+
+/** 案件ルーム内のチャットメッセージ(このタスク専用。他の案件・チャットと混ざらない) */
+export interface TaskRoomMessage {
+  id: string;
+  role: 'user' | 'ai';
+  content: string;
+  agentId?: string; // 発言したAI社員のID(未指定は秘書AI)
+  timestamp: string;
+}
+
+/** 案件ルームの成果物(返信文案・下書きなど。コピー/編集/保存/削除/最新版設定が可能) */
+export interface TaskArtifact {
+  id: string;
+  title: string;
+  kind: string; // 例: 返信文案 / 下書き / メモ
+  content: string;
+  isLatest: boolean; // 最新版として採用中か
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 案件ルームの活動履歴(いつ・誰が・何をしたか) */
+export interface TaskActivity {
+  id: string;
+  message: string;
+  timestamp: string;
+}
+
+/** AI提案エリアの内容(対応方針・確認事項・次のアクション・不足情報) */
+export interface TaskSuggestions {
+  approaches: string[]; // 対応方針の提案
+  checkpoints: string[]; // 確認すべきこと
+  nextActions: string[]; // 次のアクション
+  missingInfo: string[]; // 不足している情報
+  updatedAt: string;
+}
+
+/** 案件ルーム(タスク1件につき1ルーム。taskIdで紐づく) */
+export interface TaskRoom {
+  taskId: string;
+  sourceRequest: string; // 元の指示・依頼内容の全文(省略なしで保存)
+  messages: TaskRoomMessage[]; // 案件専用チャット履歴
+  artifacts: TaskArtifact[]; // 成果物(返信文案など)
+  activities: TaskActivity[]; // 活動履歴
+  suggestions: TaskSuggestions | null; // AI提案エリア
+  autoDrafted: boolean; // 「返事の文を考えて」等への自動下書きを実行済みか
+  unreadCount: number; // 未対応件数(未確認のAI返信・成果物)
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ApprovalType =
   | 'email_send' // メール送信
   | 'form_send' // フォーム送信

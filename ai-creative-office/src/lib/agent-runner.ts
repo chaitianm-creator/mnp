@@ -34,8 +34,8 @@ import type {
 } from './ai/schemas';
 import { CASE_DEFS, classifyRequest, type CaseDef, type PipelineStep } from './case-types';
 import { useOffice } from './store';
-import type { CeoAdviceOutput, CeoResearchOutput, ReviewPanelOutput } from './ai/schemas';
-import type { AgentRun, CeoConsultMeta, ChatMessage, Deliverable, DeliverableType, RunTask } from './types';
+import type { CeoAdviceOutput, CeoResearchOutput, ReviewPanelOutput, TaskWorkOutput } from './ai/schemas';
+import type { AgentRun, CeoConsultMeta, ChatMessage, Deliverable, DeliverableType, RunTask, Task, TaskRoom } from './types';
 import { uid } from './utils';
 
 const nowIso = () => new Date().toISOString();
@@ -241,7 +241,7 @@ export function classifyTask(title: string): TaskClassification {
       : 'medium';
   const has = (re: RegExp) => re.test(t) || re.test(title);
 
-  if (has(/返信|メール対応|問い合わせ|連絡|返答/)) return { category: '返信', assigneeId: 'reception', priority };
+  if (has(/返信|返事|メール対応|問い合わせ|連絡|返答/)) return { category: '返信', assigneeId: 'reception', priority };
   if (has(/facebook|threads|スレッズ|instagram|インスタ|リール|カルーセル|x投稿|ツイート|sns|投稿|日記/)) return { category: 'SNS', assigneeId: 'sns', priority };
   if (has(/バナー|チラシ|ロゴ|デザイン|画像/)) return { category: 'デザイン', assigneeId: 'designer', priority };
   if (has(/ブログ|記事|原稿|ライティング|コラム/)) return { category: '記事', assigneeId: 'writer', priority };
@@ -251,16 +251,32 @@ export function classifyTask(title: string): TaskClassification {
   return { category: 'その他', assigneeId: 'secretary', priority };
 }
 
+/** 「〇〇の返事の文を考えて欲しい」等から、タスク名に不要な依頼表現を取り除く */
+export function cleanTaskTitle(raw: string): string {
+  let t = raw.trim().replace(/[。.]+$/, '');
+  t = t
+    .replace(/(を|の)?(文章?|文面|返信文|下書き)?を?(考えて|作って|書いて|作成して)(ほしい|欲しい|ください)?$/, '')
+    .replace(/(して)?(ほしい|欲しい|ください|お願いします|お願い)$/, '')
+    .replace(/[のをはが]$/, '')
+    .trim();
+  return t || raw.trim();
+}
+
+/** 依頼文が「返信文・下書きを考えてほしい」内容か(案件ルームでの自動下書き対象) */
+export const wantsDraft = (text: string): boolean => /返信|返事|文を考え|文面|下書き|ドラフト/.test(text);
+
 /**
  * AI秘書モード: 入力をタスク候補として/tasksへ登録する。
+ * 各タスクには元の入力文(全文)を保存し、専用の案件ルームを同時に作成する。
  * AI社員への依頼・制作ランは一切行わない(社長の頭の中を整理する場所)
  */
-export function registerTasksFromChat(items: string[]): number {
-  const tasks = items.map((title) => {
-    const c = classifyTask(title);
+export function registerTasksFromChat(items: string[], sourceText?: string): number {
+  const source = (sourceText ?? items.join('\n')).trim();
+  const tasks: Task[] = items.map((item) => {
+    const c = classifyTask(item);
     return {
       id: uid('task'),
-      title,
+      title: cleanTaskTitle(item),
       description: `社長指示チャット(AI秘書)から登録 — カテゴリ: ${c.category}`,
       category: c.category,
       assigneeId: c.assigneeId,
@@ -277,7 +293,8 @@ export function registerTasksFromChat(items: string[]): number {
       needsApproval: false,
       approver: null,
       dependsOn: [],
-      input: null,
+      // 元の指示・依頼内容(このタスクの行 + 全文)を省略なしで保存する
+      input: items.length > 1 ? `${item}\n\n【社長指示チャットの元の入力(全文)】\n${source}` : source,
       output: null,
       model: 'なし(未実行)',
       inputTokens: 0,
@@ -287,15 +304,186 @@ export function registerTasksFromChat(items: string[]): number {
       createdAt: nowIso(),
     };
   });
+  // 1タスク=1案件ルームを同時に作成(会話・成果物は案件ごとに分離)
+  const rooms: Record<string, TaskRoom> = {};
+  for (const t of tasks) {
+    rooms[t.id] = {
+      taskId: t.id,
+      sourceRequest: t.input ?? '',
+      messages: [],
+      artifacts: [],
+      activities: [{ id: uid('act'), message: '社長指示チャットからタスクを登録し、案件ルームを作成しました', timestamp: nowIso() }],
+      suggestions: null,
+      autoDrafted: false,
+      unreadCount: 0,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+  }
   useOffice.setState((s) => ({
     tasks: [...tasks, ...s.tasks],
+    taskRooms: { ...s.taskRooms, ...rooms },
     chat: [
       ...s.chat,
       { id: uid('chat'), role: 'ceo_ai' as const, content: `${tasks.length}件のタスクを登録しました。`, timestamp: nowIso() },
     ],
   }));
-  pushLog('secretary', `AI秘書: 社長のタスク${tasks.length}件を整理して登録しました(${Array.from(new Set(tasks.map((t) => t.category))).join('・')})。`, 'success');
+  pushLog('secretary', `AI秘書: 社長のタスク${tasks.length}件を整理して登録しました(${Array.from(new Set(tasks.map((t) => t.category ?? 'その他'))).join('・')})。`, 'success');
   return tasks.length;
+}
+
+// ============================================================
+// 案件ルーム: タスク専用チャット・AI提案・成果物の生成
+// (この会話はルーム内に閉じる。SNSディレクター等への発注は行わない)
+// ============================================================
+
+/** タスク内容から担当AIの候補を返す(自動実行はせず、選択肢の提示のみ) */
+export function assigneeCandidates(task: Task): { agentId: string; reason: string }[] {
+  const text = `${task.title} ${task.category ?? ''}`;
+  if (/返信|返事|問い合わせ|連絡/.test(text)) {
+    return [
+      { agentId: 'reception', reason: '問い合わせ対応・一次返信が担当領域' },
+      { agentId: 'secretary', reason: '日程調整・丁寧な事務連絡が得意' },
+      { agentId: 'writer', reason: '文面のトーン調整・推敲が得意' },
+    ];
+  }
+  if (/sns|インスタ|instagram|threads|facebook|x投稿|リール|投稿|日記/i.test(text)) {
+    return [
+      { agentId: 'sns', reason: 'SNS企画・投稿設計が担当領域' },
+      { agentId: 'writer', reason: 'キャプション・本文の執筆が得意' },
+    ];
+  }
+  if (/バナー|チラシ|ロゴ|デザイン|画像/.test(text)) {
+    return [
+      { agentId: 'designer', reason: 'デザイン制作が担当領域' },
+      { agentId: 'director', reason: '要件整理からの進行が得意' },
+    ];
+  }
+  if (/ブログ|記事|原稿|コラム|ライティング/.test(text)) {
+    return [
+      { agentId: 'writer', reason: '記事・原稿の執筆が担当領域' },
+      { agentId: 'seo', reason: '検索意図・構成設計が得意' },
+    ];
+  }
+  if (/hp|ホームページ|サイト|lp|web|修正|ページ/i.test(text)) {
+    return [
+      { agentId: 'director', reason: 'Web制作の要件整理・進行が担当領域' },
+      { agentId: 'coder', reason: '実装・修正作業が得意' },
+    ];
+  }
+  if (/提案書|企画書|資料|見積/.test(text)) {
+    return [
+      { agentId: 'director', reason: '資料の構成設計が担当領域' },
+      { agentId: 'writer', reason: '本文の執筆が得意' },
+    ];
+  }
+  if (/請求|経理|支払|振込|入金/.test(text)) {
+    return [{ agentId: 'accountant', reason: '経理・支払管理が担当領域' }];
+  }
+  return [
+    { agentId: 'secretary', reason: '仕事の整理・段取りが担当領域' },
+    { agentId: 'writer', reason: '文章化・下書き作成が得意' },
+  ];
+}
+
+/** ルームのAI呼び出し用コンテキスト(元依頼+タスク情報+直近の会話+最新成果物) */
+function buildRoomContext(taskId: string): string {
+  const s = useOffice.getState();
+  const task = s.tasks.find((t) => t.id === taskId);
+  const room = s.taskRooms[taskId];
+  const parts: string[] = [];
+  if (task) parts.push(`【タスク情報】タスク名: ${task.title} / カテゴリ: ${task.category ?? '未分類'} / 優先度: ${task.priority} / 期限: ${task.deadline ?? '未設定'}`);
+  if (room?.sourceRequest) parts.push(`【元の指示・依頼内容(全文)】\n${room.sourceRequest}`);
+  const recent = (room?.messages ?? []).slice(-8);
+  if (recent.length > 0) parts.push(`【この案件のこれまでの会話】\n${recent.map((m) => `${m.role === 'user' ? '社長' : 'AI'}: ${m.content}`).join('\n')}`);
+  const latest = room?.artifacts.find((a) => a.isLatest);
+  if (latest) parts.push(`【現在の最新版成果物: ${latest.title}】\n${latest.content}`);
+  return parts.join('\n\n').slice(0, 20000);
+}
+
+/** taskworkの結果(提案・成果物)をルームへ反映する共通処理 */
+function applyTaskWork(taskId: string, out: TaskWorkOutput, agentId: string) {
+  const s = useOffice.getState();
+  s.setRoomSuggestions(taskId, out.suggestions);
+  if (out.artifact) s.addRoomArtifact(taskId, out.artifact);
+  s.addRoomMessage(taskId, { role: 'ai', content: out.reply, agentId });
+}
+
+// 実行中ルームの二重送信防止
+const busyRooms = new Set<string>();
+export const isRoomBusy = (taskId: string) => busyRooms.has(taskId);
+
+/**
+ * 案件専用チャットへの送信。会話はこのタスクのルーム内にのみ保存され、
+ * 他の案件・社長指示チャットとは混ざらない。SNSディレクター等への発注も行わない。
+ */
+export async function sendTaskRoomMessage(taskId: string, text: string): Promise<void> {
+  const trimmed = text.trim();
+  if (!trimmed || busyRooms.has(taskId)) return;
+  busyRooms.add(taskId);
+  try {
+    const s = useOffice.getState();
+    s.ensureTaskRoom(taskId);
+    const task = s.tasks.find((t) => t.id === taskId);
+    const agentId = task?.assigneeId ?? 'secretary';
+    useOffice.getState().addRoomMessage(taskId, { role: 'user', content: trimmed });
+    const { data, usage } = await callAgent('taskwork', trimmed, buildRoomContext(taskId));
+    useOffice.getState().recordRunUsage(agentId, usage, taskId);
+    applyTaskWork(taskId, data as TaskWorkOutput, agentId);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'AI実行に失敗しました';
+    useOffice.getState().addRoomMessage(taskId, { role: 'ai', content: `申し訳ありません、処理に失敗しました(${message})。少し待ってからもう一度お試しください。` });
+  } finally {
+    busyRooms.delete(taskId);
+  }
+}
+
+/** AI提案エリアの生成(対応方針・確認事項・次のアクション・不足情報の整理のみ) */
+export async function generateTaskSuggestions(taskId: string): Promise<void> {
+  if (busyRooms.has(taskId)) return;
+  busyRooms.add(taskId);
+  try {
+    const s = useOffice.getState();
+    s.ensureTaskRoom(taskId);
+    const task = s.tasks.find((t) => t.id === taskId);
+    const agentId = task?.assigneeId ?? 'secretary';
+    const { data, usage } = await callAgent('taskwork', 'このタスクの対応方針・確認すべきこと・次のアクション・不足している情報を整理してください。', buildRoomContext(taskId));
+    useOffice.getState().recordRunUsage(agentId, usage, taskId);
+    applyTaskWork(taskId, data as TaskWorkOutput, agentId);
+    useOffice.getState().addRoomActivity(taskId, 'AI提案(対応方針・確認事項・次のアクション)を作成しました');
+  } catch {
+    useOffice.getState().addRoomMessage(taskId, { role: 'ai', content: 'AI提案の作成に失敗しました。少し待ってからもう一度お試しください。' });
+  } finally {
+    busyRooms.delete(taskId);
+  }
+}
+
+/**
+ * 元の依頼が「返事の文を考えて欲しい」等の場合、ルーム初回表示で自動下書きを作成する。
+ * SNSディレクター等への発注や外部送信は行わない(下書きの保存まで)。
+ */
+export async function autoDraftIfRequested(taskId: string): Promise<void> {
+  const s = useOffice.getState();
+  const room = s.taskRooms[taskId];
+  if (!room || room.autoDrafted || busyRooms.has(taskId)) return;
+  if (!wantsDraft(room.sourceRequest)) {
+    return;
+  }
+  s.markRoomAutoDrafted(taskId); // 先にマークして二重実行を防止
+  busyRooms.add(taskId);
+  try {
+    const task = s.tasks.find((t) => t.id === taskId);
+    const agentId = task?.assigneeId ?? 'secretary';
+    // 元の依頼文そのものをリクエストとして渡す(下書き指示は依頼文に含まれている)
+    const { data, usage } = await callAgent('taskwork', room.sourceRequest, buildRoomContext(taskId));
+    useOffice.getState().recordRunUsage(agentId, usage, taskId);
+    applyTaskWork(taskId, data as TaskWorkOutput, agentId);
+    useOffice.getState().addRoomActivity(taskId, '元の依頼内容から下書きを自動作成しました(送信はしていません)');
+  } catch {
+    useOffice.getState().markRoomAutoDrafted(taskId);
+  } finally {
+    busyRooms.delete(taskId);
+  }
 }
 
 const reviewPanelText = (p: ReviewPanelOutput): string =>
@@ -437,7 +625,7 @@ export async function handleCeoMessage(text: string): Promise<void> {
   if (mode === 'tasks') {
     // AI秘書: 箇条書き・名詞句はタスク候補として登録のみ(AI社員への依頼はしない)
     const items = parseBulletTasks(text) ?? [text.trim()];
-    registerTasksFromChat(items);
+    registerTasksFromChat(items, text);
     return;
   }
   if (mode === 'research') {
