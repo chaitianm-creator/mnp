@@ -124,7 +124,73 @@ export const DistributionPlanSchema = z.object({
 });
 export type DistributionPlanOutput = z.infer<typeof DistributionPlanSchema>;
 
-export const RUN_KINDS = ['plan', 'director', 'writer', 'reviewer', 'brief', 'content', 'visual', 'distribution'] as const;
+/** CEOの相談出力(CEO=経営判断の短い一次回答 + ディレクター=制作判断の引き継ぎ) */
+export const CeoConsultSchema = z.object({
+  shortReply: z.string(), // CEOの一次回答(100〜200字: 依頼の理解+簡単な提案のみ)
+  directorComment: z.string(), // 引き継いだ専門ディレクターの一言(制作視点・100〜200字)
+  understanding: z.string(), // 依頼内容の理解(詳細)
+  objective: z.string(), // 目的の整理(詳細。「詳しく見る」で表示)
+  proposal: z.string(), // 成果を出す方法の提案(詳細)
+  reasoning: z.string(), // 判断根拠(詳細)
+  productionApproach: z.string(), // 最適な制作方法(詳細)
+  questions: z
+    .array(
+      z.object({
+        question: z.string(),
+        why: z.string(), // なぜ聞くか(成果物の質への影響)
+        options: z.array(z.string()), // 選択肢(2〜4個。自由回答でもよい)
+      }),
+    )
+    .max(2), // 追加質問は最大2件。成果物の質に大きく影響する点のみ(ディレクターが質問する)
+  readyToProceed: z.boolean(), // trueなら質問なしで制作へ進める
+});
+export type CeoConsultOutput = z.infer<typeof CeoConsultSchema>;
+
+/** レビュー会議(3人の立場からのコメント。良い点・厳しい指摘を各1つ) */
+export const ReviewPanelSchema = z.object({
+  investor: z.object({ good: z.string(), harsh: z.string() }), // 疑り深い投資家
+  lazyReader: z.object({ good: z.string(), harsh: z.string() }), // 面倒くさがりの読者
+  futureSelf: z.object({ good: z.string(), harsh: z.string() }), // 1年後の自分
+});
+export type ReviewPanelOutput = z.infer<typeof ReviewPanelSchema>;
+
+/** ユーザー分析(会話から見えた特徴。該当がなければ空配列) */
+export const UserInsightsSchema = z.object({
+  criteria: z.array(z.string()), // 判断基準
+  values: z.array(z.string()), // 大切にしている価値観
+  phrases: z.array(z.string()), // よく使う言葉
+  patterns: z.array(z.string()), // 思考パターン
+  strengths: z.array(z.string()), // 得意なこと
+  weaknesses: z.array(z.string()), // 苦手なこと
+});
+export type UserInsightsOutput = z.infer<typeof UserInsightsSchema>;
+
+/** 経営相談モード: ①需要②勝てる理由③最悪のケース④最初の一歩(各3行以内) */
+export const CeoAdviceSchema = z.object({
+  demand: z.array(z.string()).max(3), // ①需要: 誰が困っているか/どんな場面か/お金を払う人は誰か
+  winningReason: z.array(z.string()).max(3), // ②勝てる理由: この人がやる意味/強み/参入障壁
+  worstCase: z.array(z.string()).max(3), // ③最悪のケース: 失うもの/リスク/撤退ライン
+  firstStep: z.object({
+    action: z.string(), // 今日30分以内でできる最小行動(例: Instagramプロフィールを書く)
+    breakdown: z.array(z.string()).max(3), // 具体的な手順
+  }),
+  reviewPanel: ReviewPanelSchema,
+  userInsights: UserInsightsSchema,
+});
+export type CeoAdviceOutput = z.infer<typeof CeoAdviceSchema>;
+
+/** ディープリサーチモード: 判断材料の整理(CEOは結論を出さない) */
+export const CeoResearchSchema = z.object({
+  facts: z.array(z.string()), // ①今わかっている事実(数字・市場・一次情報)
+  pros: z.array(z.object({ point: z.string(), basis: z.string() })), // ②賛成意見+根拠
+  cons: z.array(z.object({ point: z.string(), basis: z.string() })), // ③反対意見+根拠
+  sources: z.array(z.object({ title: z.string(), type: z.string(), url: z.string() })), // ④一次情報(公式資料・論文・IR・政府資料)
+  cautions: z.array(z.string()), // 情報の確度・確認方法の注意
+  reviewPanel: ReviewPanelSchema,
+});
+export type CeoResearchOutput = z.infer<typeof CeoResearchSchema>;
+
+export const RUN_KINDS = ['plan', 'director', 'writer', 'reviewer', 'brief', 'content', 'visual', 'distribution', 'consult', 'advise', 'research'] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
 
 export const SCHEMA_BY_KIND = {
@@ -136,6 +202,9 @@ export const SCHEMA_BY_KIND = {
   content: ContentDraftSchema,
   visual: VisualDesignSchema,
   distribution: DistributionPlanSchema,
+  consult: CeoConsultSchema,
+  advise: CeoAdviceSchema,
+  research: CeoResearchSchema,
 } as const;
 
 /** /api/agent/run のリクエスト(入力サイズも制限) */

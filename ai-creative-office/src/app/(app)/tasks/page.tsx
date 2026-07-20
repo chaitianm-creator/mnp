@@ -98,6 +98,9 @@ export default function TasksPage() {
                     <Link href={`/tasks/${task.id}`} className="font-medium text-slate-700 hover:text-brand-600">
                       {task.title}
                     </Link>
+                    {task.category && (
+                      <span className="ml-1.5 rounded bg-sky-50 px-1 py-0.5 text-[9px] font-medium text-sky-700">{task.category}</span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-slate-500">{agentName(task.assigneeId)}</td>
                   <td className={cn('px-4 py-2.5 text-xs font-semibold', TASK_PRIORITY[task.priority].color)}>
@@ -158,6 +161,9 @@ function TaskCard({ task, agentName }: { task: Task; agentName: string }) {
       >
         <p className="text-xs font-semibold leading-snug text-slate-800">{task.title}</p>
         <div className="mt-1.5 flex items-center gap-1.5">
+          {task.category && (
+            <span className="rounded bg-sky-50 px-1 py-0.5 text-[9px] font-medium text-sky-700">{task.category}</span>
+          )}
           {agentName && <span className="truncate text-[10px] text-slate-400">{agentName}</span>}
           <span className={cn('ml-auto text-[10px] font-semibold', TASK_PRIORITY[task.priority].color)}>
             {TASK_PRIORITY[task.priority].label}

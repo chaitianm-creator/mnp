@@ -19,6 +19,7 @@ import {
   writerToMarkdown,
 } from './ai/markdown';
 import type {
+  CeoConsultOutput,
   ContentDraftOutput,
   CreativeBriefOutput,
   DirectorDocOutput,
@@ -33,7 +34,8 @@ import type {
 } from './ai/schemas';
 import { CASE_DEFS, classifyRequest, type CaseDef, type PipelineStep } from './case-types';
 import { useOffice } from './store';
-import type { AgentRun, Deliverable, DeliverableType, RunTask } from './types';
+import type { CeoAdviceOutput, CeoResearchOutput, ReviewPanelOutput } from './ai/schemas';
+import type { AgentRun, CeoConsultMeta, ChatMessage, Deliverable, DeliverableType, RunTask } from './types';
 import { uid } from './utils';
 
 const nowIso = () => new Date().toISOString();
@@ -123,6 +125,401 @@ function makeDeliverable(
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
+}
+
+// ============================================================
+// ⓪ CEO相談フェーズ: 依頼理解 → 目的整理 → 提案 → (必要なら質問1〜2件) → 計画へ
+//   CEOは「言われた仕事を流す人」ではなく「成果を出す方法を考える人」
+// ============================================================
+
+/** 「詳しく見る」で展開する詳細(目的整理・提案・判断根拠・制作方法) */
+function consultDetail(c: CeoConsultOutput): string {
+  return [
+    `■ ご依頼の理解\n${c.understanding}`,
+    `\n■ 目的の整理\n${c.objective}`,
+    `\n■ 成果を出すための提案\n${c.proposal}`,
+    `\n■ 判断根拠\n${c.reasoning}`,
+    `\n■ 制作の進め方\n${c.productionApproach}`,
+  ].join('\n');
+}
+
+/** 回答待ちのCEO相談メッセージを取得(あれば次の入力は回答として扱う) */
+export function getPendingConsult(): { messageId: string; request: string } | null {
+  const chat = useOffice.getState().chat;
+  for (let i = chat.length - 1; i >= 0; i--) {
+    const m = chat[i];
+    if (m.role === 'ceo_user') continue; // 直前の社長メッセージは読み飛ばす
+    if (m.consult && !m.consult.answered && m.consult.questions.length > 0) {
+      return { messageId: m.id, request: m.consult.request };
+    }
+    return null; // 直近のCEOメッセージが回答待ちの相談でなければ、通常の新規依頼として扱う
+  }
+  return null;
+}
+
+function markConsultAnswered(messageId: string) {
+  useOffice.setState((s) => ({
+    chat: s.chat.map((m) =>
+      m.id === messageId && m.consult ? { ...m, consult: { ...m.consult, answered: true } } : m,
+    ),
+  }));
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// ============================================================
+// CEOのモード判定: 経営相談 / ディープリサーチ / 制作依頼
+// CEOは「考える材料を整理する人」。制作が必要なときだけディレクターへ引き継ぐ
+// ============================================================
+
+export type CeoMode = 'advice' | 'research' | 'production' | 'tasks';
+
+// 制作依頼と判定するのは「作って/書いて/考えて」等の明確な依頼動詞がある場合のみ
+const MAKE_HINTS = /作って|作成して|作成せよ|書いて|考えて|制作して|作りたい|作ってください|デザインして|リニューアルして|構成案を|原稿を書|台本を作/;
+const CONSULT_HINTS = /相談|どう思|すべきか|べきです?か|悩んで|迷って|意見|アドバイス|考えを|戦略を|方針|分析して|教えて|判断/;
+
+/**
+ * 箇条書き入力の解析。箇条書き(・- * 1. など)が含まれる入力は
+ * 100%タスク候補として扱う(AI秘書=社長の仕事整理)
+ */
+export function parseBulletTasks(text: string): string[] | null {
+  const bulletRe = /^([・\-*•●○◦▪]|[0-9０-９]+[.)、.)])\s*/;
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  // 「・A ・B ・C」のように1行へまとめられた箇条書きにも対応
+  // (行頭が「・」で始まり、行内に複数の「・」がある場合のみ分割。文中の「企画・構成」等は誤分割しない)
+  if (lines.length === 1 && /^[・•●]/.test(lines[0]) && (lines[0].match(/[・•●]/g) ?? []).length >= 2) {
+    const items = lines[0]
+      .split(/[・•●]/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    return items.length >= 2 ? items : null;
+  }
+  const bulletLines = lines.filter((l) => bulletRe.test(l));
+  if (bulletLines.length === 0) return null;
+  const items = bulletLines.map((l) => l.replace(bulletRe, '').trim()).filter(Boolean);
+  return items.length > 0 ? items : null;
+}
+
+/** 「Facebook投稿」「Threads日記」のような動詞なしの短い名詞句(=やること)か */
+function isBareTodo(text: string): boolean {
+  const t = text.trim();
+  if (t.length === 0 || t.length > 30) return false;
+  if (t.includes('?') || t.includes('?')) return false;
+  if (MAKE_HINTS.test(t) || CONSULT_HINTS.test(t)) return false;
+  // 依頼・相談の文末表現がなければ名詞句とみなす
+  return !/(ください|して$|したい|します|ですか|でしょうか|お願い)/.test(t);
+}
+
+export function detectCeoMode(text: string): CeoMode {
+  const t = text.trim();
+  if (parseBulletTasks(t)) return 'tasks'; // 箇条書きは100%タスク候補
+  if (/^テーマ[::]/.test(t)) return 'research'; // ディープリサーチモード
+  if (MAKE_HINTS.test(t)) return 'production'; // 明確な制作依頼のみ制作へ
+  if (CONSULT_HINTS.test(t)) return 'advice';
+  if (isBareTodo(t)) return 'tasks'; // 名詞句だけの入力は「やること」として登録
+  return 'advice';
+}
+
+// ---------- AI秘書: タスクの自動分類 ----------
+
+interface TaskClassification {
+  category: string;
+  assigneeId: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+}
+
+/** タスク名からカテゴリ・担当AI候補・優先度を自動設定 */
+export function classifyTask(title: string): TaskClassification {
+  const t = title.toLowerCase();
+  const priority: TaskClassification['priority'] = /至急|今すぐ|急ぎ|本日中|今日中/.test(title)
+    ? 'urgent'
+    : /早め|明日|今週/.test(title)
+      ? 'high'
+      : 'medium';
+  const has = (re: RegExp) => re.test(t) || re.test(title);
+
+  if (has(/返信|メール対応|問い合わせ|連絡|返答/)) return { category: '返信', assigneeId: 'reception', priority };
+  if (has(/facebook|threads|スレッズ|instagram|インスタ|リール|カルーセル|x投稿|ツイート|sns|投稿|日記/)) return { category: 'SNS', assigneeId: 'sns', priority };
+  if (has(/バナー|チラシ|ロゴ|デザイン|画像/)) return { category: 'デザイン', assigneeId: 'designer', priority };
+  if (has(/ブログ|記事|原稿|ライティング|コラム/)) return { category: '記事', assigneeId: 'writer', priority };
+  if (has(/hp|ホームページ|サイト|lp|ランディング|web|修正|ページ/)) return { category: '制作', assigneeId: 'director', priority };
+  if (has(/提案書|企画書|資料|見積/)) return { category: '資料', assigneeId: 'director', priority };
+  if (has(/請求|経理|支払|振込|入金/)) return { category: '管理', assigneeId: 'accountant', priority };
+  return { category: 'その他', assigneeId: 'secretary', priority };
+}
+
+/**
+ * AI秘書モード: 入力をタスク候補として/tasksへ登録する。
+ * AI社員への依頼・制作ランは一切行わない(社長の頭の中を整理する場所)
+ */
+export function registerTasksFromChat(items: string[]): number {
+  const tasks = items.map((title) => {
+    const c = classifyTask(title);
+    return {
+      id: uid('task'),
+      title,
+      description: `社長指示チャット(AI秘書)から登録 — カテゴリ: ${c.category}`,
+      category: c.category,
+      assigneeId: c.assigneeId,
+      requesterId: null,
+      projectId: null,
+      customerId: null,
+      priority: c.priority,
+      status: 'backlog' as const,
+      progress: 0,
+      plannedStart: null,
+      deadline: null,
+      startedAt: null,
+      completedAt: null,
+      needsApproval: false,
+      approver: null,
+      dependsOn: [],
+      input: null,
+      output: null,
+      model: 'なし(未実行)',
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      errorMessage: null,
+      createdAt: nowIso(),
+    };
+  });
+  useOffice.setState((s) => ({
+    tasks: [...tasks, ...s.tasks],
+    chat: [
+      ...s.chat,
+      { id: uid('chat'), role: 'ceo_ai' as const, content: `${tasks.length}件のタスクを登録しました。`, timestamp: nowIso() },
+    ],
+  }));
+  pushLog('secretary', `AI秘書: 社長のタスク${tasks.length}件を整理して登録しました(${Array.from(new Set(tasks.map((t) => t.category))).join('・')})。`, 'success');
+  return tasks.length;
+}
+
+const reviewPanelText = (p: ReviewPanelOutput): string =>
+  [
+    `\n🏛 レビュー会議(3人の視点)`,
+    `・🧐 疑り深い投資家\n 良い点: ${p.investor.good}\n 厳しい指摘: ${p.investor.harsh}`,
+    `・🛋 面倒くさがりの読者\n 良い点: ${p.lazyReader.good}\n 厳しい指摘: ${p.lazyReader.harsh}`,
+    `・🕰 1年後の自分\n 良い点: ${p.futureSelf.good}\n 厳しい指摘: ${p.futureSelf.harsh}`,
+  ].join('\n');
+
+const insightsText = (i: CeoAdviceOutput['userInsights']): string => {
+  const rows = [
+    ['判断基準', i.criteria],
+    ['価値観', i.values],
+    ['よく使う言葉', i.phrases],
+    ['思考パターン', i.patterns],
+    ['得意', i.strengths],
+    ['苦手', i.weaknesses],
+  ].filter(([, v]) => (v as string[]).length > 0) as [string, string[]][];
+  if (rows.length === 0) return '';
+  return `\n💡 今回の相談から見えた特徴\n${rows.map(([k, v]) => `・${k}: ${v.join(' / ')}`).join('\n')}`;
+};
+
+/** 経営相談モード: ①需要②勝てる理由③最悪のケース④最初の一歩 + レビュー会議 */
+export async function runCeoAdvice(request: string): Promise<void> {
+  const s = useOffice.getState();
+  s.setAgentRunActivity('ceo', '経営相談の論点を整理しています', 'desk', 30);
+  pushLog('ceo', `社長からの経営相談を受領しました: 「${request.slice(0, 50)}」`);
+  const profile = s.ceoProfile;
+  const profileNote =
+    profile.updatedAt && (profile.criteria.length || profile.patterns.length)
+      ? `これまでの会話から把握している社長の特徴: 判断基準=${profile.criteria.join('、') || '不明'} / 思考パターン=${profile.patterns.join('、') || '不明'}`
+      : undefined;
+  const { data, usage } = await callAgent('advise', request, profileNote);
+  const a = data as CeoAdviceOutput;
+  useOffice.getState().recordRunUsage('ceo', usage, null);
+  useOffice.getState().mergeCeoProfile(a.userInsights);
+
+  const content = [
+    `ご相談ありがとうございます。結論は出しません — 判断材料を整理しました。`,
+    `\n① 需要\n${a.demand.map((l) => `・${l}`).join('\n')}`,
+    `\n② 勝てる理由\n${a.winningReason.map((l) => `・${l}`).join('\n')}`,
+    `\n③ 最悪のケース\n${a.worstCase.map((l) => `・${l}`).join('\n')}`,
+    `\n④ 最初の一歩(今日30分以内)\n⭕ ${a.firstStep.action}\n${a.firstStep.breakdown.map((b) => ` - ${b}`).join('\n')}`,
+    reviewPanelText(a.reviewPanel),
+    insightsText(a.userInsights),
+    `\n判断は社長にお任せします。制作に進む場合は「◯◯を作って」とご依頼ください。担当ディレクターへ引き継ぎます。`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+  useOffice.setState((st) => ({ chat: [...st.chat, { id: uid('chat'), role: 'ceo_ai' as const, content, timestamp: nowIso() }] }));
+  useOffice.getState().setAgentRunActivity('ceo', '', 'desk', 0);
+  pushLog('ceo', '経営相談の判断材料(需要・勝てる理由・最悪のケース・最初の一歩)を整理しました。', 'success');
+}
+
+/** ディープリサーチの5つの確認質問(作業前に必ず確認する) */
+export const RESEARCH_QUESTIONS = [
+  'なぜ調べたいのですか?(背景)',
+  '誰へ提案しますか?(読み手)',
+  '判断したいことは何ですか?(意思決定)',
+  '対象は日本市場ですか?(範囲)',
+  'どこまで深く調べますか?(概要レベル / 意思決定レベル)',
+];
+
+/** 回答待ちのリサーチ(テーマ提示済み・5つの質問へ未回答)を取得 */
+export function getPendingResearch(): { messageId: string; theme: string } | null {
+  const chat = useOffice.getState().chat;
+  for (let i = chat.length - 1; i >= 0; i--) {
+    const m = chat[i];
+    if (m.role === 'ceo_user') continue;
+    if (m.research && !m.research.answered) return { messageId: m.id, theme: m.research.theme };
+    return null;
+  }
+  return null;
+}
+
+/** ディープリサーチ開始: まず5つの質問(作業はしない) */
+export function startCeoResearch(request: string): void {
+  const theme = request.replace(/^テーマ[::]\s*/, '').trim() || request;
+  pushLog('ceo', `ディープリサーチのテーマを受領しました: 「${theme.slice(0, 40)}」調査の前に前提を確認します。`);
+  const content = [
+    `テーマ「${theme}」ですね。精度の低い調査は判断を誤らせるため、作業前に5点だけ確認させてください。`,
+    ...RESEARCH_QUESTIONS.map((q, i) => `${i + 1}. ${q}`),
+    `\nまとめてご回答ください(番号ごとでなくても構いません)。ご回答後に調査を開始します。`,
+  ].join('\n');
+  useOffice.setState((st) => ({
+    chat: [
+      ...st.chat,
+      { id: uid('chat'), role: 'ceo_ai' as const, content, research: { theme, answered: false }, timestamp: nowIso() },
+    ],
+  }));
+}
+
+/** 5つの質問への回答を受けて調査を実行し、判断材料を整理する(結論は出さない) */
+export async function runCeoResearch(messageId: string, theme: string, answers: string): Promise<void> {
+  useOffice.setState((st) => ({
+    chat: st.chat.map((m) => (m.id === messageId && m.research ? { ...m, research: { ...m.research, answered: true } } : m)),
+  }));
+  const s = useOffice.getState();
+  s.setAgentRunActivity('ceo', 'ディープリサーチを実行中', 'desk', 40);
+  pushLog('ceo', '前提を確認しました。判断材料の調査・整理を開始します。');
+  const { data, usage } = await callAgent('research', `テーマ: ${theme}\n\n前提の確認への回答:\n${answers}`);
+  const r = data as CeoResearchOutput;
+  useOffice.getState().recordRunUsage('ceo', usage, null);
+
+  const content = [
+    `調査結果をまとめました。CEOとして結論は出しません — 判断材料の整理です。`,
+    `\n① 今わかっている事実\n${r.facts.map((f) => `・${f}`).join('\n')}`,
+    `\n② 賛成意見\n${r.pros.map((p) => `・${p.point}\n (根拠: ${p.basis})`).join('\n')}`,
+    `\n③ 反対意見\n${r.cons.map((c) => `・${c.point}\n (根拠: ${c.basis})`).join('\n')}`,
+    `\n④ 一次情報(確認先)\n${r.sources.map((src) => `・[${src.type}] ${src.title}\n ${src.url}`).join('\n')}`,
+    r.cautions.length ? `\n⚠ 確認時の注意\n${r.cautions.map((c) => `・${c}`).join('\n')}` : '',
+    reviewPanelText(r.reviewPanel),
+    `\n判断は社長にお任せします。追加で深掘りしたい論点があればお知らせください。`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+  useOffice.setState((st) => ({ chat: [...st.chat, { id: uid('chat'), role: 'ceo_ai' as const, content, timestamp: nowIso() }] }));
+  useOffice.getState().setAgentRunActivity('ceo', '', 'desk', 0);
+  pushLog('ceo', 'ディープリサーチの判断材料(事実・賛成・反対・一次情報)を整理しました。', 'success');
+}
+
+/**
+ * CEOチャットの統一入口。回答待ち(制作の確認/リサーチの質問)を処理し、
+ * それ以外は 経営相談 / ディープリサーチ / 制作依頼 へ振り分ける
+ */
+export async function handleCeoMessage(text: string): Promise<void> {
+  const pendingC = getPendingConsult();
+  if (pendingC) {
+    await answerCeoConsultation(pendingC.messageId, text);
+    return;
+  }
+  const pendingR = getPendingResearch();
+  if (pendingR) {
+    await runCeoResearch(pendingR.messageId, pendingR.theme, text);
+    return;
+  }
+  const mode = detectCeoMode(text);
+  if (mode === 'tasks') {
+    // AI秘書: 箇条書き・名詞句はタスク候補として登録のみ(AI社員への依頼はしない)
+    const items = parseBulletTasks(text) ?? [text.trim()];
+    registerTasksFromChat(items);
+    return;
+  }
+  if (mode === 'research') {
+    startCeoResearch(text);
+    return;
+  }
+  if (mode === 'advice') {
+    await runCeoAdvice(text);
+    return;
+  }
+  await startCeoConsultation(text);
+}
+
+/**
+ * CEOへの依頼の入口。
+ * CEO(経営判断)が100〜200字で一次回答し、専門ディレクター(制作判断)が会話を引き継ぐ。
+ * 判断根拠などの詳細は「詳しく見る」で展開。確認質問がなければ実行計画の作成まで進む。
+ * @returns 'asked'=質問への回答待ち / 'planned'=実行計画を作成済み
+ */
+export async function startCeoConsultation(request: string): Promise<'asked' | 'planned'> {
+  const store = useOffice.getState();
+  const caseDef = CASE_DEFS[classifyRequest(request)];
+  store.setAgentRunActivity('ceo', '依頼の目的を整理しています', 'desk', 15);
+  pushLog('ceo', `社長の依頼を受領しました: 「${request.slice(0, 50)}」経営判断を行い、担当ディレクターへ引き継ぎます。`);
+
+  const { data, usage } = await callAgent('consult', request, undefined, undefined, caseDef.label);
+  const consult = data as CeoConsultOutput;
+  useOffice.getState().recordRunUsage('ceo', usage, null);
+
+  // ① CEO: 経営判断の短い一次回答(詳細は「詳しく見る」)
+  const ceoMsg: ChatMessage = {
+    id: uid('chat'),
+    role: 'ceo_ai',
+    content: consult.shortReply,
+    consult: { request, questions: [], answered: true, detail: consultDetail(consult) },
+    timestamp: nowIso(),
+  };
+  useOffice.setState((s) => ({ chat: [...s.chat, ceoMsg] }));
+  pushSignal('ceo', caseDef.directorAgentId, `${caseDef.label}を引き継ぎ`);
+
+  // ② 専門ディレクター: 制作判断として会話を引き継ぐ(確認質問もディレクターから)
+  await sleep(900);
+  const directorMsg: ChatMessage = {
+    id: uid('chat'),
+    role: 'ceo_ai',
+    content: consult.directorComment,
+    speakerId: caseDef.directorAgentId,
+    speakerName: caseDef.directorLabel,
+    consult: { request, questions: consult.questions, answered: consult.questions.length === 0 },
+    timestamp: nowIso(),
+  };
+  useOffice.setState((s) => ({ chat: [...s.chat, directorMsg] }));
+  pushLog(caseDef.directorAgentId, `CEOから「${caseDef.label}」を引き継ぎました。制作判断を担当します。`, 'info');
+
+  if (consult.questions.length > 0) {
+    useOffice.getState().setAgentRunActivity(caseDef.directorAgentId, '社長への確認事項の回答待ち', 'desk', 40);
+    pushLog(caseDef.directorAgentId, `成果物の質に影響する確認事項${consult.questions.length}件を社長へ質問しました。`, 'info');
+    return 'asked';
+  }
+  pushLog(caseDef.directorAgentId, '制作内容を確定しました。実行計画の作成へ進みます。', 'success');
+  await createRunPlan(request);
+  return 'planned';
+}
+
+/** 確認質問への回答を受けて実行計画を作成する */
+export async function answerCeoConsultation(messageId: string, answer: string): Promise<string> {
+  const pending = getPendingConsult();
+  const request = pending?.messageId === messageId ? pending.request : (pending?.request ?? answer);
+  markConsultAnswered(messageId);
+  pushLog('ceo', '社長からの回答を受領しました。内容を反映して実行計画を作成します。', 'success');
+  const combined = `${request}\n\n【社長からの補足(確認への回答)】\n${answer}`;
+  return createRunPlan(combined);
+}
+
+/** 「お任せで進める」: 質問には回答せず、CEOの妥当な仮定で進める */
+export async function proceedWithoutAnswers(messageId: string): Promise<string> {
+  const pending = getPendingConsult();
+  const request = pending?.messageId === messageId ? pending.request : (pending?.request ?? '');
+  markConsultAnswered(messageId);
+  pushLog('ceo', '社長より一任いただきました。妥当な仮定を明記して実行計画を作成します。', 'info');
+  const combined = `${request}\n\n【社長からの補足】確認事項は一任します。妥当な仮定を明記して進めてください。`;
+  return createRunPlan(combined);
 }
 
 /** ① 社長の依頼 → CEO AIが案件種別を判定し、実行計画を作成(実行はまだしない) */

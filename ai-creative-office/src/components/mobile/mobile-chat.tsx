@@ -5,10 +5,10 @@
 import { AgentChat } from '@/components/agent-chat';
 import { AgentAvatar, AgentStatusBadge } from '@/components/agent-bits';
 import { RunCard } from '@/components/run-card';
-import { createRunPlan } from '@/lib/agent-runner';
+import { getPendingConsult, getPendingResearch, handleCeoMessage, proceedWithoutAnswers } from '@/lib/agent-runner';
 import { useOffice } from '@/lib/store';
 import { cn, formatDateTime, uid, yen } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, Loader2, Play, Send, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, History, Loader2, Play, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 const RUN_TEMPLATES = [
@@ -131,13 +131,29 @@ function CeoThread({ onBack }: { onBack: () => void }) {
   const [input, setInput] = useState('');
   const [planning, setPlanning] = useState(false);
   const [aiMode, setAiMode] = useState(true);
+  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set());
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const chatSessions = useOffice((s) => s.chatSessions);
+  const startNewChatSession = useOffice((s) => s.startNewChatSession);
+  const switchChatSession = useOffice((s) => s.switchChatSession);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const toggleDetail = (id: string) =>
+    setExpandedDetails((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [chat.length, planning]);
 
   const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? id;
+
+  const pendingConsult = chat.length > 0 ? getPendingConsult() : null;
+  const pendingResearch = chat.length > 0 ? getPendingResearch() : null;
 
   const submit = async () => {
     const request = input.trim();
@@ -152,15 +168,27 @@ function CeoThread({ onBack }: { onBack: () => void }) {
     }));
     setPlanning(true);
     try {
-      await createRunPlan(request);
+      await handleCeoMessage(request);
     } catch (e) {
       const message = e instanceof Error ? e.message : '計画の作成に失敗しました';
       useOffice.setState((s) => ({
         chat: [
           ...s.chat,
-          { id: uid('chat'), role: 'ceo_ai' as const, content: `申し訳ありません、実行計画の作成に失敗しました: ${message}\nもう一度お試しください。`, timestamp: new Date().toISOString() },
+          { id: uid('chat'), role: 'ceo_ai' as const, content: `申し訳ありません、処理に失敗しました: ${message}\nもう一度お試しください。`, timestamp: new Date().toISOString() },
         ],
       }));
+    } finally {
+      setPlanning(false);
+    }
+  };
+
+  const omakase = async (messageId: string) => {
+    if (planning) return;
+    setPlanning(true);
+    try {
+      await proceedWithoutAnswers(messageId);
+    } catch {
+      // エラーはチャット側のメッセージで通知済み
     } finally {
       setPlanning(false);
     }
@@ -174,7 +202,23 @@ function CeoThread({ onBack }: { onBack: () => void }) {
           <p className="text-[13px] font-bold text-slate-800">CEO AI</p>
           <p className="text-[10px] text-slate-400">「開始」を押すまでAIは実行されません</p>
         </div>
-        <label className="ml-auto flex shrink-0 items-center gap-1.5 text-[10px] text-slate-500">
+        <button
+          onClick={() => startNewChatSession()}
+          disabled={planning || chat.length === 0}
+          aria-label="新しい会話を始める"
+          className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 outline-none active:bg-slate-100 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => setHistoryOpen((v) => !v)}
+          disabled={chatSessions.length === 0}
+          aria-label={`過去の会話(${chatSessions.length}件)`}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 outline-none active:bg-slate-100 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          <History className="h-4 w-4" />
+        </button>
+        <label className="flex shrink-0 items-center gap-1.5 text-[10px] text-slate-500">
           <Sparkles className="h-3 w-3 text-brand-600" />
           AI実働
           <button
@@ -188,13 +232,42 @@ function CeoThread({ onBack }: { onBack: () => void }) {
         </label>
       </ThreadHeader>
 
+      {/* 過去の会話リスト(オーバーレイ) */}
+      {historyOpen && (
+        <div className="border-b border-slate-100 bg-white">
+          <p className="px-3 pt-2 text-[10px] font-semibold text-slate-400">過去の会話(タップで再開。現在の会話は履歴に保存)</p>
+          <ul className="max-h-44 overflow-y-auto">
+            {chatSessions.map((sess) => (
+              <li key={sess.id}>
+                <button
+                  onClick={() => {
+                    switchChatSession(sess.id);
+                    setHistoryOpen(false);
+                  }}
+                  className="flex w-full flex-col gap-0.5 px-3 py-2 text-left outline-none active:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                >
+                  <span className="truncate text-[12px] font-medium text-slate-700">{sess.title}</span>
+                  <span className="text-[10px] tabular-nums text-slate-400">{formatDateTime(sess.archivedAt)} ・ {sess.messages.length}件</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* 会話履歴 */}
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3" aria-live="polite">
         {chat.map((msg) => (
           <div key={msg.id} className={msg.role === 'ceo_user' ? 'flex justify-end' : 'flex justify-start'}>
             <div className={msg.role === 'ceo_user' ? 'max-w-[88%]' : 'w-full max-w-[95%]'}>
-              <p className="mb-0.5 px-1 text-[10px] tabular-nums text-slate-400">
-                {msg.role === 'ceo_user' ? 'あなた(社長)' : '👔 CEO AI'} ・ {formatDateTime(msg.timestamp)}
+              <p className="mb-0.5 flex items-center gap-1 px-1 text-[10px] tabular-nums text-slate-400">
+                {msg.role === 'ceo_user' ? 'あなた(社長)' : (msg.speakerName ?? '👔 CEO AI')}
+                {msg.role === 'ceo_ai' && (
+                  <span className={`rounded-full px-1 py-px text-[8.5px] font-semibold ${msg.speakerName ? 'bg-sky-50 text-sky-600' : 'bg-brand-50 text-brand-600'}`}>
+                    {msg.speakerName ? '制作判断' : '経営判断'}
+                  </span>
+                )}
+                ・ {formatDateTime(msg.timestamp)}
               </p>
               <div
                 className={cn(
@@ -247,6 +320,58 @@ function CeoThread({ onBack }: { onBack: () => void }) {
                     )}
                   </div>
                 )}
+                {/* 詳しく見る(判断根拠の展開) */}
+                {msg.consult?.detail && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => toggleDetail(msg.id)}
+                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10.5px] font-medium text-slate-600 outline-none active:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+                      aria-expanded={expandedDetails.has(msg.id)}
+                    >
+                      {expandedDetails.has(msg.id) ? '詳細を閉じる ▲' : '詳しく見る(判断根拠) ▼'}
+                    </button>
+                    {expandedDetails.has(msg.id) && (
+                      <div className="mt-1.5 whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-2.5 text-[11px] leading-relaxed text-slate-600">
+                        {msg.consult.detail}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* ディレクターの確認質問(スマホ: 選択肢タップで回答を入力欄へ) */}
+                {msg.consult && msg.consult.questions.length > 0 && (
+                  <div className="mt-2.5 rounded-xl border border-brand-200 bg-brand-50/40 p-2.5">
+                    <p className="text-[11px] font-bold text-brand-800">💬 確認事項への回答</p>
+                    {msg.consult.answered ? (
+                      <p className="mt-1.5 rounded-lg bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700">✅ 回答済み。実行計画を作成しました。</p>
+                    ) : (
+                      <>
+                        {msg.consult.questions.map((q, qi) => (
+                          <div key={qi} className="mt-1.5">
+                            <p className="text-[11px] font-semibold text-slate-700">{qi + 1}. {q.question}</p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {q.options.map((opt) => (
+                                <button
+                                  key={opt}
+                                  onClick={() => setInput((cur) => (cur ? `${cur} / ${opt}` : `${q.question} → ${opt}`))}
+                                  className="rounded-full border border-brand-200 bg-white px-2 py-1 text-[10.5px] text-brand-700 outline-none active:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => omakase(msg.id)}
+                          disabled={planning}
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-[11px] font-medium text-slate-600 outline-none active:bg-slate-50 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+                        >
+                          お任せで進める
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
                 {msg.runId && <RunCard runId={msg.runId} onModify={(req) => setInput(req)} />}
               </div>
             </div>
@@ -277,14 +402,20 @@ function CeoThread({ onBack }: { onBack: () => void }) {
           </div>
         )}
         <div className="flex gap-2">
-          <input
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
-            placeholder={aiMode ? 'AI社員への依頼を入力…' : 'CEO AIへ指示を入力…'}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            rows={Math.min(4, Math.max(1, input.split('\n').length))}
+            placeholder={pendingConsult ? '確認事項へのご回答を入力…' : pendingResearch ? '5つの確認へのご回答を入力…' : aiMode ? '依頼・相談・箇条書きでタスク登録…' : 'CEO AIへ指示を入力…'}
             disabled={planning}
             aria-label="CEO AIへのメッセージ入力"
-            className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 disabled:opacity-60"
+            className="min-w-0 flex-1 resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm leading-relaxed outline-none focus:border-brand-400 disabled:opacity-60"
           />
           <button
             onClick={submit}

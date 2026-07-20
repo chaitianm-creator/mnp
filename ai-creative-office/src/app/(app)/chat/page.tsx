@@ -4,11 +4,11 @@
 // 「AI実働」: 依頼→CEO計画→承認→ディレクター/ライター/レビュアーが実際の成果物を生成
 import { RunCard } from '@/components/run-card';
 import { Button, PageHeader } from '@/components/ui';
-import { createRunPlan } from '@/lib/agent-runner';
+import { getPendingConsult, getPendingResearch, handleCeoMessage, proceedWithoutAnswers } from '@/lib/agent-runner';
 import { useOffice } from '@/lib/store';
 import { formatDateTime, uid, yen } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { Loader2, Play, Send, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, History, Loader2, Play, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 // AI実働の依頼テンプレート(クリックでたたき台を入力)
@@ -36,16 +36,32 @@ export default function ChatPage() {
   const sendChat = useOffice((s) => s.sendChat);
   const startPlan = useOffice((s) => s.startPlan);
   const discardPlan = useOffice((s) => s.discardPlan);
+  const chatSessions = useOffice((s) => s.chatSessions);
+  const startNewChatSession = useOffice((s) => s.startNewChatSession);
+  const switchChatSession = useOffice((s) => s.switchChatSession);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [input, setInput] = useState('');
   const [planning, setPlanning] = useState(false);
   const [aiMode, setAiMode] = useState(true); // true=AI実働(実成果物) / false=デモプラン
+  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set()); // 「詳しく見る」の展開状態
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const toggleDetail = (id: string) =>
+    setExpandedDetails((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chat.length, planning]);
 
   const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? id;
+
+  const pendingConsult = chat.length > 0 ? getPendingConsult() : null;
+  const pendingResearch = chat.length > 0 ? getPendingResearch() : null;
 
   const submit = async () => {
     const request = input.trim();
@@ -55,20 +71,35 @@ export default function ChatPage() {
       sendChat(request);
       return;
     }
-    // AI実働: CEO AIが実行計画を生成(承認まで実行しない)
+    // CEOの統一入口: 経営相談 / ディープリサーチ / 制作依頼(→ディレクター引き継ぎ)を自動判定
     useOffice.setState((s) => ({
       chat: [...s.chat, { id: uid('chat'), role: 'ceo_user' as const, content: request, timestamp: new Date().toISOString() }],
     }));
     setPlanning(true);
     try {
-      await createRunPlan(request);
+      await handleCeoMessage(request);
     } catch (e) {
       const message = e instanceof Error ? e.message : '計画の作成に失敗しました';
       useOffice.setState((s) => ({
         chat: [
           ...s.chat,
-          { id: uid('chat'), role: 'ceo_ai' as const, content: `申し訳ありません、実行計画の作成に失敗しました: ${message}\nもう一度お試しください。`, timestamp: new Date().toISOString() },
+          { id: uid('chat'), role: 'ceo_ai' as const, content: `申し訳ありません、処理に失敗しました: ${message}\nもう一度お試しください。`, timestamp: new Date().toISOString() },
         ],
+      }));
+    } finally {
+      setPlanning(false);
+    }
+  };
+
+  const omakase = async (messageId: string) => {
+    if (planning) return;
+    setPlanning(true);
+    try {
+      await proceedWithoutAnswers(messageId);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '計画の作成に失敗しました';
+      useOffice.setState((s) => ({
+        chat: [...s.chat, { id: uid('chat'), role: 'ceo_ai' as const, content: `申し訳ありません、処理に失敗しました: ${message}`, timestamp: new Date().toISOString() }],
       }));
     } finally {
       setPlanning(false);
@@ -81,7 +112,55 @@ export default function ChatPage() {
         title="社長指示チャット"
         sub="CEO AIが指示を分析し、実行計画を提案します。「開始」を押すまでAIは実行されません"
         action={
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs">
+          <div className="flex items-center gap-2">
+            {/* 新しい会話(現在の会話は履歴に保存) */}
+            <button
+              onClick={() => {
+                startNewChatSession();
+                setHistoryOpen(false);
+              }}
+              disabled={planning || chat.length === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 outline-none transition hover:bg-slate-50 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              <Plus className="h-3.5 w-3.5" /> 新しい会話
+            </button>
+            {/* 過去の会話 */}
+            <div className="relative">
+              <button
+                onClick={() => setHistoryOpen((v) => !v)}
+                disabled={chatSessions.length === 0}
+                aria-expanded={historyOpen}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 outline-none transition hover:bg-slate-50 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-brand-500"
+              >
+                <History className="h-3.5 w-3.5" /> 履歴({chatSessions.length})
+              </button>
+              {historyOpen && chatSessions.length > 0 && (
+                <div className="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-panel">
+                  <p className="border-b border-slate-100 px-3 py-2 text-[10px] font-semibold text-slate-400">
+                    過去の会話(クリックで再開。現在の会話は履歴に保存されます)
+                  </p>
+                  <ul className="max-h-64 overflow-y-auto">
+                    {chatSessions.map((sess) => (
+                      <li key={sess.id}>
+                        <button
+                          onClick={() => {
+                            switchChatSession(sess.id);
+                            setHistoryOpen(false);
+                          }}
+                          className="flex w-full flex-col gap-0.5 px-3 py-2 text-left outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                        >
+                          <span className="truncate text-xs font-medium text-slate-700">{sess.title}</span>
+                          <span className="text-[10px] tabular-nums text-slate-400">
+                            {formatDateTime(sess.archivedAt)} ・ {sess.messages.length}件のメッセージ
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs">
             <Sparkles className="h-3.5 w-3.5 text-brand-600" />
             AI実働モード(成果物を生成)
             <button
@@ -93,10 +172,17 @@ export default function ChatPage() {
               <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${aiMode ? 'left-[18px]' : 'left-0.5'}`} />
             </button>
           </label>
+          </div>
         }
       />
 
       <div className="flex-1 space-y-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4">
+        {chat.length === 0 && (
+          <div className="flex h-full flex-col items-center justify-center gap-1.5 text-center text-slate-400">
+            <p className="text-sm font-medium">新しい会話です</p>
+            <p className="text-xs">依頼(「◯◯を作って」)・経営相談・「テーマ: ◯◯」でリサーチ・箇条書きでタスク登録ができます</p>
+          </div>
+        )}
         {chat.map((msg) => (
           <motion.div
             key={msg.id}
@@ -106,14 +192,19 @@ export default function ChatPage() {
           >
             <div className={msg.role === 'ceo_user' ? 'max-w-[85%]' : 'w-full max-w-[95%] sm:max-w-[85%]'}>
               <p className="mb-1 flex items-center gap-2 text-[11px] text-slate-400">
-                {msg.role === 'ceo_user' ? 'あなた(社長)' : '👔 CEO AI'}
+                {msg.role === 'ceo_user' ? 'あなた(社長)' : (msg.speakerName ?? '👔 CEO AI')}
+                {msg.role === 'ceo_ai' && (
+                  <span className={`rounded-full px-1.5 py-px text-[9px] font-semibold ${msg.speakerName ? 'bg-sky-50 text-sky-600' : 'bg-brand-50 text-brand-600'}`}>
+                    {msg.speakerName ? '制作判断' : '経営判断'}
+                  </span>
+                )}
                 <span className="tabular-nums">{formatDateTime(msg.timestamp)}</span>
               </p>
               <div
                 className={
                   msg.role === 'ceo_user'
-                    ? 'rounded-2xl rounded-tr-sm bg-gradient-to-r from-brand-600 to-accent-600 px-4 py-2.5 text-sm text-white'
-                    : 'rounded-2xl rounded-tl-sm border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700'
+                    ? 'whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-gradient-to-r from-brand-600 to-accent-600 px-4 py-2.5 text-sm text-white'
+                    : 'whitespace-pre-wrap rounded-2xl rounded-tl-sm border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm leading-relaxed text-slate-700'
                 }
               >
                 {msg.content}
@@ -165,6 +256,58 @@ export default function ChatPage() {
                     )}
                   </div>
                 )}
+                {/* 詳しく見る(判断根拠・詳細説明の展開) */}
+                {msg.consult?.detail && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => toggleDetail(msg.id)}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 outline-none transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+                      aria-expanded={expandedDetails.has(msg.id)}
+                    >
+                      {expandedDetails.has(msg.id) ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      {expandedDetails.has(msg.id) ? '詳細を閉じる' : '詳しく見る(判断根拠)'}
+                    </button>
+                    {expandedDetails.has(msg.id) && (
+                      <div className="mt-2 whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-600">
+                        {msg.consult.detail}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* ディレクターの確認質問(選択肢クリックで回答を入力欄へ) */}
+                {msg.consult && msg.consult.questions.length > 0 && (
+                  <div className="mt-3 rounded-xl border border-brand-200 bg-brand-50/40 p-3">
+                    <p className="text-xs font-bold text-brand-800">💬 確認事項への回答</p>
+                    {msg.consult.answered ? (
+                      <p className="mt-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-700">✅ 回答済み。実行計画を作成しました。</p>
+                    ) : (
+                      <>
+                        {msg.consult.questions.map((q, qi) => (
+                          <div key={qi} className="mt-2">
+                            <p className="text-xs font-semibold text-slate-700">{qi + 1}. {q.question}</p>
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              {q.options.map((opt) => (
+                                <button
+                                  key={opt}
+                                  onClick={() => setInput((cur) => (cur ? `${cur} / ${opt}` : `${q.question} → ${opt}`))}
+                                  className="rounded-full border border-brand-200 bg-white px-2.5 py-1 text-[11px] text-brand-700 outline-none transition hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="mt-2.5 flex items-center gap-2">
+                          <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => omakase(msg.id)} disabled={planning}>
+                            お任せで進める
+                          </Button>
+                          <p className="text-[10px] text-slate-400">選択肢をクリックするか、下の入力欄へ直接ご回答ください</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
                 {msg.runId && <RunCard runId={msg.runId} onModify={(req) => setInput(req)} />}
               </div>
             </div>
@@ -173,7 +316,7 @@ export default function ChatPage() {
         {planning && (
           <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
-            CEO AIが依頼を分析し、実行計画を作成しています…
+            CEO AIが依頼の目的を整理し、進め方を検討しています…
           </div>
         )}
         <div ref={bottomRef} />
@@ -202,13 +345,28 @@ export default function ChatPage() {
               ))}
         </div>
         <div className="flex gap-2">
-          <input
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
-            placeholder={aiMode ? 'AI社員への依頼を入力…(例: 採用サイトの企画案を作って)' : 'CEO AIへ指示を入力…'}
+            onKeyDown={(e) => {
+              // Enter=送信 / Shift+Enter=改行(箇条書き入力用)
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            rows={Math.min(5, Math.max(1, input.split('\n').length))}
+            placeholder={
+              pendingConsult
+                ? 'ディレクターの確認事項へのご回答を入力…'
+                : pendingResearch
+                  ? '5つの確認へのご回答を入力…(まとめてでOK)'
+                  : aiMode
+                    ? '依頼・相談・箇条書きでタスク登録(Shift+Enterで改行)…'
+                    : 'CEO AIへ指示を入力…'
+            }
             disabled={planning}
-            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-brand-400 disabled:opacity-60"
+            className="min-w-0 flex-1 resize-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm leading-relaxed outline-none focus:border-brand-400 disabled:opacity-60"
           />
           <Button onClick={submit} className="px-4" disabled={planning}>
             <Send className="h-4 w-4" />

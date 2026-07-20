@@ -105,6 +105,7 @@ export interface Task {
   id: string;
   title: string;
   description: string;
+  category?: string; // カテゴリ(AI秘書の自動分類: 返信/SNS/制作/デザイン/記事/資料/管理 など)
   assigneeId: string; // 担当AI
   requesterId: string | null; // 依頼元AI(nullは社長直轄)
   projectId: string | null;
@@ -391,13 +392,51 @@ export interface ErrorRecord {
   resolved: boolean;
 }
 
+/** CEO AIの相談(依頼理解→目的整理→提案→確認質問)メタデータ */
+export interface CeoConsultMeta {
+  request: string; // 元の依頼文
+  questions: { question: string; why: string; options: string[] }[]; // 最大2件
+  answered?: boolean; // 回答済み(または「お任せ」で進行済み)
+  detail?: string; // 「詳しく見る」で展開する詳細(目的整理・提案・判断根拠・制作方法)
+}
+
+/** ディープリサーチの状態(テーマ提示→5つの質問→回答→調査) */
+export interface CeoResearchMeta {
+  theme: string; // テーマ
+  answered?: boolean; // 5つの質問へ回答済み(調査実行済み)
+}
+
+/** 会話から更新するユーザー(社長)分析プロファイル */
+export interface CeoUserProfile {
+  criteria: string[]; // 判断基準
+  values: string[]; // 大切にしている価値観
+  phrases: string[]; // よく使う言葉
+  patterns: string[]; // 思考パターン
+  strengths: string[]; // 得意なこと
+  weaknesses: string[]; // 苦手なこと
+  updatedAt: string | null;
+}
+
+/** 社長指示チャットの過去セッション(新しい会話を始めるとアーカイブされる) */
+export interface ChatSession {
+  id: string;
+  title: string; // 最初の社長メッセージから自動生成
+  messages: ChatMessage[];
+  createdAt: string;
+  archivedAt: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'ceo_user' | 'ceo_ai';
   content: string;
+  speakerId?: string; // 発言したAI社員のID(未指定はCEO AI)
+  speakerName?: string; // 表示名(例: 📣 SNSディレクター)。未指定は 👔 CEO AI
   plan?: ExecutionPlan;
   planStatus?: 'proposed' | 'started' | 'discarded';
   runId?: string; // AI実働ラン(AgentRun)に紐づくメッセージ
+  consult?: CeoConsultMeta; // 相談メッセージ(質問が残っていれば回答待ち)
+  research?: CeoResearchMeta; // ディープリサーチ(5つの質問への回答待ちなど)
   timestamp: string;
 }
 
