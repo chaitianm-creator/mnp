@@ -105,6 +105,7 @@ export interface Task {
   id: string;
   title: string;
   description: string;
+  category?: string; // カテゴリ(AI秘書の自動分類: 返信/SNS/制作/デザイン/記事/資料/管理 など)
   assigneeId: string; // 担当AI
   requesterId: string | null; // 依頼元AI(nullは社長直轄)
   projectId: string | null;

@@ -172,19 +172,130 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // CEOは「考える材料を整理する人」。制作が必要なときだけディレクターへ引き継ぐ
 // ============================================================
 
-export type CeoMode = 'advice' | 'research' | 'production';
+export type CeoMode = 'advice' | 'research' | 'production' | 'tasks';
 
-const MAKE_HINTS = /作って|作成して|制作して|書いて|作りたい|作ってください|デザインして|リニューアルして|構成案|原稿を|投稿を作/;
+// 制作依頼と判定するのは「作って/書いて/考えて」等の明確な依頼動詞がある場合のみ
+const MAKE_HINTS = /作って|作成して|作成せよ|書いて|考えて|制作して|作りたい|作ってください|デザインして|リニューアルして|構成案を|原稿を書|台本を作/;
 const CONSULT_HINTS = /相談|どう思|すべきか|べきです?か|悩んで|迷って|意見|アドバイス|考えを|戦略を|方針|分析して|教えて|判断/;
+
+/**
+ * 箇条書き入力の解析。箇条書き(・- * 1. など)が含まれる入力は
+ * 100%タスク候補として扱う(AI秘書=社長の仕事整理)
+ */
+export function parseBulletTasks(text: string): string[] | null {
+  const bulletRe = /^([・\-*•●○◦▪]|[0-9０-９]+[.)、.)])\s*/;
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  // 「・A ・B ・C」のように1行へまとめられた箇条書きにも対応
+  // (行頭が「・」で始まり、行内に複数の「・」がある場合のみ分割。文中の「企画・構成」等は誤分割しない)
+  if (lines.length === 1 && /^[・•●]/.test(lines[0]) && (lines[0].match(/[・•●]/g) ?? []).length >= 2) {
+    const items = lines[0]
+      .split(/[・•●]/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    return items.length >= 2 ? items : null;
+  }
+  const bulletLines = lines.filter((l) => bulletRe.test(l));
+  if (bulletLines.length === 0) return null;
+  const items = bulletLines.map((l) => l.replace(bulletRe, '').trim()).filter(Boolean);
+  return items.length > 0 ? items : null;
+}
+
+/** 「Facebook投稿」「Threads日記」のような動詞なしの短い名詞句(=やること)か */
+function isBareTodo(text: string): boolean {
+  const t = text.trim();
+  if (t.length === 0 || t.length > 30) return false;
+  if (t.includes('?') || t.includes('?')) return false;
+  if (MAKE_HINTS.test(t) || CONSULT_HINTS.test(t)) return false;
+  // 依頼・相談の文末表現がなければ名詞句とみなす
+  return !/(ください|して$|したい|します|ですか|でしょうか|お願い)/.test(t);
+}
 
 export function detectCeoMode(text: string): CeoMode {
   const t = text.trim();
+  if (parseBulletTasks(t)) return 'tasks'; // 箇条書きは100%タスク候補
   if (/^テーマ[::]/.test(t)) return 'research'; // ディープリサーチモード
-  if (MAKE_HINTS.test(t)) return 'production';
+  if (MAKE_HINTS.test(t)) return 'production'; // 明確な制作依頼のみ制作へ
   if (CONSULT_HINTS.test(t)) return 'advice';
-  // 制作物キーワードが明示されていれば制作、なければ経営相談として扱う
-  const hasStrongKeyword = /インスタ|instagram|リール|カルーセル|threads|スレッズ|ロゴ|バナー|チラシ|ランディングページ|(^|[^a-zA-Z])lp([^a-zA-Z]|$)|ホームページ|サイト|ブログ|記事|提案書|企画書|ツイート|facebook/i.test(t);
-  return hasStrongKeyword ? 'production' : 'advice';
+  if (isBareTodo(t)) return 'tasks'; // 名詞句だけの入力は「やること」として登録
+  return 'advice';
+}
+
+// ---------- AI秘書: タスクの自動分類 ----------
+
+interface TaskClassification {
+  category: string;
+  assigneeId: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+}
+
+/** タスク名からカテゴリ・担当AI候補・優先度を自動設定 */
+export function classifyTask(title: string): TaskClassification {
+  const t = title.toLowerCase();
+  const priority: TaskClassification['priority'] = /至急|今すぐ|急ぎ|本日中|今日中/.test(title)
+    ? 'urgent'
+    : /早め|明日|今週/.test(title)
+      ? 'high'
+      : 'medium';
+  const has = (re: RegExp) => re.test(t) || re.test(title);
+
+  if (has(/返信|メール対応|問い合わせ|連絡|返答/)) return { category: '返信', assigneeId: 'reception', priority };
+  if (has(/facebook|threads|スレッズ|instagram|インスタ|リール|カルーセル|x投稿|ツイート|sns|投稿|日記/)) return { category: 'SNS', assigneeId: 'sns', priority };
+  if (has(/バナー|チラシ|ロゴ|デザイン|画像/)) return { category: 'デザイン', assigneeId: 'designer', priority };
+  if (has(/ブログ|記事|原稿|ライティング|コラム/)) return { category: '記事', assigneeId: 'writer', priority };
+  if (has(/hp|ホームページ|サイト|lp|ランディング|web|修正|ページ/)) return { category: '制作', assigneeId: 'director', priority };
+  if (has(/提案書|企画書|資料|見積/)) return { category: '資料', assigneeId: 'director', priority };
+  if (has(/請求|経理|支払|振込|入金/)) return { category: '管理', assigneeId: 'accountant', priority };
+  return { category: 'その他', assigneeId: 'secretary', priority };
+}
+
+/**
+ * AI秘書モード: 入力をタスク候補として/tasksへ登録する。
+ * AI社員への依頼・制作ランは一切行わない(社長の頭の中を整理する場所)
+ */
+export function registerTasksFromChat(items: string[]): number {
+  const tasks = items.map((title) => {
+    const c = classifyTask(title);
+    return {
+      id: uid('task'),
+      title,
+      description: `社長指示チャット(AI秘書)から登録 — カテゴリ: ${c.category}`,
+      category: c.category,
+      assigneeId: c.assigneeId,
+      requesterId: null,
+      projectId: null,
+      customerId: null,
+      priority: c.priority,
+      status: 'backlog' as const,
+      progress: 0,
+      plannedStart: null,
+      deadline: null,
+      startedAt: null,
+      completedAt: null,
+      needsApproval: false,
+      approver: null,
+      dependsOn: [],
+      input: null,
+      output: null,
+      model: 'なし(未実行)',
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      errorMessage: null,
+      createdAt: nowIso(),
+    };
+  });
+  useOffice.setState((s) => ({
+    tasks: [...tasks, ...s.tasks],
+    chat: [
+      ...s.chat,
+      { id: uid('chat'), role: 'ceo_ai' as const, content: `${tasks.length}件のタスクを登録しました。`, timestamp: nowIso() },
+    ],
+  }));
+  pushLog('secretary', `AI秘書: 社長のタスク${tasks.length}件を整理して登録しました(${Array.from(new Set(tasks.map((t) => t.category))).join('・')})。`, 'success');
+  return tasks.length;
 }
 
 const reviewPanelText = (p: ReviewPanelOutput): string =>
@@ -323,6 +434,12 @@ export async function handleCeoMessage(text: string): Promise<void> {
     return;
   }
   const mode = detectCeoMode(text);
+  if (mode === 'tasks') {
+    // AI秘書: 箇条書き・名詞句はタスク候補として登録のみ(AI社員への依頼はしない)
+    const items = parseBulletTasks(text) ?? [text.trim()];
+    registerTasksFromChat(items);
+    return;
+  }
   if (mode === 'research') {
     startCeoResearch(text);
     return;

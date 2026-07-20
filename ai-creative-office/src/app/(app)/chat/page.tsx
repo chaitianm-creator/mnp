@@ -286,21 +286,28 @@ export default function ChatPage() {
               ))}
         </div>
         <div className="flex gap-2">
-          <input
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
+            onKeyDown={(e) => {
+              // Enter=送信 / Shift+Enter=改行(箇条書き入力用)
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            rows={Math.min(5, Math.max(1, input.split('\n').length))}
             placeholder={
               pendingConsult
                 ? 'ディレクターの確認事項へのご回答を入力…'
                 : pendingResearch
                   ? '5つの確認へのご回答を入力…(まとめてでOK)'
                   : aiMode
-                    ? '依頼・経営相談・「テーマ: ◯◯」でリサーチ…'
+                    ? '依頼・相談・箇条書きでタスク登録(Shift+Enterで改行)…'
                     : 'CEO AIへ指示を入力…'
             }
             disabled={planning}
-            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-brand-400 disabled:opacity-60"
+            className="min-w-0 flex-1 resize-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm leading-relaxed outline-none focus:border-brand-400 disabled:opacity-60"
           />
           <Button onClick={submit} className="px-4" disabled={planning}>
             <Send className="h-4 w-4" />

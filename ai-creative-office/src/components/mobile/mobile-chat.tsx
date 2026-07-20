@@ -359,14 +359,20 @@ function CeoThread({ onBack }: { onBack: () => void }) {
           </div>
         )}
         <div className="flex gap-2">
-          <input
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
-            placeholder={pendingConsult ? '確認事項へのご回答を入力…' : pendingResearch ? '5つの確認へのご回答を入力…' : aiMode ? '依頼・相談・「テーマ: ◯◯」…' : 'CEO AIへ指示を入力…'}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            rows={Math.min(4, Math.max(1, input.split('\n').length))}
+            placeholder={pendingConsult ? '確認事項へのご回答を入力…' : pendingResearch ? '5つの確認へのご回答を入力…' : aiMode ? '依頼・相談・箇条書きでタスク登録…' : 'CEO AIへ指示を入力…'}
             disabled={planning}
             aria-label="CEO AIへのメッセージ入力"
-            className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-brand-400 disabled:opacity-60"
+            className="min-w-0 flex-1 resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm leading-relaxed outline-none focus:border-brand-400 disabled:opacity-60"
           />
           <button
             onClick={submit}
