@@ -4,7 +4,8 @@
 import { LiveFeed } from '@/components/office/office-widgets';
 import { useOffice } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { AlertTriangle, CheckCircle2, ChevronRight, FolderOpen, MessageSquare, Sparkles, Users } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, FolderOpen, ListTodo, MessageSquare, Sparkles, Users } from 'lucide-react';
+import Link from 'next/link';
 
 function greeting() {
   const h = new Date().getHours();
@@ -33,6 +34,8 @@ export function MobileHome({
   const pendingApprovals = useOffice((s) => s.approvals.filter((a) => a.status === 'pending').length);
   const unresolvedErrors = useOffice((s) => s.errors.filter((e) => !e.resolved).length);
   const deliverableCount = useOffice((s) => s.deliverables.length);
+  const taskCount = useOffice((s) => s.tasks.length);
+  const taskUnread = useOffice((s) => Object.values(s.taskRooms).reduce((acc, r) => acc + r.unreadCount, 0));
 
   const working = agents.filter((a) => ['working', 'checking', 'delegating', 'meeting'].includes(a.status)).length;
   const todayDone = dailyStats[dailyStats.length - 1]?.tasksCompleted ?? 0;
@@ -140,6 +143,24 @@ export function MobileHome({
         <QuickAction icon={FolderOpen} label="成果物" sub={`${deliverableCount}件`} onClick={onOpenDeliverables} />
         <QuickAction icon={CheckCircle2} label="承認する" sub={pendingApprovals > 0 ? `${pendingApprovals}件待ち` : 'なし'} onClick={onGoInbox} highlight={pendingApprovals > 0} />
       </section>
+
+      {/* タスク・案件ルームへの入口 */}
+      <Link
+        href="/tasks"
+        className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm outline-none active:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-500"
+      >
+        <ListTodo className="h-5 w-5 shrink-0 text-brand-600" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13px] font-bold text-slate-800">タスク・案件ルーム</span>
+          <span className="block text-[10.5px] text-slate-400">タスク{taskCount}件 — タップで案件ごとのルームを開けます</span>
+        </span>
+        {taskUnread > 0 && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+            {taskUnread}
+          </span>
+        )}
+        <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
+      </Link>
 
       {/* ライブフィード */}
       <LiveFeed onSelectAgent={onSelectAgent} className="max-h-[340px]" limit={15} />

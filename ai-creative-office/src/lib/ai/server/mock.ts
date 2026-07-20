@@ -58,7 +58,41 @@ export class MockAIProvider extends BaseProvider {
     const { theme, audience, siteType } = themeOf(request);
     let payload: unknown;
 
-    if (options.system.includes('[ROLE:CEO_ADVISOR]')) {
+    if (options.system.includes('[ROLE:TASK_ASSISTANT]')) {
+      // 案件ルームの秘書AI: 返信 + 提案整理 + 必要なら返信文案の下書き
+      const req = request.match(/【社長の依頼】\n([\s\S]+?)(\n\n|$)/)?.[1] ?? request;
+      const wantsReplyDraft = /返信|返事|文を考え|文面|文章を|下書き|ドラフト/.test(req);
+      const wantsWriting = /作って|書いて|作成|考えて/.test(req);
+      const subject = req.replace(/[のを]?(返信|返事)の?文?を?(考えて|作って|書いて)(ほしい|欲しい|ください)?[\s\S]*$/, '').replace(/\s+/g, ' ').trim().slice(0, 24) || 'ご依頼の件';
+      const artifact = wantsReplyDraft
+        ? {
+            title: `${subject} への返信文案`,
+            kind: '返信文案',
+            content: `[宛名をご記入ください] 様\n\nお世話になっております。[会社名/氏名をご記入ください]です。\n\nこの度はご連絡いただきありがとうございます。「${subject}」の件、承知いたしました。\n\n内容を確認のうえ、[回答期日をご記入ください]までに改めてご連絡差し上げます。ご不明な点やご要望がございましたら、お気軽にお知らせください。\n\n今後ともよろしくお願いいたします。\n\n[署名をご記入ください]`,
+          }
+        : wantsWriting
+          ? {
+              title: `${subject} の下書き`,
+              kind: '下書き',
+              content: `# ${subject}\n\n【目的】[このタスクのゴールをご記入ください]\n\n【本文案】\n${subject}について、要点を3つに絞って整理しました。\n1. 現状: [現状をご記入ください]\n2. 提案: [提案内容をご記入ください]\n3. 次の一歩: [次のアクションをご記入ください]\n\n※デモ生成の下書きです。編集してご利用ください。`,
+            }
+          : null;
+      payload = {
+        reply: artifact
+          ? `承知しました。「${subject}」の${artifact.kind}を作成し、成果物エリアへ保存しました。宛名・日付などのプレースホルダーをご確認のうえ、編集してご利用ください。送信は行っていません。`
+          : `「${subject}」の件、整理しました。右のAI提案エリアに対応方針・確認事項・次のアクションをまとめています。返信文の下書きが必要な場合は「返信文を作って」とお知らせください。`,
+        suggestions: {
+          approaches: [
+            wantsReplyDraft ? 'まず御礼と受領の返信を送り、詳細回答は期日を切って分ける' : 'タスクを「今日やる最小の一歩」と「後で決めること」に分ける',
+            '相手・目的を1行で固定してから着手する(手戻り防止)',
+          ],
+          checkpoints: ['宛先(相手の名前・会社名)は正しいか', '期日・優先度はこのままでよいか'],
+          nextActions: [wantsReplyDraft ? '返信文案を編集して確定する' : '対応方針を1つ選ぶ', '完了したらステータスを「完了」へ変更する'],
+          missingInfo: ['相手からの元のメッセージ全文', '希望する納期・トーン(丁寧/カジュアル)'],
+        },
+        artifact,
+      };
+    } else if (options.system.includes('[ROLE:CEO_ADVISOR]')) {
       // 経営相談モード: ①需要②勝てる理由③最悪のケース④最初の一歩 + レビュー会議 + ユーザー分析
       const req = request.match(/【社長の依頼】\n([\s\S]+?)(\n\n|$)/)?.[1] ?? request;
       const topic = req.replace(/について.*|を?相談.*|どう思う.*|すべきか.*/g, '').slice(0, 30) || '今回のテーマ';

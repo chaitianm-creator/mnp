@@ -84,7 +84,9 @@ import type {
   SeoKeyword,
   SnsPost,
   Task,
+  TaskRoom,
   TaskStatus,
+  TaskSuggestions,
 } from './types';
 import { pickRandom, todayKey, uid } from './utils';
 
@@ -130,6 +132,7 @@ interface OfficeState {
   deliverables: Deliverable[]; // AI生成の成果物(バージョン管理付き)
   onboardingDismissed: boolean; // 初回オンボーディングカードを閉じたか
   ceoProfile: CeoUserProfile; // 会話から更新するユーザー(社長)分析
+  taskRooms: Record<string, TaskRoom>; // 案件ルーム(taskId→ルーム。1タスク=1ルーム)
 
   setHydrated: (v: boolean) => void;
   dismissOnboarding: () => void;
@@ -163,6 +166,18 @@ interface OfficeState {
   discardPlan: (messageId: string) => void;
   instructAgent: (agentId: string, instruction: string) => void;
   setTaskStatus: (taskId: string, status: TaskStatus) => void;
+  updateTask: (taskId: string, patch: Partial<Task>) => void; // 優先度・期限・担当AIなどの変更
+  // 案件ルーム(1タスク=1ルーム。会話・成果物・提案を案件ごとに分離して保存)
+  ensureTaskRoom: (taskId: string, sourceRequest?: string) => void;
+  addRoomMessage: (taskId: string, msg: { role: 'user' | 'ai'; content: string; agentId?: string }) => void;
+  setRoomSuggestions: (taskId: string, suggestions: Omit<TaskSuggestions, 'updatedAt'>) => void;
+  addRoomArtifact: (taskId: string, artifact: { title: string; kind: string; content: string }) => void;
+  updateRoomArtifact: (taskId: string, artifactId: string, patch: { title?: string; content?: string }) => void;
+  deleteRoomArtifact: (taskId: string, artifactId: string) => void;
+  setArtifactLatest: (taskId: string, artifactId: string) => void;
+  addRoomActivity: (taskId: string, message: string) => void;
+  markRoomRead: (taskId: string) => void;
+  markRoomAutoDrafted: (taskId: string) => void;
   resolveError: (id: string) => void;
   toggleIntegration: (id: string) => void;
   resetAll: () => void;
@@ -486,6 +501,7 @@ export const useOffice = create<OfficeState>()(
       deliverables: [],
       onboardingDismissed: false,
       ceoProfile: { criteria: [], values: [], phrases: [], patterns: [], strengths: [], weaknesses: [], updatedAt: null },
+      taskRooms: {},
 
       setHydrated: (v) => set({ hydrated: v }),
 
@@ -1928,6 +1944,173 @@ export const useOffice = create<OfficeState>()(
         });
       },
 
+      // タスクの部分更新(優先度・期限・担当AI・カテゴリなど。ステータス変更は日時も同期)
+      updateTask: (taskId, patch) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) => {
+            if (t.id !== taskId) return t;
+            const next = { ...t, ...patch };
+            if (patch.status && patch.status !== t.status) {
+              next.startedAt = patch.status === 'running' && !t.startedAt ? nowIso() : t.startedAt;
+              next.completedAt = patch.status === 'done' ? nowIso() : null;
+              next.progress = patch.status === 'done' ? 100 : t.progress;
+            }
+            return next;
+          }),
+        })),
+
+      // ---------- 案件ルーム(1タスク=1ルーム) ----------
+      ensureTaskRoom: (taskId, sourceRequest) =>
+        set((s) => {
+          if (s.taskRooms[taskId]) return {};
+          const task = s.tasks.find((t) => t.id === taskId);
+          const source = sourceRequest ?? task?.input ?? task?.description ?? '';
+          const room: TaskRoom = {
+            taskId,
+            sourceRequest: source,
+            messages: [],
+            artifacts: [],
+            activities: [{ id: uid('act'), message: '案件ルームを作成しました', timestamp: nowIso() }],
+            suggestions: null,
+            autoDrafted: false,
+            unreadCount: 0,
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          };
+          return { taskRooms: { ...s.taskRooms, [taskId]: room } };
+        }),
+
+      addRoomMessage: (taskId, msg) =>
+        set((s) => {
+          const room = s.taskRooms[taskId];
+          if (!room) return {};
+          return {
+            taskRooms: {
+              ...s.taskRooms,
+              [taskId]: {
+                ...room,
+                messages: [...room.messages, { id: uid('trm'), ...msg, timestamp: nowIso() }].slice(-200),
+                unreadCount: msg.role === 'ai' ? room.unreadCount + 1 : room.unreadCount,
+                updatedAt: nowIso(),
+              },
+            },
+          };
+        }),
+
+      setRoomSuggestions: (taskId, suggestions) =>
+        set((s) => {
+          const room = s.taskRooms[taskId];
+          if (!room) return {};
+          return {
+            taskRooms: {
+              ...s.taskRooms,
+              [taskId]: { ...room, suggestions: { ...suggestions, updatedAt: nowIso() }, updatedAt: nowIso() },
+            },
+          };
+        }),
+
+      // 新しい成果物は「最新版」として保存(既存の最新版は解除。手動での切替も可能)
+      addRoomArtifact: (taskId, artifact) =>
+        set((s) => {
+          const room = s.taskRooms[taskId];
+          if (!room) return {};
+          const item = { id: uid('art'), ...artifact, isLatest: true, createdAt: nowIso(), updatedAt: nowIso() };
+          return {
+            taskRooms: {
+              ...s.taskRooms,
+              [taskId]: {
+                ...room,
+                artifacts: [item, ...room.artifacts.map((a) => ({ ...a, isLatest: false }))].slice(0, 20),
+                activities: [{ id: uid('act'), message: `成果物「${artifact.title}」を保存しました`, timestamp: nowIso() }, ...room.activities].slice(0, 100),
+                unreadCount: room.unreadCount + 1,
+                updatedAt: nowIso(),
+              },
+            },
+          };
+        }),
+
+      updateRoomArtifact: (taskId, artifactId, patch) =>
+        set((s) => {
+          const room = s.taskRooms[taskId];
+          if (!room) return {};
+          return {
+            taskRooms: {
+              ...s.taskRooms,
+              [taskId]: {
+                ...room,
+                artifacts: room.artifacts.map((a) => (a.id === artifactId ? { ...a, ...patch, updatedAt: nowIso() } : a)),
+                activities: [{ id: uid('act'), message: '成果物を編集して保存しました', timestamp: nowIso() }, ...room.activities].slice(0, 100),
+                updatedAt: nowIso(),
+              },
+            },
+          };
+        }),
+
+      deleteRoomArtifact: (taskId, artifactId) =>
+        set((s) => {
+          const room = s.taskRooms[taskId];
+          if (!room) return {};
+          const target = room.artifacts.find((a) => a.id === artifactId);
+          return {
+            taskRooms: {
+              ...s.taskRooms,
+              [taskId]: {
+                ...room,
+                artifacts: room.artifacts.filter((a) => a.id !== artifactId),
+                activities: [{ id: uid('act'), message: `成果物「${target?.title ?? ''}」を削除しました`, timestamp: nowIso() }, ...room.activities].slice(0, 100),
+                updatedAt: nowIso(),
+              },
+            },
+          };
+        }),
+
+      setArtifactLatest: (taskId, artifactId) =>
+        set((s) => {
+          const room = s.taskRooms[taskId];
+          if (!room) return {};
+          return {
+            taskRooms: {
+              ...s.taskRooms,
+              [taskId]: {
+                ...room,
+                artifacts: room.artifacts.map((a) => ({ ...a, isLatest: a.id === artifactId })),
+                activities: [{ id: uid('act'), message: '最新版の成果物を切り替えました', timestamp: nowIso() }, ...room.activities].slice(0, 100),
+                updatedAt: nowIso(),
+              },
+            },
+          };
+        }),
+
+      addRoomActivity: (taskId, message) =>
+        set((s) => {
+          const room = s.taskRooms[taskId];
+          if (!room) return {};
+          return {
+            taskRooms: {
+              ...s.taskRooms,
+              [taskId]: {
+                ...room,
+                activities: [{ id: uid('act'), message, timestamp: nowIso() }, ...room.activities].slice(0, 100),
+                updatedAt: nowIso(),
+              },
+            },
+          };
+        }),
+
+      markRoomRead: (taskId) =>
+        set((s) => {
+          const room = s.taskRooms[taskId];
+          if (!room || room.unreadCount === 0) return {};
+          return { taskRooms: { ...s.taskRooms, [taskId]: { ...room, unreadCount: 0 } } };
+        }),
+
+      markRoomAutoDrafted: (taskId) =>
+        set((s) => {
+          const room = s.taskRooms[taskId];
+          if (!room) return {};
+          return { taskRooms: { ...s.taskRooms, [taskId]: { ...room, autoDrafted: true } } };
+        }),
+
       setTaskStatus: (taskId, status) =>
         set((s) => ({
           tasks: s.tasks.map((t) =>
@@ -1977,11 +2160,12 @@ export const useOffice = create<OfficeState>()(
           chatSessions: [],
           onboardingDismissed: false,
           ceoProfile: { criteria: [], values: [], phrases: [], patterns: [], strengths: [], weaknesses: [], updatedAt: null },
+          taskRooms: {},
         }),
     }),
     {
       name: 'aco-store-v1',
-      version: 7,
+      version: 8,
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
       },
@@ -2016,6 +2200,10 @@ export const useOffice = create<OfficeState>()(
         if (version < 7 && state) {
           // v7: 初回オンボーディング。既存利用者(デモデータで利用中)には表示しない
           if (state.onboardingDismissed === undefined) state.onboardingDismissed = true;
+        }
+        if (version < 8 && state) {
+          // v8: 案件ルーム(タスク専用の会話・成果物・提案)の初期化
+          if (!state.taskRooms) state.taskRooms = {};
         }
         return state as OfficeState & Record<string, unknown>;
       },

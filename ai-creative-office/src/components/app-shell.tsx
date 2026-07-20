@@ -117,7 +117,26 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   // スマホ: 「AI会社を持ち歩くアプリ」体験(PC版の管理画面とは別UI)
-  if (isMobile) return <MobileApp />;
+  // タスク管理・案件ルーム(/tasks)はスマホでも同じ画面を縦積みレイアウトで表示する
+  if (isMobile) {
+    if (pathname.startsWith('/tasks')) {
+      return (
+        <div className="min-h-[100dvh] bg-slate-50">
+          <header className="sticky top-0 z-40 flex items-center gap-2 border-b border-slate-200 bg-white/95 px-4 pb-2 backdrop-blur pt-safe-2">
+            <Link href="/dashboard" className="text-[12px] font-bold text-brand-600">
+              ← ホーム
+            </Link>
+            <p className="bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-sm font-extrabold tracking-tight text-transparent">
+              {companyName}
+            </p>
+            <span className="ml-auto text-[10px] text-slate-400">タスク・案件ルーム</span>
+          </header>
+          <main className="px-3 pb-10 pt-3">{children}</main>
+        </div>
+      );
+    }
+    return <MobileApp />;
+  }
 
   const nav = (
     <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
