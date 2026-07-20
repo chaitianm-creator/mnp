@@ -417,6 +417,15 @@ export interface CeoUserProfile {
   updatedAt: string | null;
 }
 
+/** 社長指示チャットの過去セッション(新しい会話を始めるとアーカイブされる) */
+export interface ChatSession {
+  id: string;
+  title: string; // 最初の社長メッセージから自動生成
+  messages: ChatMessage[];
+  createdAt: string;
+  archivedAt: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'ceo_user' | 'ceo_ai';

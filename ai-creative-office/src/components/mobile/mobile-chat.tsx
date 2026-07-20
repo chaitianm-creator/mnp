@@ -8,7 +8,7 @@ import { RunCard } from '@/components/run-card';
 import { getPendingConsult, getPendingResearch, handleCeoMessage, proceedWithoutAnswers } from '@/lib/agent-runner';
 import { useOffice } from '@/lib/store';
 import { cn, formatDateTime, uid, yen } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, Loader2, Play, Send, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, History, Loader2, Play, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 const RUN_TEMPLATES = [
@@ -132,6 +132,10 @@ function CeoThread({ onBack }: { onBack: () => void }) {
   const [planning, setPlanning] = useState(false);
   const [aiMode, setAiMode] = useState(true);
   const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set());
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const chatSessions = useOffice((s) => s.chatSessions);
+  const startNewChatSession = useOffice((s) => s.startNewChatSession);
+  const switchChatSession = useOffice((s) => s.switchChatSession);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const toggleDetail = (id: string) =>
@@ -198,7 +202,23 @@ function CeoThread({ onBack }: { onBack: () => void }) {
           <p className="text-[13px] font-bold text-slate-800">CEO AI</p>
           <p className="text-[10px] text-slate-400">「開始」を押すまでAIは実行されません</p>
         </div>
-        <label className="ml-auto flex shrink-0 items-center gap-1.5 text-[10px] text-slate-500">
+        <button
+          onClick={() => startNewChatSession()}
+          disabled={planning || chat.length === 0}
+          aria-label="新しい会話を始める"
+          className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 outline-none active:bg-slate-100 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => setHistoryOpen((v) => !v)}
+          disabled={chatSessions.length === 0}
+          aria-label={`過去の会話(${chatSessions.length}件)`}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 outline-none active:bg-slate-100 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          <History className="h-4 w-4" />
+        </button>
+        <label className="flex shrink-0 items-center gap-1.5 text-[10px] text-slate-500">
           <Sparkles className="h-3 w-3 text-brand-600" />
           AI実働
           <button
@@ -211,6 +231,29 @@ function CeoThread({ onBack }: { onBack: () => void }) {
           </button>
         </label>
       </ThreadHeader>
+
+      {/* 過去の会話リスト(オーバーレイ) */}
+      {historyOpen && (
+        <div className="border-b border-slate-100 bg-white">
+          <p className="px-3 pt-2 text-[10px] font-semibold text-slate-400">過去の会話(タップで再開。現在の会話は履歴に保存)</p>
+          <ul className="max-h-44 overflow-y-auto">
+            {chatSessions.map((sess) => (
+              <li key={sess.id}>
+                <button
+                  onClick={() => {
+                    switchChatSession(sess.id);
+                    setHistoryOpen(false);
+                  }}
+                  className="flex w-full flex-col gap-0.5 px-3 py-2 text-left outline-none active:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                >
+                  <span className="truncate text-[12px] font-medium text-slate-700">{sess.title}</span>
+                  <span className="text-[10px] tabular-nums text-slate-400">{formatDateTime(sess.archivedAt)} ・ {sess.messages.length}件</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* 会話履歴 */}
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3" aria-live="polite">

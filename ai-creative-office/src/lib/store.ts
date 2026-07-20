@@ -65,6 +65,7 @@ import type {
   CeoUserProfile,
   ChatAction,
   ChatMessage,
+  ChatSession,
   CompanySettings,
   DailyStat,
   Deal,
@@ -107,6 +108,7 @@ interface OfficeState {
   errors: ErrorRecord[];
   integrations: Integration[];
   chat: ChatMessage[];
+  chatSessions: ChatSession[]; // 社長指示チャットの過去セッション
   // ライブオフィス用(永続化しない)
   officeEvents: OfficeEvent[];
   announcements: Announcement[];
@@ -132,6 +134,8 @@ interface OfficeState {
   setHydrated: (v: boolean) => void;
   dismissOnboarding: () => void;
   mergeCeoProfile: (insights: Partial<Omit<CeoUserProfile, 'updatedAt'>>) => void;
+  startNewChatSession: () => void; // 現在の会話をアーカイブして新しい会話を始める
+  switchChatSession: (sessionId: string) => void; // 過去の会話へ切り替え(現在の会話はアーカイブ)
   setDemoMode: (on: boolean) => void; // Demo Mode切り替え(ダミーデータの表示/非表示)
   tick: () => void;
   pauseAgent: (agentId: string) => void;
@@ -448,11 +452,25 @@ const initialData = {
   integrations: seedIntegrations,
 };
 
+
+/** 現在のチャットをセッション履歴へアーカイブ(空なら何もしない・最大20件) */
+function archiveChat(chat: ChatMessage[], sessions: ChatSession[]): ChatSession[] {
+  if (chat.length === 0) return sessions;
+  const firstUser = chat.find((m) => m.role === 'ceo_user');
+  const raw = (firstUser?.content ?? chat[0].content).replace(/\s+/g, ' ').trim();
+  const title = raw.slice(0, 24) + (raw.length > 24 ? '…' : '');
+  return [
+    { id: uid('sess'), title: title || '会話', messages: chat, createdAt: chat[0].timestamp, archivedAt: nowIso() },
+    ...sessions,
+  ].slice(0, 20);
+}
+
 export const useOffice = create<OfficeState>()(
   persist(
     (set, get) => ({
       hydrated: false,
       ...initialData,
+      chatSessions: [],
       officeEvents: [],
       announcements: [],
       tickCount: 0,
@@ -492,12 +510,26 @@ export const useOffice = create<OfficeState>()(
           };
         }),
 
+      // 新しい会話: 現在の会話を履歴へ保存してまっさらに(見やすさのためのリセット)
+      startNewChatSession: () =>
+        set((s) => ({ chatSessions: archiveChat(s.chat, s.chatSessions), chat: [] })),
+
+      // 過去の会話へ切り替え(現在の会話は履歴へ保存)
+      switchChatSession: (sessionId) =>
+        set((s) => {
+          const target = s.chatSessions.find((c) => c.id === sessionId);
+          if (!target) return {};
+          const rest = s.chatSessions.filter((c) => c.id !== sessionId);
+          return { chat: target.messages, chatSessions: archiveChat(s.chat, rest) };
+        }),
+
       // Demo Mode切り替え: ONでダミーデータ表示+自動デモ演出、OFFで初期値0の実運用モード
       // (どちらの場合も、あなたが作成した成果物・AI実行履歴・設定は保持される)
       setDemoMode: (on) =>
         set((s) => ({
           settings: { ...s.settings, demoMode: on },
           ...(on ? demoData : emptyData),
+          chatSessions: archiveChat(s.chat, s.chatSessions), // 現在の会話は履歴へ退避
           officeEvents: [],
           announcements: [],
           tickCount: 0,
@@ -1942,6 +1974,7 @@ export const useOffice = create<OfficeState>()(
           ceoAlerts: [],
           agentRuns: [],
           deliverables: [],
+          chatSessions: [],
           onboardingDismissed: false,
           ceoProfile: { criteria: [], values: [], phrases: [], patterns: [], strengths: [], weaknesses: [], updatedAt: null },
         }),

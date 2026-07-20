@@ -8,7 +8,7 @@ import { getPendingConsult, getPendingResearch, handleCeoMessage, proceedWithout
 import { useOffice } from '@/lib/store';
 import { formatDateTime, uid, yen } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { ChevronDown, ChevronUp, Loader2, Play, Send, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, History, Loader2, Play, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 // AI実働の依頼テンプレート(クリックでたたき台を入力)
@@ -36,6 +36,10 @@ export default function ChatPage() {
   const sendChat = useOffice((s) => s.sendChat);
   const startPlan = useOffice((s) => s.startPlan);
   const discardPlan = useOffice((s) => s.discardPlan);
+  const chatSessions = useOffice((s) => s.chatSessions);
+  const startNewChatSession = useOffice((s) => s.startNewChatSession);
+  const switchChatSession = useOffice((s) => s.switchChatSession);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [input, setInput] = useState('');
   const [planning, setPlanning] = useState(false);
   const [aiMode, setAiMode] = useState(true); // true=AI実働(実成果物) / false=デモプラン
@@ -108,7 +112,55 @@ export default function ChatPage() {
         title="社長指示チャット"
         sub="CEO AIが指示を分析し、実行計画を提案します。「開始」を押すまでAIは実行されません"
         action={
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs">
+          <div className="flex items-center gap-2">
+            {/* 新しい会話(現在の会話は履歴に保存) */}
+            <button
+              onClick={() => {
+                startNewChatSession();
+                setHistoryOpen(false);
+              }}
+              disabled={planning || chat.length === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 outline-none transition hover:bg-slate-50 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              <Plus className="h-3.5 w-3.5" /> 新しい会話
+            </button>
+            {/* 過去の会話 */}
+            <div className="relative">
+              <button
+                onClick={() => setHistoryOpen((v) => !v)}
+                disabled={chatSessions.length === 0}
+                aria-expanded={historyOpen}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 outline-none transition hover:bg-slate-50 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-brand-500"
+              >
+                <History className="h-3.5 w-3.5" /> 履歴({chatSessions.length})
+              </button>
+              {historyOpen && chatSessions.length > 0 && (
+                <div className="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-panel">
+                  <p className="border-b border-slate-100 px-3 py-2 text-[10px] font-semibold text-slate-400">
+                    過去の会話(クリックで再開。現在の会話は履歴に保存されます)
+                  </p>
+                  <ul className="max-h-64 overflow-y-auto">
+                    {chatSessions.map((sess) => (
+                      <li key={sess.id}>
+                        <button
+                          onClick={() => {
+                            switchChatSession(sess.id);
+                            setHistoryOpen(false);
+                          }}
+                          className="flex w-full flex-col gap-0.5 px-3 py-2 text-left outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                        >
+                          <span className="truncate text-xs font-medium text-slate-700">{sess.title}</span>
+                          <span className="text-[10px] tabular-nums text-slate-400">
+                            {formatDateTime(sess.archivedAt)} ・ {sess.messages.length}件のメッセージ
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs">
             <Sparkles className="h-3.5 w-3.5 text-brand-600" />
             AI実働モード(成果物を生成)
             <button
@@ -120,10 +172,17 @@ export default function ChatPage() {
               <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${aiMode ? 'left-[18px]' : 'left-0.5'}`} />
             </button>
           </label>
+          </div>
         }
       />
 
       <div className="flex-1 space-y-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4">
+        {chat.length === 0 && (
+          <div className="flex h-full flex-col items-center justify-center gap-1.5 text-center text-slate-400">
+            <p className="text-sm font-medium">新しい会話です</p>
+            <p className="text-xs">依頼(「◯◯を作って」)・経営相談・「テーマ: ◯◯」でリサーチ・箇条書きでタスク登録ができます</p>
+          </div>
+        )}
         {chat.map((msg) => (
           <motion.div
             key={msg.id}
