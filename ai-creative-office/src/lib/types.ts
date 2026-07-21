@@ -113,6 +113,7 @@ export interface Task {
   priority: TaskPriority;
   status: TaskStatus;
   progress: number;
+  sortOrder?: number; // 一覧の並び順(昇順表示。DBのsort_orderカラムに相当。新規タスクは末尾=最大値+1)
   plannedStart: string | null;
   deadline: string | null;
   startedAt: string | null;
