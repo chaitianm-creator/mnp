@@ -57,12 +57,12 @@ function isInstructionLine(line: string): boolean {
 }
 
 /** 入力から「ユーザーの指示」と「貼り付けられた相手メッセージ本文」を分離する */
-function splitRequest(req: string): { instr: string; body: string } {
+function splitRequest(req: string): { instr: string; body: string; explicit: boolean } {
   const lines = req.split('\n').map((l) => l.trim()).filter(Boolean);
   const instrLines = lines.filter((l) => l.length <= 80 && isInstructionLine(l));
   const bodyLines = lines.filter((l) => !instrLines.includes(l) && !/^[【・\-*]/.test(l));
   const body = bodyLines.join('\n').trim();
-  return { instr: instrLines.join(' ') || req, body: body.length >= 20 ? body : '' };
+  return { instr: instrLines.join(' ') || req, body: body.length >= 20 ? body : '', explicit: instrLines.length > 0 };
 }
 
 /** 会話履歴から相手メッセージらしき貼り付け(長文の社長発言)を探す */
@@ -91,7 +91,7 @@ function taskAssistantPayload(prompt: string): TaskWorkPayload {
   const sentences = (t: string) => t.replace(/\n+/g, ' ').split(/(?<=[。!?!?])/).map((x) => x.trim()).filter(Boolean);
 
   // 入力を「指示」と「相手メッセージ本文」に分離し、本文は 今回の入力 > 元依頼 > 会話履歴 の順で解決
-  const { instr, body: reqBody } = splitRequest(req);
+  const { instr, body: reqBody, explicit } = splitRequest(req);
   const body = reqBody || splitRequest(source).body || bodyFromConversation(conv);
 
   const draftReply = (content: string, kind: string) =>
@@ -103,7 +103,8 @@ function taskAssistantPayload(prompt: string): TaskWorkPayload {
   const replyIntent = /返信して|返事して|(返信|返事|メール|文面|文章)(の文|文)?(の案|案)?を?(考|作|書)|返信文|下書き|ドラフト/.test(instr);
 
   // ---- 相手メッセージの内容を理解して返信文を組み立てる(テンプレ差し込みではない) ----
-  const composeReply = (b: string, stance: 'accept' | 'decline' | 'none'): TaskWorkPayload => {
+  // assumed=true は「指示なしでメッセージだけ貼られた」場合(前向きに了解する前提の提案)
+  const composeReply = (b: string, stance: 'accept' | 'decline' | 'none', assumed = false): TaskWorkPayload => {
     // 文脈判定: ビジネスメールか、LINE・チャットのような軽い文面か
     const isBiz = !b || /お世話にな|株式会社|御社|貴社|いたします|申し上げ|ございます|拝/.test(b) || b.length > 140;
     const norm = (t: string) => t.replace(/時半/g, '時30分');
@@ -142,8 +143,9 @@ function taskAssistantPayload(prompt: string): TaskWorkPayload {
             when ? `${/^\d/.test(when) ? `当日は${when}` : when}で対応させていただきます。` : asks[0] ? `お尋ねの「${norm(asks[0]).replace(/[。??]+$/, '').slice(0, 30)}」につきましては、問題なく対応できます。` : '内容につきまして、問題ございません。',
             hasVenue || hasPrep ? `開始前に${hasVenue ? '会場' : '現地'}へ伺い、${hasPrep ? '準備や接続確認も含めて' : '準備も含めて'}対応いたします。` : null,
             '',
-            '微力ではございますが、お力になれれば幸いです。',
-            '当日はどうぞよろしくお願いいたします。',
+            ...(when || hasVenue || hasPrep
+              ? ['微力ではございますが、お力になれれば幸いです。', '当日はどうぞよろしくお願いいたします。']
+              : ['ご不明な点やご要望がございましたら、お気軽にお知らせください。', '今後ともどうぞよろしくお願いいたします。']),
           ]
         : [
             'ご連絡ありがとうございます!',
@@ -178,12 +180,13 @@ function taskAssistantPayload(prompt: string): TaskWorkPayload {
       ];
     }
     const content = lines.filter((l): l is string => l !== null).join('\n');
-    const note =
-      stance === 'none'
+    const note = assumed
+      ? '了解・承諾する前提の返信案です。「断る文面にして」「もっと丁寧に」「短く」など、続けてご指示いただければ調整します。'
+      : stance === 'none'
         ? '「行けると返信して」「断る返信にして」のように可否を教えていただければ、その前提で完成させます。'
         : '送信はしていません。「もっと丁寧に」「短く」「断る文面に変えて」など、続けてご指示いただけます。';
     return {
-      reply: `相手のメッセージ内容を踏まえて返信文を作成しました。\n\n────────\n${content}\n────────\n\n${note}`,
+      reply: `${assumed ? '先方からのメッセージと受け取り、内容に対する返信文をご提案します' : '相手のメッセージ内容を踏まえて返信文を作成しました'}。\n\n────────\n${content}\n────────\n\n${note}`,
       suggestions: null,
       artifact: {
         title: `${topic ?? subject} への返信文案${stance === 'decline' ? '(お断り)' : stance === 'accept' ? '(承諾)' : ''}`,
@@ -194,7 +197,7 @@ function taskAssistantPayload(prompt: string): TaskWorkPayload {
   };
 
   // ---- 追加指示(トーン調整): 直前の成果物を前提に調整する ----
-  if (latestContent && !wantsAccept && !wantsDecline && /丁寧|フォーマル|かしこまっ/.test(instr)) {
+  if (latestContent && !reqBody && !wantsAccept && !wantsDecline && /丁寧|フォーマル|かしこまっ/.test(instr)) {
     const politer = latestContent
       .replace(/お世話になっております/g, 'いつも大変お世話になっております')
       .replace(/ありがとうございます/g, '誠にありがとうございます')
@@ -207,7 +210,7 @@ function taskAssistantPayload(prompt: string): TaskWorkPayload {
       artifact: { title: `${subject}(丁寧版)`, kind: latestKind, content: politer },
     };
   }
-  if (latestContent && !wantsAccept && !wantsDecline && /短く|簡潔|コンパクト|要点だけ/.test(instr)) {
+  if (latestContent && !reqBody && !wantsAccept && !wantsDecline && /短く|簡潔|コンパクト|要点だけ/.test(instr)) {
     const ss = sentences(latestContent).filter((x) => !/^\[/.test(x));
     const shorter = [ss[0], ss.find((x) => /件|確認|承知|対応/.test(x)) ?? ss[1], '引き続きよろしくお願いいたします。']
       .filter(Boolean)
@@ -219,7 +222,7 @@ function taskAssistantPayload(prompt: string): TaskWorkPayload {
       artifact: { title: `${subject}(短縮版)`, kind: latestKind, content: shorter },
     };
   }
-  if (latestContent && !wantsAccept && !wantsDecline && /カジュアル|砕け|フランク|やわらか|柔らか/.test(instr)) {
+  if (latestContent && !reqBody && !wantsAccept && !wantsDecline && /カジュアル|砕け|フランク|やわらか|柔らか/.test(instr)) {
     const casual = latestContent
       .replace(/いつも大変お世話になっております/g, 'お世話になっています')
       .replace(/何卒よろしくお願い申し上げます/g, 'よろしくお願いします')
@@ -231,6 +234,12 @@ function taskAssistantPayload(prompt: string): TaskWorkPayload {
       suggestions: null,
       artifact: { title: `${subject}(カジュアル版)`, kind: latestKind, content: casual },
     };
+  }
+
+  // ---- 指示なしで相手からのメッセージだけが打ち込まれた場合: 返信文の提案を既定動作にする ----
+  // (案件専用チャットは「先方のメッセージを打ち込む→返信文を提案してもらう」場所)
+  if (!explicit && reqBody) {
+    return composeReply(reqBody, 'accept', true);
   }
 
   // ---- 返信・メール作成 / 立場の指定(了承・断り)は内容理解エンジンへ ----
