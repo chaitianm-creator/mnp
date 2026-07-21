@@ -247,11 +247,11 @@ export default function TaskRoomPage() {
             <div className="max-h-[420px] min-h-[180px] space-y-2.5 overflow-y-auto px-3.5 py-3" aria-label="案件チャットの履歴">
               {(room?.messages ?? []).length === 0 && (
                 <div className="rounded-xl border border-dashed border-amber-200 bg-white/60 px-3 py-5 text-center text-[11px] leading-relaxed text-slate-400">
-                  この案件について何でも相談できるAIチャットです。
+                  先方から届いたメッセージをそのまま打ち込む(貼り付ける)だけで、内容に対する返信文をご提案します。
                   <br />
-                  相手からのメッセージを貼り付けて「行けると返信文を考えて」と頼むと、内容に沿った返信文をその場で作成します。
+                  「行けると返信して」「断る文面に」と可否を添えれば、その前提で作成します。
                   <br />
-                  「要約して」「リライトして」「議事録を作って」「別案を3つ」「もっと丁寧に」「断る文面に」なども続けて依頼できます。
+                  「要約して」「リライトして」「議事録を作って」「別案を3つ」「もっと丁寧に」なども続けて依頼できます。
                 </div>
               )}
               {(room?.messages ?? []).map((m) => {
@@ -296,7 +296,7 @@ export default function TaskRoomPage() {
                     }
                   }}
                   rows={Math.min(4, Math.max(1, input.split('\n').length))}
-                  placeholder="例: 返信文を考えて / 要約して / もっと丁寧に(Enterで送信・Shift+Enterで改行)"
+                  placeholder="先方からのメッセージを貼り付けると返信文を提案します(Enterで送信・Shift+Enterで改行)"
                   className="min-w-0 flex-1 resize-none rounded-xl border border-amber-200 bg-white px-3 py-2 text-[12.5px] text-slate-700 outline-none placeholder:text-slate-300 focus:border-brand-400"
                 />
                 <button
