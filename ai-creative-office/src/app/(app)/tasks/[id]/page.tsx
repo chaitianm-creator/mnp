@@ -249,9 +249,9 @@ export default function TaskRoomPage() {
                 <div className="rounded-xl border border-dashed border-amber-200 bg-white/60 px-3 py-5 text-center text-[11px] leading-relaxed text-slate-400">
                   この案件について何でも相談できるAIチャットです。
                   <br />
-                  「返信文を考えて」「要約して」「リライトして」「議事録を作って」「別案を3つ」——
+                  相手からのメッセージを貼り付けて「行けると返信文を考えて」と頼むと、内容に沿った返信文をその場で作成します。
                   <br />
-                  依頼するとその場で本文まで作成し、続けて「もっと丁寧に」などの調整もできます。
+                  「要約して」「リライトして」「議事録を作って」「別案を3つ」「もっと丁寧に」「断る文面に」なども続けて依頼できます。
                 </div>
               )}
               {(room?.messages ?? []).map((m) => {
