@@ -167,6 +167,7 @@ interface OfficeState {
   instructAgent: (agentId: string, instruction: string) => void;
   setTaskStatus: (taskId: string, status: TaskStatus) => void;
   updateTask: (taskId: string, patch: Partial<Task>) => void; // 優先度・期限・担当AIなどの変更
+  reorderTasks: (activeId: string, overId: string) => void; // D&D並び替え(sortOrderを振り直して保存)
   // 案件ルーム(1タスク=1ルーム。会話・成果物・提案を案件ごとに分離して保存)
   ensureTaskRoom: (taskId: string, sourceRequest?: string) => void;
   addRoomMessage: (taskId: string, msg: { role: 'user' | 'ai'; content: string; agentId?: string }) => void;
@@ -309,6 +310,21 @@ const RELAY_CHAINS: { from: string; to: string; label: string; log: string }[][]
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+/** 新規タスクの並び順(一覧の最後=既存の最大sortOrder+1) */
+export function nextSortOrder(tasks: Task[]): number {
+  return tasks.reduce((m, t) => Math.max(m, t.sortOrder ?? 0), 0) + 1;
+}
+
+/** 並び順(sortOrder昇順)でソートした配列を返す。未設定は末尾(作成日時順) */
+export function sortTasks(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    const av = a.sortOrder ?? Number.MAX_SAFE_INTEGER;
+    const bv = b.sortOrder ?? Number.MAX_SAFE_INTEGER;
+    if (av !== bv) return av - bv;
+    return a.createdAt.localeCompare(b.createdAt);
+  });
 }
 
 function ensureToday(stats: DailyStat[]): DailyStat[] {
@@ -669,8 +685,10 @@ export const useOffice = create<OfficeState>()(
         const alert = s.ceoAlerts.find((a) => a.id === alertId);
         if (!alert || (alert.status !== 'new' && alert.status !== 'later')) return;
         if (decision === 'accepted') {
+          const alertSortBase = nextSortOrder(s.tasks);
           const newTasks: Task[] = alert.actions.map((item, i) => ({
             id: uid('task'),
+            sortOrder: alertSortBase + i,
             title: item.title,
             description: `CEO呼びかけ「${alert.conclusion}」より`,
             assigneeId: item.assigneeId,
@@ -812,6 +830,7 @@ export const useOffice = create<OfficeState>()(
           const title = (action.payload ?? '社長からの依頼').slice(0, 60);
           const task: Task = {
             id: uid('task'),
+            sortOrder: nextSortOrder(s.tasks),
             title,
             description: `会話からの依頼: ${action.payload ?? ''}`,
             assigneeId: agentId,
@@ -934,8 +953,10 @@ export const useOffice = create<OfficeState>()(
 
         if (decision === 'adopted') {
           // 採用: 提案内容をタスクへ変換し、担当AIへ割り振る
+          const proposalSortBase = nextSortOrder(s.tasks);
           const newTasks: Task[] = proposal.actions.map((item, i) => ({
             id: uid('task'),
+            sortOrder: proposalSortBase + i,
             title: item.title,
             description: `CEO提案「${proposal.title}」より`,
             assigneeId: item.assigneeId,
@@ -1811,6 +1832,7 @@ export const useOffice = create<OfficeState>()(
         if (!msg?.plan || msg.planStatus !== 'proposed') return;
         const plan = msg.plan;
         const createdIds: string[] = [];
+        const planSortBase = nextSortOrder(s.tasks);
         const newTasks: Task[] = plan.tasks.map((planned, i) => {
           const id = uid('task');
           createdIds.push(id);
@@ -1824,6 +1846,7 @@ export const useOffice = create<OfficeState>()(
               : [];
           return {
             id,
+            sortOrder: planSortBase + i,
             title: planned.title,
             description: `${plan.summary} のサブタスク`,
             assigneeId: planned.assigneeId,
@@ -1902,6 +1925,7 @@ export const useOffice = create<OfficeState>()(
         const s = get();
         const task: Task = {
           id: uid('task'),
+          sortOrder: nextSortOrder(s.tasks),
           title: instruction.slice(0, 60),
           description: `社長からの個別指示: ${instruction}`,
           assigneeId: agentId,
@@ -1958,6 +1982,20 @@ export const useOffice = create<OfficeState>()(
             return next;
           }),
         })),
+
+      // D&D並び替え: activeIdのタスクをoverIdの位置へ移動し、全タスクのsortOrderを振り直して保存する
+      // (保存はアプリの永続化層へ即時反映。リロード後も維持される)
+      reorderTasks: (activeId, overId) =>
+        set((s) => {
+          const ordered = sortTasks(s.tasks);
+          const from = ordered.findIndex((t) => t.id === activeId);
+          const to = ordered.findIndex((t) => t.id === overId);
+          if (from < 0 || to < 0 || from === to) return {};
+          const [moved] = ordered.splice(from, 1);
+          ordered.splice(to, 0, moved);
+          const orderMap = new Map(ordered.map((t, i) => [t.id, i + 1]));
+          return { tasks: s.tasks.map((t) => ({ ...t, sortOrder: orderMap.get(t.id) ?? t.sortOrder })) };
+        }),
 
       // ---------- 案件ルーム(1タスク=1ルーム) ----------
       ensureTaskRoom: (taskId, sourceRequest) =>
@@ -2165,7 +2203,7 @@ export const useOffice = create<OfficeState>()(
     }),
     {
       name: 'aco-store-v1',
-      version: 8,
+      version: 9,
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
       },
@@ -2204,6 +2242,12 @@ export const useOffice = create<OfficeState>()(
         if (version < 8 && state) {
           // v8: 案件ルーム(タスク専用の会話・成果物・提案)の初期化
           if (!state.taskRooms) state.taskRooms = {};
+        }
+        if (version < 9 && state) {
+          // v9: タスク並び順(sortOrder)の付与。既存の表示順(配列順)をそのまま初期値にする
+          if (Array.isArray(state.tasks)) {
+            state.tasks = state.tasks.map((t, i) => (t.sortOrder === undefined ? { ...t, sortOrder: i + 1 } : t));
+          }
         }
         return state as OfficeState & Record<string, unknown>;
       },

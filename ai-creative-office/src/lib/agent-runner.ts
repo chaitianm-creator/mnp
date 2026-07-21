@@ -33,7 +33,7 @@ import type {
   WriterCopyOutput,
 } from './ai/schemas';
 import { CASE_DEFS, classifyRequest, type CaseDef, type PipelineStep } from './case-types';
-import { useOffice } from './store';
+import { nextSortOrder, useOffice } from './store';
 import type { CeoAdviceOutput, CeoResearchOutput, ReviewPanelOutput, TaskWorkOutput } from './ai/schemas';
 import type { AgentRun, CeoConsultMeta, ChatMessage, Deliverable, DeliverableType, RunTask, Task, TaskRoom } from './types';
 import { uid } from './utils';
@@ -272,10 +272,12 @@ export const wantsDraft = (text: string): boolean => /返信|返事|文を考え
  */
 export function registerTasksFromChat(items: string[], sourceText?: string): number {
   const source = (sourceText ?? items.join('\n')).trim();
-  const tasks: Task[] = items.map((item) => {
+  const sortBase = nextSortOrder(useOffice.getState().tasks);
+  const tasks: Task[] = items.map((item, idx) => {
     const c = classifyTask(item);
     return {
       id: uid('task'),
+      sortOrder: sortBase + idx, // 新規タスクは一覧の最後に追加
       title: cleanTaskTitle(item),
       description: `社長指示チャット(AI秘書)から登録 — カテゴリ: ${c.category}`,
       category: c.category,
