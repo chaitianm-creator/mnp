@@ -242,14 +242,16 @@ export default function TaskRoomPage() {
           <section className="flex flex-col rounded-2xl border border-amber-200/70 bg-[#fdf9f0] shadow-sm">
             <div className="flex items-center gap-1.5 border-b border-amber-100 px-3.5 py-2.5">
               <h2 className="text-xs font-extrabold text-amber-800">💬 案件専用チャット</h2>
-              <span className="text-[10px] text-slate-400">この会話は「{task.title}」だけに保存されます</span>
+              <span className="min-w-0 truncate text-[10px] text-slate-400">この案件のことを何でも依頼・相談できます(会話は「{task.title}」だけに保存)</span>
             </div>
             <div className="max-h-[420px] min-h-[180px] space-y-2.5 overflow-y-auto px-3.5 py-3" aria-label="案件チャットの履歴">
               {(room?.messages ?? []).length === 0 && (
-                <div className="rounded-xl border border-dashed border-amber-200 bg-white/60 px-3 py-5 text-center text-[11px] text-slate-400">
-                  まだ会話はありません。
+                <div className="rounded-xl border border-dashed border-amber-200 bg-white/60 px-3 py-5 text-center text-[11px] leading-relaxed text-slate-400">
+                  この案件について何でも相談できるAIチャットです。
                   <br />
-                  「返信文を作って」「この件どう進める?」など、この案件のことを何でも相談できます。
+                  「返信文を考えて」「要約して」「リライトして」「議事録を作って」「別案を3つ」——
+                  <br />
+                  依頼するとその場で本文まで作成し、続けて「もっと丁寧に」などの調整もできます。
                 </div>
               )}
               {(room?.messages ?? []).map((m) => {
@@ -294,7 +296,7 @@ export default function TaskRoomPage() {
                     }
                   }}
                   rows={Math.min(4, Math.max(1, input.split('\n').length))}
-                  placeholder="この案件について相談・指示(Enterで送信 / Shift+Enterで改行)"
+                  placeholder="例: 返信文を考えて / 要約して / もっと丁寧に(Enterで送信・Shift+Enterで改行)"
                   className="min-w-0 flex-1 resize-none rounded-xl border border-amber-200 bg-white px-3 py-2 text-[12.5px] text-slate-700 outline-none placeholder:text-slate-300 focus:border-brand-400"
                 />
                 <button

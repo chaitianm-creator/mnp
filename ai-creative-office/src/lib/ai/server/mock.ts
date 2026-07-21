@@ -35,6 +35,161 @@ function themeOf(request: string): { theme: string; audience: string; siteType: 
   return { theme, audience, siteType };
 }
 
+// ============================================================
+// 案件ルームの会話型AI(デモ用の意図理解エンジン)
+// ユーザーの入力を依頼として解釈し、ChatGPTのように直接回答する
+// ============================================================
+
+interface TaskWorkPayload {
+  reply: string;
+  suggestions: { approaches: string[]; checkpoints: string[]; nextActions: string[]; missingInfo: string[] } | null;
+  artifact: { title: string; kind: string; content: string } | null;
+}
+
+function taskAssistantPayload(prompt: string): TaskWorkPayload {
+  // 最新のユーザー依頼(【社長の依頼】ブロック)と案件コンテキストを取り出す
+  const req = (prompt.match(/【社長の依頼】\n([\s\S]+?)(\n\n【|$)/)?.[1] ?? prompt).trim();
+  const source = prompt.match(/【元の指示・依頼内容(全文)】\n([\s\S]+?)(?=\n\n【|$)/)?.[1]?.trim() ?? '';
+  const latestM = prompt.match(/【現在の最新版成果物(?:\(([^)]+)\))?: ?([^】]+)】\n([\s\S]+?)(?=\n\n【|$)/);
+  const latestKind = latestM?.[1]?.trim() || '返信文案';
+  const latestTitle = latestM?.[2]?.trim() ?? '';
+  const latestContent = latestM?.[3]?.trim() ?? '';
+  const taskTitle = prompt.match(/タスク名: ([^/\n]+)/)?.[1]?.trim() ?? '';
+  const deadline = prompt.match(/期限: ([^/\n]+)/)?.[1]?.trim();
+  const subject = taskTitle || source.split('\n')[0]?.slice(0, 24) || 'ご依頼の件';
+  // 加工対象: 直前の成果物 > 元の依頼 > 今回の入力
+  const base = latestContent || source || req;
+  const firstLine = (t: string) => t.split('\n').find((l) => l.trim()) ?? '';
+  const sentences = (t: string) => t.replace(/\n+/g, ' ').split(/(?<=[。!?])/).map((x) => x.trim()).filter(Boolean);
+
+  const draftReply = (content: string, kind: string) =>
+    `ご依頼の${kind}を作成しました。\n\n────────\n${content}\n────────\n\n[ ]の箇所をご確認ください。成果物エリアにも保存済みです(送信はしていません)。「もっと丁寧に」「短くして」「別案を3つ」など、続けてご指示いただけます。`;
+
+  // ---- 追加指示(トーン調整): 直前の成果物を前提に調整する ----
+  if (latestContent && /丁寧|フォーマル|かしこまっ/.test(req)) {
+    const politer = latestContent
+      .replace(/お世話になっております/g, 'いつも大変お世話になっております')
+      .replace(/ありがとうございます/g, '誠にありがとうございます')
+      .replace(/よろしくお願いいたします/g, '何卒よろしくお願い申し上げます')
+      .replace(/ご連絡差し上げます/g, 'ご連絡を差し上げたく存じます')
+      .replace(/承知いたしました/g, '謹んで承知いたしました');
+    return {
+      reply: `かしこまりました。「${latestTitle}」をより丁寧な表現に調整しました。\n\n────────\n${politer}\n────────\n\nさらに格式を上げる・柔らかくするなどの調整も可能です。`,
+      suggestions: null,
+      artifact: { title: `${subject}(丁寧版)`, kind: latestKind, content: politer },
+    };
+  }
+  if (latestContent && /短く|簡潔|コンパクト|要点だけ/.test(req)) {
+    const ss = sentences(latestContent).filter((x) => !/^\[/.test(x));
+    const shorter = [ss[0], ss.find((x) => /件|確認|承知|対応/.test(x)) ?? ss[1], '引き続きよろしくお願いいたします。']
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .join('\n');
+    return {
+      reply: `承知しました。要点を残して短くしました。\n\n────────\n${shorter}\n────────\n\nさらに削ることも、丁寧さを足すこともできます。`,
+      suggestions: null,
+      artifact: { title: `${subject}(短縮版)`, kind: latestKind, content: shorter },
+    };
+  }
+  if (latestContent && /カジュアル|砕け|フランク|やわらか|柔らか/.test(req)) {
+    const casual = latestContent
+      .replace(/いつも大変お世話になっております/g, 'お世話になっています')
+      .replace(/何卒よろしくお願い申し上げます/g, 'よろしくお願いします')
+      .replace(/申し上げます/g, 'します')
+      .replace(/でございます/g, 'です')
+      .replace(/いたします/g, 'します');
+    return {
+      reply: `トーンをやわらかくしました。\n\n────────\n${casual}\n────────\n\n社内向け・親しい相手向けにはこのくらいが読みやすいと思います。`,
+      suggestions: null,
+      artifact: { title: `${subject}(カジュアル版)`, kind: latestKind, content: casual },
+    };
+  }
+
+  // ---- 別案・バリエーション ----
+  if (/別案|他の案|パターン|バリエーション|案を(\d|[一二三四五])/.test(req) || /(\d|[一二三四五])\s*(つ|案|パターン)/.test(req)) {
+    const nRaw = req.match(/(\d+|[一二三四五])\s*(つ|案|パターン)/)?.[1] ?? '3';
+    const n = Math.min(5, Math.max(2, ({ 一: 1, 二: 2, 三: 3, 四: 4, 五: 5 } as Record<string, number>)[nRaw] ?? (parseInt(nRaw, 10) || 3)));
+    const tones = [
+      ['A案(標準・丁寧)', `お世話になっております。「${subject}」の件、承知いたしました。内容を確認のうえ、[期日をご記入ください]までにご連絡いたします。よろしくお願いいたします。`],
+      ['B案(簡潔)', `「${subject}」の件、承知しました。確認して[期日をご記入ください]までにご連絡します。`],
+      ['C案(親しみやすい)', `ご連絡ありがとうございます!「${subject}」の件、確認しますね。[期日をご記入ください]までにはお返事しますので、少しお待ちください。`],
+      ['D案(お詫び+前向き)', `ご連絡が遅くなり申し訳ありません。「${subject}」の件、優先して確認いたします。[期日をご記入ください]までに必ずご連絡いたします。`],
+      ['E案(確認質問つき)', `「${subject}」の件、承知しました。1点だけ確認させてください。[確認したい点をご記入ください]。ご回答いただき次第、すぐに対応します。`],
+    ].slice(0, n);
+    const content = tones.map(([name, body]) => `■ ${name}\n${body}`).join('\n\n');
+    return {
+      reply: `${n}案ご用意しました。\n\n────────\n${content}\n────────\n\n気に入った案があれば「B案をもっと丁寧に」のように調整もできます。`,
+      suggestions: null,
+      artifact: { title: `${subject} 文面 ${n}案`, kind: '別案セット', content },
+    };
+  }
+
+  // ---- 議事録 ----
+  if (/議事録/.test(req)) {
+    const topic = base === req ? subject : firstLine(base).slice(0, 40);
+    const content = `【議事録】${subject}\n\n日時: [日時をご記入ください]\n出席者: [出席者をご記入ください]\n\n■ 議題\n・${topic || '[議題をご記入ください]'}\n\n■ 議論の要点\n・${sentences(base).slice(0, 2).join('\n・') || '[要点をご記入ください]'}\n\n■ 決定事項\n・[決定事項をご記入ください]\n\n■ TODO(担当・期限)\n・${subject}の対応 — 担当: [担当者] / 期限: ${deadline && deadline !== '未設定' ? deadline : '[期限をご記入ください]'}\n\n■ 次回\n・[次回日程をご記入ください]`;
+    return { reply: draftReply(content, '議事録'), suggestions: null, artifact: { title: `${subject} 議事録`, kind: '議事録', content } };
+  }
+
+  // ---- 要約 ----
+  if (/要約|まとめて|サマリ/.test(req)) {
+    const target = latestContent || source || req.replace(/を?要約して.*$/, '');
+    const ss = sentences(target);
+    return {
+      reply: `要約しました。\n\n【要約】\n・主旨: ${ss[0] ?? subject}\n・ポイント: ${ss.slice(1, 3).join(' / ') || '詳細は元の文面を参照'}\n・期限/条件: ${deadline && deadline !== '未設定' ? deadline : '明記なし(要確認)'}\n・次のアクション: 内容確認のうえ対応方針を決める\n\nこの要約をもとに「返信文を考えて」などの依頼もできます。`,
+      suggestions: null,
+      artifact: null,
+    };
+  }
+
+  // ---- リライト ----
+  if (/リライト|書き直|直して|推敲|改善して/.test(req)) {
+    const ss = sentences(base);
+    const content = `${subject}について\n\n■ 結論\n${ss[0] ?? '[結論をご記入ください]'}\n\n■ 詳細\n${ss.slice(1, 4).join('\n') || '[詳細をご記入ください]'}\n\n■ お願い\nご確認のうえ、ご不明点があればお知らせください。`;
+    return {
+      reply: `リライトしました。結論を先頭に出し、段落を整理しています。\n\n────────\n${content}\n────────\n\n「もっと短く」「箇条書きに」などの追加調整もどうぞ。`,
+      suggestions: null,
+      artifact: { title: `${subject}(リライト版)`, kind: 'リライト版', content },
+    };
+  }
+
+  // ---- メール・返信文の作成 ----
+  if (/返信|返事|メール|文面|文を(考|作|書)|下書き|ドラフト/.test(req)) {
+    const content = `[宛名をご記入ください] 様\n\nお世話になっております。[会社名/氏名をご記入ください]です。\n\nこの度はご連絡いただきありがとうございます。「${subject}」の件、承知いたしました。\n\n内容を確認のうえ、${deadline && deadline !== '未設定' ? deadline : '[回答期日をご記入ください]'}までに改めてご連絡差し上げます。ご不明な点やご要望がございましたら、お気軽にお知らせください。\n\n今後ともよろしくお願いいたします。\n\n[署名をご記入ください]`;
+    return { reply: draftReply(content, '返信文'), suggestions: null, artifact: { title: `${subject} への返信文案`, kind: '返信文案', content } };
+  }
+
+  // ---- タスク整理・進め方の相談(このときだけAI提案エリアも更新) ----
+  if (/整理して|進め方|どう進め|優先順位|段取り|対応方針/.test(req)) {
+    return {
+      reply: `「${subject}」の進め方を整理しました。\n\n1. まず相手・目的を1行で固定する(手戻り防止)\n2. 今日できる最小の一歩: 返信の要点を3行で書き出す\n3. ${deadline && deadline !== '未設定' ? `期限(${deadline})から逆算して、` : ''}確認が必要な点を先に相手へ聞く\n\n右のAI提案エリアにも対応方針・確認事項・次のアクションを保存しました。「返信文を考えて」と言っていただければ、このままドラフトも作ります。`,
+      suggestions: {
+        approaches: ['相手・目的を1行で固定してから着手する', 'タスクを「今日やる最小の一歩」と「後で決めること」に分ける'],
+        checkpoints: ['宛先(相手の名前・会社名)は正しいか', `期日・優先度はこのままでよいか${deadline && deadline !== '未設定' ? `(現在: ${deadline})` : ''}`],
+        nextActions: ['対応方針を1つ選ぶ', '必要なら「返信文を考えて」でドラフト作成', '完了したらステータスを「完了」へ変更する'],
+        missingInfo: ['相手からの元のメッセージ全文', '希望する納期・トーン(丁寧/カジュアル)'],
+      },
+      artifact: null,
+    };
+  }
+
+  // ---- 提案・アイデア ----
+  if (/提案|アイデア|どう思|意見/.test(req)) {
+    return {
+      reply: `「${subject}」について、私の提案は3つです。\n\n① すぐ返す: まず受領+御礼だけ先に返信し、詳細回答は期日を切って分ける(印象と余裕の両立)\n② テンプレ化: 今回の文面を雛形として保存し、同種の連絡を数分で返せるようにする\n③ 先回り: 相手が次に聞きそうな点([よくある質問をご記入ください])を先に書き添えて往復を減らす\n\nどれか進めたいものがあれば、「①で返信文を作って」のようにご指示ください。`,
+      suggestions: null,
+      artifact: null,
+    };
+  }
+
+  // ---- 上記以外: 会話として直接応答 ----
+  return {
+    reply: `「${req.slice(0, 60)}${req.length > 60 ? '…' : ''}」の件ですね。\n\n${source ? `この案件の元の依頼は「${firstLine(source).slice(0, 50)}」と把握しています。` : ''}私はこのルーム専属のアシスタントとして、その場で本文まで作成できます。たとえば:\n・「返信文を考えて」「メールを書いて」\n・「要約して」「リライトして」「議事録を作って」\n・「別案を3つ」「もっと丁寧に」「短くして」\n\n判断に迷う点があれば、状況を書いていただければ一緒に考えます。`,
+    suggestions: null,
+    artifact: null,
+  };
+}
+
 export class MockAIProvider extends BaseProvider {
   readonly name = 'mock';
   readonly isMock = true;
@@ -59,39 +214,9 @@ export class MockAIProvider extends BaseProvider {
     let payload: unknown;
 
     if (options.system.includes('[ROLE:TASK_ASSISTANT]')) {
-      // 案件ルームの秘書AI: 返信 + 提案整理 + 必要なら返信文案の下書き
-      const req = request.match(/【社長の依頼】\n([\s\S]+?)(\n\n|$)/)?.[1] ?? request;
-      const wantsReplyDraft = /返信|返事|文を考え|文面|文章を|下書き|ドラフト/.test(req);
-      const wantsWriting = /作って|書いて|作成|考えて/.test(req);
-      const subject = req.replace(/[のを]?(返信|返事)の?文?を?(考えて|作って|書いて)(ほしい|欲しい|ください)?[\s\S]*$/, '').replace(/\s+/g, ' ').trim().slice(0, 24) || 'ご依頼の件';
-      const artifact = wantsReplyDraft
-        ? {
-            title: `${subject} への返信文案`,
-            kind: '返信文案',
-            content: `[宛名をご記入ください] 様\n\nお世話になっております。[会社名/氏名をご記入ください]です。\n\nこの度はご連絡いただきありがとうございます。「${subject}」の件、承知いたしました。\n\n内容を確認のうえ、[回答期日をご記入ください]までに改めてご連絡差し上げます。ご不明な点やご要望がございましたら、お気軽にお知らせください。\n\n今後ともよろしくお願いいたします。\n\n[署名をご記入ください]`,
-          }
-        : wantsWriting
-          ? {
-              title: `${subject} の下書き`,
-              kind: '下書き',
-              content: `# ${subject}\n\n【目的】[このタスクのゴールをご記入ください]\n\n【本文案】\n${subject}について、要点を3つに絞って整理しました。\n1. 現状: [現状をご記入ください]\n2. 提案: [提案内容をご記入ください]\n3. 次の一歩: [次のアクションをご記入ください]\n\n※デモ生成の下書きです。編集してご利用ください。`,
-            }
-          : null;
-      payload = {
-        reply: artifact
-          ? `承知しました。「${subject}」の${artifact.kind}を作成し、成果物エリアへ保存しました。宛名・日付などのプレースホルダーをご確認のうえ、編集してご利用ください。送信は行っていません。`
-          : `「${subject}」の件、整理しました。右のAI提案エリアに対応方針・確認事項・次のアクションをまとめています。返信文の下書きが必要な場合は「返信文を作って」とお知らせください。`,
-        suggestions: {
-          approaches: [
-            wantsReplyDraft ? 'まず御礼と受領の返信を送り、詳細回答は期日を切って分ける' : 'タスクを「今日やる最小の一歩」と「後で決めること」に分ける',
-            '相手・目的を1行で固定してから着手する(手戻り防止)',
-          ],
-          checkpoints: ['宛先(相手の名前・会社名)は正しいか', '期日・優先度はこのままでよいか'],
-          nextActions: [wantsReplyDraft ? '返信文案を編集して確定する' : '対応方針を1つ選ぶ', '完了したらステータスを「完了」へ変更する'],
-          missingInfo: ['相手からの元のメッセージ全文', '希望する納期・トーン(丁寧/カジュアル)'],
-        },
-        artifact,
-      };
+      // 案件ルームの会話型AI: 入力を「依頼」として解釈し、チャットへ直接回答する
+      // (返信文・リライト・要約・議事録・メール・別案・トーン調整・タスク整理・雑談に対応)
+      payload = taskAssistantPayload(request);
     } else if (options.system.includes('[ROLE:CEO_ADVISOR]')) {
       // 経営相談モード: ①需要②勝てる理由③最悪のケース④最初の一歩 + レビュー会議 + ユーザー分析
       const req = request.match(/【社長の依頼】\n([\s\S]+?)(\n\n|$)/)?.[1] ?? request;

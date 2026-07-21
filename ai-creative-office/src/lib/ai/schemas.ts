@@ -190,16 +190,19 @@ export const CeoResearchSchema = z.object({
 });
 export type CeoResearchOutput = z.infer<typeof CeoResearchSchema>;
 
-/** 案件ルームのタスクアシスタント(秘書AI): 返信+提案整理+必要なら成果物下書き */
+/** 案件ルームの会話型AIアシスタント: チャット欄へ直接回答し、成果物・提案は必要なときだけ添える */
 export const TaskWorkSchema = z.object({
-  reply: z.string(), // 案件チャットへの返信(簡潔に)
-  suggestions: z.object({
-    approaches: z.array(z.string()).max(4), // 対応方針の提案
-    checkpoints: z.array(z.string()).max(4), // 確認すべきこと
-    nextActions: z.array(z.string()).max(4), // 次のアクション
-    missingInfo: z.array(z.string()).max(4), // 不足している情報
-  }),
-  // 返信文・下書きなどの成果物が求められている場合のみ作成(不要ならnull)
+  reply: z.string(), // 会話形式の回答本文(依頼された成果物の本文もここに書き切る)
+  // タスクの整理・進め方を相談されたときだけ設定(それ以外はnull。既存の提案は上書きしない)
+  suggestions: z
+    .object({
+      approaches: z.array(z.string()).max(4), // 対応方針の提案
+      checkpoints: z.array(z.string()).max(4), // 確認すべきこと
+      nextActions: z.array(z.string()).max(4), // 次のアクション
+      missingInfo: z.array(z.string()).max(4), // 不足している情報
+    })
+    .nullable(),
+  // 回答に再利用できる成果物(返信文・メール・議事録・リライト版など)が含まれる場合のみ保存(不要ならnull)
   artifact: z.object({ title: z.string(), kind: z.string(), content: z.string() }).nullable(),
 });
 export type TaskWorkOutput = z.infer<typeof TaskWorkSchema>;

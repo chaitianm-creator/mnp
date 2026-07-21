@@ -386,25 +386,34 @@ export function assigneeCandidates(task: Task): { agentId: string; reason: strin
   ];
 }
 
-/** ルームのAI呼び出し用コンテキスト(元依頼+タスク情報+直近の会話+最新成果物) */
+/**
+ * ルームのAI呼び出し用コンテキスト(会話型AIのシステム情報)。
+ * タスク情報(名前・カテゴリ・優先度・期限・担当)+元依頼全文+会話履歴+最新成果物を渡すため、
+ * ユーザーは自然な日本語だけで「もっと丁寧に」「別案を3つ」などの続きの指示ができる
+ */
 function buildRoomContext(taskId: string): string {
   const s = useOffice.getState();
   const task = s.tasks.find((t) => t.id === taskId);
   const room = s.taskRooms[taskId];
   const parts: string[] = [];
-  if (task) parts.push(`【タスク情報】タスク名: ${task.title} / カテゴリ: ${task.category ?? '未分類'} / 優先度: ${task.priority} / 期限: ${task.deadline ?? '未設定'}`);
+  if (task) {
+    const assignee = s.agents.find((a) => a.id === task.assigneeId);
+    parts.push(
+      `【タスク情報】タスク名: ${task.title} / カテゴリ: ${task.category ?? '未分類'} / 優先度: ${task.priority} / 期限: ${task.deadline ? task.deadline.slice(0, 10) : '未設定'} / 担当AI: ${assignee?.name ?? '未設定'}`,
+    );
+  }
   if (room?.sourceRequest) parts.push(`【元の指示・依頼内容(全文)】\n${room.sourceRequest}`);
-  const recent = (room?.messages ?? []).slice(-8);
+  const recent = (room?.messages ?? []).slice(-12);
   if (recent.length > 0) parts.push(`【この案件のこれまでの会話】\n${recent.map((m) => `${m.role === 'user' ? '社長' : 'AI'}: ${m.content}`).join('\n')}`);
   const latest = room?.artifacts.find((a) => a.isLatest);
-  if (latest) parts.push(`【現在の最新版成果物: ${latest.title}】\n${latest.content}`);
+  if (latest) parts.push(`【現在の最新版成果物(${latest.kind}): ${latest.title}】\n${latest.content}`);
   return parts.join('\n\n').slice(0, 20000);
 }
 
-/** taskworkの結果(提案・成果物)をルームへ反映する共通処理 */
+/** taskworkの結果をルームへ反映(回答はチャットへ。提案・成果物は返されたときだけ更新) */
 function applyTaskWork(taskId: string, out: TaskWorkOutput, agentId: string) {
   const s = useOffice.getState();
-  s.setRoomSuggestions(taskId, out.suggestions);
+  if (out.suggestions) s.setRoomSuggestions(taskId, out.suggestions);
   if (out.artifact) s.addRoomArtifact(taskId, out.artifact);
   s.addRoomMessage(taskId, { role: 'ai', content: out.reply, agentId });
 }
