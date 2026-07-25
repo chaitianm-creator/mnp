@@ -27,8 +27,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // SC-02 タイトル → スキップで出会いへ
-    await tapAndSettle(tester, find.text('スキップ'));
+    // SC-02 タイトル → はじめるで出会いへ
+    // 縁取りロゴは影・輪郭・本体の3層で描かれる
+    expect(find.text('デザイン王国'), findsWidgets);
+    await tapAndSettle(tester, find.text('はじめる'));
     expect(find.textContaining('はじめまして'), findsOneWidget);
 
     // セリフをタップ送り(4行目で入団手続きボタンが出る)
