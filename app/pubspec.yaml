@@ -35,5 +35,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # assets:
-  #   - assets/images/   # ドット絵アセットは Phase 8 §7 の規約で追加
+  assets:
+    - assets/images/   # タイトル画面イラスト等(ドット絵アセットは Phase 8 §7 の規約で追加)
