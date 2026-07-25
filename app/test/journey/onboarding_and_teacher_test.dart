@@ -27,10 +27,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // SC-02 タイトル(全画面イラスト) → 画像内ボタン「つぎへ」で出会いへ
-    expect(find.bySemanticsLabel('つぎへ'), findsOneWidget);
+    // SC-02 タイトル(全画面イラスト) → 「スタート」で出会いへ
+    expect(find.text('スタート ▶'), findsOneWidget);
     expect(find.bySemanticsLabel('スキップ'), findsOneWidget);
-    await tapAndSettle(tester, find.bySemanticsLabel('つぎへ'));
+    await tapAndSettle(tester, find.text('スタート ▶'));
     expect(find.textContaining('はじめまして'), findsOneWidget);
 
     // セリフをタップ送り(4行目で入団手続きボタンが出る)
