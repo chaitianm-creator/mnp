@@ -54,141 +54,60 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
           final page = ep.pages[_index.clamp(0, ep.pages.length - 1)];
           final isLast = _index >= ep.pages.length - 1;
 
-          return LayoutBuilder(builder: (context, c) {
-            // ページ画像の実寸(852x1846)から BoxFit.contain の表示矩形を計算し、
-            // 画像内に描かれた「次へ」ボタンの位置に透明タップ領域を重ねる
-            const imgW = 852.0, imgH = 1846.0;
-            const aspect = imgW / imgH;
-            final double dw, dh;
-            if (c.maxWidth / c.maxHeight > aspect) {
-              dh = c.maxHeight;
-              dw = dh * aspect;
+          // ページ内ボタンの位置は毎ページ異なるため、画面のどこをタップしても
+          // 前進する(画像内の「次へ」「くわしく見る」等のボタンもそのまま押せる)
+          void advance() {
+            if (isLast) {
+              _finish(ep);
             } else {
-              dw = c.maxWidth;
-              dh = dw / aspect;
+              setState(() => _index++);
             }
-            final left = (c.maxWidth - dw) / 2;
-            final top = (c.maxHeight - dh) / 2;
-            // 画像内「次へ」ボタンの領域(画像に対する割合)
-            const btnZone = Rect.fromLTRB(0.09, 0.885, 0.91, 0.975);
+          }
 
-            void advance() {
-              if (isLast) {
-                _finish(ep);
-              } else {
-                setState(() => _index++);
-              }
-            }
-
-            return Stack(children: [
-              // ── ページ画像(全画面・contain) ──
-              Positioned(
-                left: left,
-                top: top,
-                width: dw,
-                height: dh,
-                child: Image.asset(
-                  page.image,
-                  fit: BoxFit.fill,
-                  filterQuality: FilterQuality.medium,
-                  excludeFromSemantics: true,
-                  errorBuilder: (_, __, ___) =>
-                      _MissingPagePlaceholder(no: page.no, title: ep.title),
+          return Semantics(
+            button: true,
+            label: isLast ? ep.finishLabel : '次へ',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: advance,
+              child: Stack(children: [
+                // ── ページ画像(全画面・contain) ──
+                Positioned.fill(
+                  child: Image.asset(
+                    page.image,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                    excludeFromSemantics: true,
+                    errorBuilder: (_, __, ___) =>
+                        _MissingPagePlaceholder(no: page.no, title: ep.title),
+                  ),
                 ),
-              ),
-              // ── 画像内「次へ」ボタンへの透明タップ領域 ──
-              Positioned(
-                left: left + btnZone.left * dw,
-                top: top + btnZone.top * dh,
-                width: (btnZone.right - btnZone.left) * dw,
-                height: (btnZone.bottom - btnZone.top) * dh,
-                child: isLast
-                    // 最終ページのみ文言つきボタンを重ねる(島へ行く)
-                    ? _StoryButton(label: ep.finishLabel, onTap: advance)
-                    : Semantics(
-                        button: true,
-                        label: '次へ',
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: advance,
+                // ── ページ番号 ──
+                SafeArea(
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 0, 0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.85),
+                          borderRadius: BorderRadius.circular(999),
+                          border:
+                              Border.all(color: KdColors.wood900, width: 1.5),
                         ),
+                        child: Text('${page.no} / ${ep.pages.length}',
+                            style:
+                                KdTheme.dot(size: 12, color: KdColors.ink900)),
                       ),
-              ),
-              // ── ページ番号 ──
-              SafeArea(
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 0, 0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.85),
-                        borderRadius: BorderRadius.circular(999),
-                        border:
-                            Border.all(color: KdColors.wood900, width: 1.5),
-                      ),
-                      child: Text('${page.no} / ${ep.pages.length}',
-                          style:
-                              KdTheme.dot(size: 12, color: KdColors.ink900)),
                     ),
                   ),
                 ),
-              ),
-            ]);
-          });
+              ]),
+            ),
+          );
         },
-      ),
-    );
-  }
-}
-
-/// タイトル画面の「スタート」と同じ意匠のボタン。
-class _StoryButton extends StatelessWidget {
-  const _StoryButton({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFEE5A77),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFB93B55), width: 3),
-            boxShadow: const [
-              BoxShadow(color: Color(0xFF8E2C41), offset: Offset(0, 3)),
-            ],
-          ),
-          child: Container(
-            margin: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border:
-                  Border.all(color: Colors.white.withOpacity(0.45), width: 1.6),
-            ),
-            child: Center(
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 22,
-                  shadows: const [
-                    Shadow(color: Color(0xFF8E2C41), offset: Offset(0, 2)),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

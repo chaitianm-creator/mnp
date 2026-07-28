@@ -37,9 +37,9 @@ void main() {
       await tapAndSettle(tester, find.bySemanticsLabel('次へ'));
       expect(find.text('${i + 1} / 17'), findsOneWidget);
     }
-    // 最終ページのみ「島へ行く」ボタン
+    // 最終ページのみ「島へ行く」
     expect(find.bySemanticsLabel('次へ'), findsNothing);
-    await tapAndSettle(tester, find.text('島へ行く'));
+    await tapAndSettle(tester, find.bySemanticsLabel('島へ行く'));
 
     // 実践デザイナー島(マップ)へ遷移
     expect(find.text('はじまりの街（みぽりん村）'), findsOneWidget);
