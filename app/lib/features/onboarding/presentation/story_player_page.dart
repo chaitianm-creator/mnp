@@ -54,22 +54,69 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
           final page = ep.pages[_index.clamp(0, ep.pages.length - 1)];
           final isLast = _index >= ep.pages.length - 1;
 
-          return Stack(children: [
-            // ── ページ画像(全画面・contain) ──
-            Positioned.fill(
-              child: Image.asset(
-                page.image,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.medium,
-                excludeFromSemantics: true,
-                errorBuilder: (_, __, ___) =>
-                    _MissingPagePlaceholder(no: page.no, title: ep.title),
+          return LayoutBuilder(builder: (context, c) {
+            // ページ画像の実寸(852x1846)から BoxFit.contain の表示矩形を計算し、
+            // 画像内に描かれた「次へ」ボタンの位置に透明タップ領域を重ねる
+            const imgW = 852.0, imgH = 1846.0;
+            const aspect = imgW / imgH;
+            final double dw, dh;
+            if (c.maxWidth / c.maxHeight > aspect) {
+              dh = c.maxHeight;
+              dw = dh * aspect;
+            } else {
+              dw = c.maxWidth;
+              dh = dw / aspect;
+            }
+            final left = (c.maxWidth - dw) / 2;
+            final top = (c.maxHeight - dh) / 2;
+            // 画像内「次へ」ボタンの領域(画像に対する割合)
+            const btnZone = Rect.fromLTRB(0.09, 0.885, 0.91, 0.975);
+
+            void advance() {
+              if (isLast) {
+                _finish(ep);
+              } else {
+                setState(() => _index++);
+              }
+            }
+
+            return Stack(children: [
+              // ── ページ画像(全画面・contain) ──
+              Positioned(
+                left: left,
+                top: top,
+                width: dw,
+                height: dh,
+                child: Image.asset(
+                  page.image,
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.medium,
+                  excludeFromSemantics: true,
+                  errorBuilder: (_, __, ___) =>
+                      _MissingPagePlaceholder(no: page.no, title: ep.title),
+                ),
               ),
-            ),
-            SafeArea(
-              child: Column(children: [
-                // ── ページ番号 ──
-                Align(
+              // ── 画像内「次へ」ボタンへの透明タップ領域 ──
+              Positioned(
+                left: left + btnZone.left * dw,
+                top: top + btnZone.top * dh,
+                width: (btnZone.right - btnZone.left) * dw,
+                height: (btnZone.bottom - btnZone.top) * dh,
+                child: isLast
+                    // 最終ページのみ文言つきボタンを重ねる(島へ行く)
+                    ? _StoryButton(label: ep.finishLabel, onTap: advance)
+                    : Semantics(
+                        button: true,
+                        label: '次へ',
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: advance,
+                        ),
+                      ),
+              ),
+              // ── ページ番号 ──
+              SafeArea(
+                child: Align(
                   alignment: Alignment.topLeft,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 8, 0, 0),
@@ -88,28 +135,9 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
                     ),
                   ),
                 ),
-                const Spacer(),
-                // ── 次へ / 島へ行く ──
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: SizedBox(
-                    width: 250,
-                    height: 58,
-                    child: _StoryButton(
-                      label: isLast ? ep.finishLabel : '次へ ▶',
-                      onTap: () {
-                        if (isLast) {
-                          _finish(ep);
-                        } else {
-                          setState(() => _index++);
-                        }
-                      },
-                    ),
-                  ),
-                ),
-              ]),
-            ),
-          ]);
+              ),
+            ]);
+          });
         },
       ),
     );

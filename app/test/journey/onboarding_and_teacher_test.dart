@@ -31,14 +31,14 @@ void main() {
     expect(find.text('スタート ▶'), findsOneWidget);
     await tapAndSettle(tester, find.text('スタート ▶'));
 
-    // 1〜17ページを「次へ」で進む
+    // 1〜17ページを画像内の「次へ」で進む(透明タップ領域)
     expect(find.text('1 / 17'), findsOneWidget);
     for (var i = 1; i < 17; i++) {
-      await tapAndSettle(tester, find.text('次へ ▶'));
+      await tapAndSettle(tester, find.bySemanticsLabel('次へ'));
       expect(find.text('${i + 1} / 17'), findsOneWidget);
     }
     // 最終ページのみ「島へ行く」ボタン
-    expect(find.text('次へ ▶'), findsNothing);
+    expect(find.bySemanticsLabel('次へ'), findsNothing);
     await tapAndSettle(tester, find.text('島へ行く'));
 
     // 実践デザイナー島(マップ)へ遷移
