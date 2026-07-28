@@ -17,7 +17,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('初回起動: 出会い → 入団手続き → 入団完了 → ホームメニュー',
+  testWidgets('表紙 → オンボーディング1〜17 → 実践デザイナー島(マップ)',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
@@ -27,10 +27,33 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // SC-02 タイトル(全画面イラスト) → 「スタート」で出会いへ
+    // SC-02 表紙(全画面イラスト) → 「スタート」でオンボーディングへ
     expect(find.text('スタート ▶'), findsOneWidget);
-    expect(find.bySemanticsLabel('スキップ'), findsOneWidget);
     await tapAndSettle(tester, find.text('スタート ▶'));
+
+    // 1〜17ページを「次へ」で進む
+    expect(find.text('1 / 17'), findsOneWidget);
+    for (var i = 1; i < 17; i++) {
+      await tapAndSettle(tester, find.text('次へ ▶'));
+      expect(find.text('${i + 1} / 17'), findsOneWidget);
+    }
+    // 最終ページのみ「島へ行く」ボタン
+    expect(find.text('次へ ▶'), findsNothing);
+    await tapAndSettle(tester, find.text('島へ行く'));
+
+    // 実践デザイナー島(マップ)へ遷移
+    expect(find.text('はじまりの街（みぽりん村）'), findsOneWidget);
+  });
+
+  testWidgets('出会い → 入団手続き → 入団完了 → ホームメニュー',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    await tester.pumpWidget(const ProviderScope(
+      child: DesignKingdomApp(initialLocation: '/meeting'),
+    ));
+    await tester.pumpAndSettle();
     expect(find.textContaining('はじめまして'), findsOneWidget);
 
     // セリフをタップ送り(4行目で入団手続きボタンが出る)

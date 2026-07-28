@@ -78,14 +78,14 @@ class WelcomePage extends StatelessWidget {
               excludeFromSemantics: true,
             ),
           ),
-          // 「スタート」→ みぽりん先生との出会いへ
+          // 「スタート」→ オンボーディング(第1話 1〜17ページ)へ
           // (画像内の「つぎへ」ボタンの上に同デザインのボタンを重ねて文言を差し替え)
           Positioned(
             left: left + nextZone.left * dw,
             top: top + nextZone.top * dh,
             width: (nextZone.right - nextZone.left) * dw,
             height: (nextZone.bottom - nextZone.top) * dh,
-            child: _StartButton(onTap: () => context.go('/meeting')),
+            child: _StartButton(onTap: () => context.go('/story/ep1')),
           ),
           // 画像内ボタン「スキップ」→ 物語を飛ばして入団手続きへ
           tapZone(skipZone, 'スキップ', () => context.go('/student-register')),

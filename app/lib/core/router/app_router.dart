@@ -9,6 +9,7 @@ import "../../features/onboarding/presentation/enrollment_complete_page.dart";
 import "../../features/onboarding/presentation/goal_page.dart";
 import "../../features/onboarding/presentation/guild_page.dart";
 import "../../features/onboarding/presentation/meeting_page.dart";
+import "../../features/onboarding/presentation/story_player_page.dart";
 import "../../features/onboarding/presentation/student_register_page.dart";
 import "../../features/onboarding/presentation/teacher_login_page.dart";
 import "../../features/onboarding/presentation/welcome_page.dart";
@@ -33,6 +34,12 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
           path: "/welcome", // SC-02 タイトル画面
           parentNavigatorKey: rootNavigatorKey,
           builder: (_, __) => const WelcomePage(),
+        ),
+        GoRoute(
+          path: "/story/:ep", // SC-02b オンボーディング(表紙→1〜17ページ→島)
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, state) =>
+              StoryPlayerPage(episodeId: state.pathParameters["ep"]!),
         ),
         GoRoute(
           path: "/meeting", // SC-03 みぽりん先生との出会い(初回のみ/設定から再生可)
