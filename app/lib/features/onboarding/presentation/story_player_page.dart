@@ -64,49 +64,52 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
             }
           }
 
-          return Semantics(
-            button: true,
-            label: isLast ? ep.finishLabel : '次へ',
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: advance,
-              child: Stack(children: [
-                // ── ページ画像(全画面・contain) ──
-                Positioned.fill(
-                  child: Image.asset(
-                    page.image,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.medium,
-                    excludeFromSemantics: true,
-                    errorBuilder: (_, __, ___) =>
-                        _MissingPagePlaceholder(no: page.no, title: ep.title),
-                  ),
-                ),
-                // ── ページ番号 ──
-                SafeArea(
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 0, 0),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.85),
-                          borderRadius: BorderRadius.circular(999),
-                          border:
-                              Border.all(color: KdColors.wood900, width: 1.5),
-                        ),
-                        child: Text('${page.no} / ${ep.pages.length}',
-                            style:
-                                KdTheme.dot(size: 12, color: KdColors.ink900)),
-                      ),
-                    ),
-                  ),
-                ),
-              ]),
+          return Stack(children: [
+            // ── ページ画像(全画面・contain) ──
+            Positioned.fill(
+              child: Image.asset(
+                page.image,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.medium,
+                excludeFromSemantics: true,
+                errorBuilder: (_, __, ___) =>
+                    _MissingPagePlaceholder(no: page.no, title: ep.title),
+              ),
             ),
-          );
+            // ── 全画面タップで前進(画像内ボタンもそのまま押せる) ──
+            Positioned.fill(
+              child: Semantics(
+                button: true,
+                label: isLast ? ep.finishLabel : '次へ',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: advance,
+                ),
+              ),
+            ),
+            // ── ページ番号 ──
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 0, 0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.85),
+                      borderRadius: BorderRadius.circular(999),
+                      border:
+                          Border.all(color: KdColors.wood900, width: 1.5),
+                    ),
+                    child: Text('${page.no} / ${ep.pages.length}',
+                        style:
+                            KdTheme.dot(size: 12, color: KdColors.ink900)),
+                  ),
+                ),
+              ),
+            ),
+          ]);
         },
       ),
     );
