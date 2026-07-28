@@ -87,6 +87,23 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
                 ),
               ),
             ),
+            // ── 画像にボタンが無いページ/最終ページには可視ボタンを重ねる ──
+            if (isLast || page.buttonLabel != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 26,
+                child: Center(
+                  child: SizedBox(
+                    width: 230,
+                    height: 56,
+                    child: _StoryButton(
+                      label: isLast ? ep.finishLabel : page.buttonLabel!,
+                      onTap: advance,
+                    ),
+                  ),
+                ),
+              ),
             // ── ページ番号 ──
             SafeArea(
               child: Align(
@@ -111,6 +128,52 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
             ),
           ]);
         },
+      ),
+    );
+  }
+}
+
+/// ページ画像内のボタンと同じ意匠(青のピクセル風)の可視ボタン。
+class _StoryButton extends StatelessWidget {
+  const _StoryButton({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E5AC8),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF0D2F73), width: 3),
+          boxShadow: const [
+            BoxShadow(color: Color(0xFF0D2F73), offset: Offset(0, 3)),
+          ],
+        ),
+        child: Container(
+          margin: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(7),
+            border:
+                Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 21,
+                shadows: const [
+                  Shadow(color: Color(0xFF0D2F73), offset: Offset(0, 2)),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

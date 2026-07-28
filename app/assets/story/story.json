@@ -3,7 +3,7 @@
     {
       "id": "ep1",
       "title": "第1話 実践デザイナー島へようこそ",
-      "finishLabel": "島へ行く",
+      "finishLabel": "ゲーム開始",
       "finishRoute": "/map",
       "pages": [
         { "no": 1,  "image": "assets/images/story/ep1/01.webp" },
@@ -15,14 +15,11 @@
         { "no": 7,  "image": "assets/images/story/ep1/07.webp" },
         { "no": 8,  "image": "assets/images/story/ep1/08.webp" },
         { "no": 9,  "image": "assets/images/story/ep1/09.webp" },
-        { "no": 10, "image": "assets/images/story/ep1/10.webp" },
+        { "no": 10, "image": "assets/images/story/ep1/10.webp", "buttonLabel": "島へ行く" },
         { "no": 11, "image": "assets/images/story/ep1/11.webp" },
         { "no": 12, "image": "assets/images/story/ep1/12.webp" },
         { "no": 13, "image": "assets/images/story/ep1/13.webp" },
-        { "no": 14, "image": "assets/images/story/ep1/14.webp" },
-        { "no": 15, "image": "assets/images/story/ep1/15.webp" },
-        { "no": 16, "image": "assets/images/story/ep1/16.webp" },
-        { "no": 17, "image": "assets/images/story/ep1/17.webp" }
+        { "no": 14, "image": "assets/images/story/ep1/14.webp" }
       ]
     }
   ]

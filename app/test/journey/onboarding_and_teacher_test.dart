@@ -31,15 +31,19 @@ void main() {
     expect(find.text('スタート ▶'), findsOneWidget);
     await tapAndSettle(tester, find.text('スタート ▶'));
 
-    // 1〜17ページを画像内の「次へ」で進む(透明タップ領域)
-    expect(find.text('1 / 17'), findsOneWidget);
-    for (var i = 1; i < 17; i++) {
+    // 1〜14ページを全画面タップで進む
+    expect(find.text('1 / 14'), findsOneWidget);
+    for (var i = 1; i < 14; i++) {
       await tapAndSettle(tester, find.bySemanticsLabel('次へ'));
-      expect(find.text('${i + 1} / 17'), findsOneWidget);
+      expect(find.text('${i + 1} / 14'), findsOneWidget);
+      if (i + 1 == 10) {
+        // ページ10には「島へ行く」ボタンが表示される
+        expect(find.text('島へ行く'), findsOneWidget);
+      }
     }
-    // 最終ページのみ「島へ行く」
+    // 最終ページ(14 ミッション発生)のみ「ゲーム開始」ボタン
     expect(find.bySemanticsLabel('次へ'), findsNothing);
-    await tapAndSettle(tester, find.bySemanticsLabel('島へ行く'));
+    await tapAndSettle(tester, find.text('ゲーム開始'));
 
     // 実践デザイナー島(マップ)へ遷移
     expect(find.text('はじまりの街（みぽりん村）'), findsOneWidget);
