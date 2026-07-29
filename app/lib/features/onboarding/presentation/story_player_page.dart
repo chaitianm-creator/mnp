@@ -64,11 +64,15 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
             }
           }
 
+          // PC/タブレット(横長)では横画面用イラストを使う(無ければ縦を流用)
+          final size = MediaQuery.sizeOf(context);
+          final landscape = size.width > size.height;
+
           return Stack(children: [
             // ── ページ画像(全画面・contain) ──
             Positioned.fill(
               child: Image.asset(
-                page.image,
+                page.imageFor(landscape: landscape),
                 fit: BoxFit.contain,
                 filterQuality: FilterQuality.medium,
                 excludeFromSemantics: true,

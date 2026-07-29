@@ -7,14 +7,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 内容は assets/story/story.json に分離してあり、
 /// 第2話・第3話は episodes 配列に追記するだけで追加できる。
 class StoryPage {
-  const StoryPage({required this.no, required this.image, this.buttonLabel});
+  const StoryPage({
+    required this.no,
+    required this.image,
+    this.imageWide,
+    this.buttonLabel,
+  });
   final int no;
-  final String image; // アセットパス(1ページ=1枚の全画面イラスト)
+  final String image; // 縦画面用(スマホ)のアセットパス
+  final String? imageWide; // 横画面用(PC/タブレット)。無ければ縦画像を使う
   final String? buttonLabel; // 画像にボタンが無いページに重ねるボタンの文言
+
+  /// 画面の縦横に応じた画像を返す
+  String imageFor({required bool landscape}) =>
+      landscape ? (imageWide ?? image) : image;
 
   static StoryPage fromJson(Map<String, dynamic> j) => StoryPage(
         no: (j['no'] as num).toInt(),
         image: j['image'] as String,
+        imageWide: j['imageWide'] as String?,
         buttonLabel: j['buttonLabel'] as String?,
       );
 }
