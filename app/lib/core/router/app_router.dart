@@ -9,6 +9,7 @@ import "../../features/onboarding/presentation/enrollment_complete_page.dart";
 import "../../features/onboarding/presentation/goal_page.dart";
 import "../../features/onboarding/presentation/guild_page.dart";
 import "../../features/onboarding/presentation/meeting_page.dart";
+import "../../features/onboarding/presentation/story_code_demo_page.dart";
 import "../../features/onboarding/presentation/story_player_page.dart";
 import "../../features/onboarding/presentation/student_register_page.dart";
 import "../../features/onboarding/presentation/teacher_login_page.dart";
@@ -127,6 +128,11 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
           parentNavigatorKey: rootNavigatorKey,
           builder: (_, state) =>
               AreaDetailPage(areaId: state.pathParameters["id"]!),
+        ),
+        GoRoute(
+          path: "/story-demo", // ストーリーページのコード描画試作(第1話p1)
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, __) => const StoryCodeDemoPage(),
         ),
         GoRoute(
           path: "/island", // 実践デザイナー島の村フィールド(タイルマップ試作)
