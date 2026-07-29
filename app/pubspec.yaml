@@ -37,5 +37,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/   # タイトル画面イラスト等(ドット絵アセットは Phase 8 §7 の規約で追加)
-    - assets/images/story/ep1/   # 第1話のページ画像(01〜17)
+    # 第1話はコード描画に移行済み。画像版に戻す場合は assets/images/story/ep1/ を再登録
     - assets/story/    # オンボーディング/ストーリーのデータ(story.json)

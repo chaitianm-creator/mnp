@@ -8,79 +8,117 @@
       "pages": [
         {
           "no": 1,
-          "image": "assets/images/story/ep1/01.webp",
-          "imageWide": "assets/images/story/ep1/01_wide.webp"
+          "scene": "bedroom_sleep",
+          "headerBadge": "第一話",
+          "headerTitle": "実践デザイナー島へようこそ",
+          "bubble": "ぐーすぴー…"
         },
         {
           "no": 2,
-          "image": "assets/images/story/ep1/02.webp",
-          "imageWide": "assets/images/story/ep1/02_wide.webp"
+          "scene": "phone",
+          "headerTitle": "📧 ピコン♪"
         },
         {
           "no": 3,
-          "image": "assets/images/story/ep1/03.webp",
-          "imageWide": "assets/images/story/ep1/03_wide.webp"
+          "scene": "bedroom_awake",
+          "headerTitle": "実践デザイナー島…？\n何それ？",
+          "bubble": "実践デザイナー島…？\n何それ？"
         },
         {
           "no": 4,
-          "image": "assets/images/story/ep1/04.webp",
-          "imageWide": "assets/images/story/ep1/04_wide.webp"
+          "scene": "light_burst",
+          "headerTitle": "わぁ〜\n（光に吸い込まれる）"
         },
         {
           "no": 5,
-          "image": "assets/images/story/ep1/05.webp",
-          "imageWide": "assets/images/story/ep1/05_wide.webp"
+          "scene": "island_overview",
+          "headerTitle": "ここは…どこ!?",
+          "bubble": "ここは…どこ!?"
         },
         {
           "no": 6,
-          "image": "assets/images/story/ep1/06.webp",
-          "imageWide": "assets/images/story/ep1/06_wide.webp"
+          "scene": "signboard",
+          "headerTitle": "実践デザイナー島の看板",
+          "boardTitle": "実践デザイナー島",
+          "boardText": "ここでは、実践を通して\n一流のデザイナーを\n目指します。"
         },
         {
           "no": 7,
-          "image": "assets/images/story/ep1/07.webp",
-          "imageWide": "assets/images/story/ep1/07_wide.webp"
+          "scene": "miporin_welcome",
+          "speaker": "みぽりん",
+          "text": "ようこそ、実践デザイナー島へ！\nここは、デザインを\"作る\"だけじゃなく、仕事ができるデザイナーを育てる島なんだ。"
         },
         {
           "no": 8,
-          "image": "assets/images/story/ep1/08.webp",
-          "imageWide": "assets/images/story/ep1/08_wide.webp"
+          "scene": "miporin_point",
+          "speaker": "みぽりん",
+          "text": "デザインソフトを使えるだけでは、選ばれるデザイナーにはなれない。\nヒアリング、提案、実案件、納品、そして信頼を積み重ねて、一歩ずつ成長していこう！"
         },
         {
           "no": 9,
-          "image": "assets/images/story/ep1/09.webp",
-          "imageWide": "assets/images/story/ep1/09_wide.webp"
+          "scene": "heroine_think",
+          "headerTitle": "仕事ができる\nデザイナー…？",
+          "bubble": "仕事ができる\nデザイナー…？"
         },
         {
           "no": 10,
-          "image": "assets/images/story/ep1/10.webp",
-          "buttonLabel": "島へ行く",
-          "imageWide": "assets/images/story/ep1/10_wide.webp"
+          "scene": "village_path",
+          "headerBadge": "チュートリアル開始",
+          "headerTitle": "まずは困っている\n村人を探してみよう！",
+          "buttonLabel": "島へ行く"
         },
         {
           "no": 11,
-          "image": "assets/images/story/ep1/11.webp",
-          "imageWide": "assets/images/story/ep1/11_wide.webp"
+          "scene": "island_map",
+          "speaker": "みぽりん",
+          "text": "ここが実践デザイナー島マップだよ！\nいろんな場所を回って、困っている村人を助けよう！",
+          "mapLabels": true
         },
         {
           "no": 12,
-          "image": "assets/images/story/ep1/12.webp",
-          "imageWide": "assets/images/story/ep1/12_wide.webp"
+          "scene": "bakery",
+          "speaker": "パン屋さん",
+          "text": "いらっしゃい〜 いらっしゃい〜…はぁ。",
+          "subSpeaker": "主人公",
+          "subText": "あ、パン屋さんだ！\n…どうしたんですか？"
         },
         {
           "no": 13,
-          "image": "assets/images/story/ep1/13.webp",
-          "imageWide": "assets/images/story/ep1/13_wide.webp"
+          "scene": "bakery",
+          "speaker": "パン屋さん",
+          "text": "実は毎日お店の前は人が通るのに、誰も入ってきてくれないんだ…。",
+          "subSpeaker": "主人公",
+          "subText": "えっ…？どうしてでしょう…？"
         },
         {
           "no": 14,
-          "image": "assets/images/story/ep1/14_wide.webp",
-          "imageWide": "assets/images/story/ep1/14_wide.webp"
+          "scene": "bakery",
+          "speaker": "パン屋さん",
+          "text": "パンには自信があるのに、知ってもらえなくてね…。",
+          "choicePrompt": "どう答える？",
+          "choices": [
+            {
+              "text": "そんなの大変ですね！一緒に考えます！",
+              "correct": true
+            },
+            {
+              "text": "パンがおいしくないんじゃないですか？",
+              "correct": false,
+              "feedback": "パン屋さんは しょんぼりしてしまった…。もういちど こたえよう。"
+            }
+          ]
         },
         {
           "no": 15,
-          "image": "assets/images/story/ep1/14.webp",
-          "imageWide": "assets/images/story/ep1/15_wide.webp"
+          "scene": "mission",
+          "speaker": "みぽりん",
+          "text": "よし！まずは悩みの原因を一緒に探してみよう！",
+          "mission": {
+            "title": "パン屋さんの悩みを\n聞いてみよう！",
+            "items": ["パン屋さんの悩みをヒアリングしよう", "困っている原因を見つけよう"],
+            "xp": 50,
+            "coins": 100
+          }
         }
       ]
     }

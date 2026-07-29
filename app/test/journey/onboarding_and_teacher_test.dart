@@ -31,9 +31,9 @@ void main() {
     expect(find.text('スタート ▶'), findsOneWidget);
     await tapAndSettle(tester, find.text('スタート ▶'));
 
-    // 1〜15ページを全画面タップで進む
+    // 1〜13ページを全画面タップで進む
     expect(find.text('1 / 15'), findsOneWidget);
-    for (var i = 1; i < 15; i++) {
+    for (var i = 1; i < 14; i++) {
       await tapAndSettle(tester, find.bySemanticsLabel('次へ'));
       expect(find.text('${i + 1} / 15'), findsOneWidget);
       if (i + 1 == 10) {
@@ -41,8 +41,20 @@ void main() {
         expect(find.text('島へ行く'), findsOneWidget);
       }
     }
-    // 最終ページ(15 ミッション発生)のみ「ゲーム開始」ボタン
+    // 14: 選択肢ページ(全画面タップでは進まない)
     expect(find.bySemanticsLabel('次へ'), findsNothing);
+    expect(find.text('どう答える？'), findsOneWidget);
+    // 不正解 → フィードバックが出て前進しない
+    await tapAndSettle(
+        tester, find.text('パンがおいしくないんじゃないですか？'));
+    expect(find.text('14 / 15'), findsOneWidget);
+    expect(find.textContaining('しょんぼり'), findsOneWidget);
+    // 正解 → 15へ
+    await tapAndSettle(
+        tester, find.text('そんなの大変ですね！一緒に考えます！'));
+    expect(find.text('15 / 15'), findsOneWidget);
+    // 最終ページ(15 ミッション発生)のみ「ゲーム開始」ボタン
+    expect(find.text('ミッション発生！'), findsOneWidget);
     await tapAndSettle(tester, find.text('ゲーム開始'));
 
     // 実践デザイナー島(マップ)へ遷移
