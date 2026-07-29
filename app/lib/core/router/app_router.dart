@@ -18,6 +18,7 @@ import "../../features/quest/presentation/pages/quest_play_page.dart";
 import "../../features/settings/presentation/settings_page.dart";
 import "../../features/teacher/presentation/teacher_pages.dart";
 import "../../features/workshop/presentation/workshop_page.dart";
+import "../../features/world/presentation/island_field_page.dart";
 import "../../features/world/presentation/village_page.dart";
 import "../../features/world/presentation/world_map_page.dart";
 import "../theme/kd_colors.dart";
@@ -126,6 +127,11 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
           parentNavigatorKey: rootNavigatorKey,
           builder: (_, state) =>
               AreaDetailPage(areaId: state.pathParameters["id"]!),
+        ),
+        GoRoute(
+          path: "/island", // 実践デザイナー島の村フィールド(タイルマップ試作)
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, __) => const IslandFieldPage(),
         ),
         GoRoute(
           path: "/village", // SC-31(みぽりん村の町ビュー)
