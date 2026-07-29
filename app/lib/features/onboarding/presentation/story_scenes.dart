@@ -431,7 +431,7 @@ class _BedroomPainter extends CustomPainter {
     final u = math.min(size.width / vw, size.height / vh);
     canvas.save();
     canvas.translate((size.width - vw * u) / 2, (size.height - vh * u) / 2);
-    final px = Px(canvas, u, snap: vw / 128);
+    final px = Px(canvas, u, snap: vw / 256);
     final rng = math.Random(9);
 
     // レターボックス部も含めた下地
@@ -710,7 +710,7 @@ class _LightBurstPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.shortestSide / 160;
-    final px = Px(canvas, u, snap: 1.25);
+    final px = Px(canvas, u, snap: 0.625);
     final rng = math.Random(21);
     final vw = size.width / u, vh = size.height / u;
 
@@ -771,7 +771,7 @@ class _IslandOverviewPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.width / 160;
-    final px = Px(canvas, u, snap: 1.25);
+    final px = Px(canvas, u, snap: 0.625);
     final rng = math.Random(3);
     final vw = 160.0, vh = size.height / u;
 
@@ -913,7 +913,7 @@ class _SignboardPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.width / 160;
-    final px = Px(canvas, u, snap: 1.25);
+    final px = Px(canvas, u, snap: 0.625);
     final rng = math.Random(7);
     final vw = 160.0, vh = size.height / u;
 
@@ -1010,7 +1010,7 @@ class _VillagePathPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.width / 160;
-    final px = Px(canvas, u, snap: 1.25);
+    final px = Px(canvas, u, snap: 0.625);
     final rng = math.Random(11);
     final vw = 160.0, vh = size.height / u;
 
@@ -1120,7 +1120,7 @@ class _BakeryPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.width / 160;
-    final px = Px(canvas, u, snap: 1.25);
+    final px = Px(canvas, u, snap: 0.625);
     final rng = math.Random(13);
     final vw = 160.0, vh = size.height / u;
 
@@ -1371,7 +1371,7 @@ class _DeskPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.width / 160;
-    final px = Px(canvas, u, snap: 1.25);
+    final px = Px(canvas, u, snap: 0.625);
     final rng = math.Random(31);
     final vw = 160.0, vh = size.height / u;
 

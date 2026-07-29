@@ -566,7 +566,7 @@ class _RoomPainter extends CustomPainter {
     const vw = 160.0;
     final u = size.width / vw;
     final vh = size.height / u;
-    final px = Px(canvas, u, snap: 1.25, quantize: false);
+    final px = Px(canvas, u, snap: 0.625, quantize: false);
     final rng = math.Random(7);
     final wallH = vh * 0.58;
 
@@ -1040,7 +1040,7 @@ class _MailScenePainter extends CustomPainter {
     const vw = 160.0;
     final u = size.width / vw;
     final vh = size.height / u;
-    final px = Px(canvas, u, snap: 1.25, quantize: false);
+    final px = Px(canvas, u, snap: 0.625, quantize: false);
     final rng = math.Random(11);
 
     _paintDesk(px, rng, vw, vh);
