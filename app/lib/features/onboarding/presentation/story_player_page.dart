@@ -92,15 +92,16 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
               ),
             ),
             // ── 画像にボタンが無いページ/最終ページには可視ボタンを重ねる ──
+            // (画像内の「タップして次へ」等の文字に重ならないよう最下端に置く)
             if (isLast || page.buttonLabel != null)
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 26,
+                bottom: 6,
                 child: Center(
                   child: SizedBox(
-                    width: 230,
-                    height: 56,
+                    width: 220,
+                    height: 52,
                     child: _StoryButton(
                       label: isLast ? ep.finishLabel : page.buttonLabel!,
                       onTap: advance,
