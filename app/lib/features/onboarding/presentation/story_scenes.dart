@@ -132,15 +132,16 @@ Color pico8(Color c) {
 // 仮想ピクセルラスタライザ。すべての描画をドット単位に揃える。
 // ─────────────────────────────────────────────────────────────
 class Px {
-  Px(this.canvas, this.u, {this.snap = 1});
+  Px(this.canvas, this.u, {this.snap = 1, this.quantize = true});
   final Canvas canvas;
   final double u; // 1仮想ピクセルの実サイズ
   final double snap; // 64pxルール: この倍数にスナップ(粗いドット)
+  final bool quantize; // false: 独自パレットのまま描く(16bit風ページ用)
   final Paint _p = Paint();
 
   /// 矩形(スナップした粗ドット格子に揃える)
   void r(num x, num y, num w, num h, Color c) {
-    _p.color = pico8(c);
+    _p.color = quantize ? pico8(c) : c;
     final x0 = (x / snap).floorToDouble() * snap;
     final y0 = (y / snap).floorToDouble() * snap;
     var x1 = ((x + w) / snap).ceilToDouble() * snap;

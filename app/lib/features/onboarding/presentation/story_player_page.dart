@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:design_kingdom/features/onboarding/data/story_repository.dart';
+import 'package:design_kingdom/features/onboarding/presentation/pixel_ui.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 
 /// オンボーディング/ストーリー再生(/story/:ep)。
@@ -67,7 +68,26 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
           final size = MediaQuery.sizeOf(context);
           final landscape = size.width > size.height;
 
-          return Stack(children: [
+          // ── 第1話1ページ目: 16bit風ピクセルUI(pixel_ui.dart) ──
+          // ページ切り替えは 250ms のフェード。
+          if (ep.id == 'ep1' && page.no == 1) {
+            return AnimatedSwitcher(
+              duration: PixelTheme.pageFade,
+              child: KeyedSubtree(
+                key: ValueKey('${ep.id}-$_index'),
+                child: PixelStoryPageOne(
+                  pageNo: page.no,
+                  totalPages: ep.pages.length,
+                  headerBadge: page.headerBadge,
+                  headerTitle: page.headerTitle,
+                  bubble: page.bubble,
+                  onNext: advance,
+                ),
+              ),
+            );
+          }
+
+          final legacy = Stack(children: [
             // ── シーン(コード描画 / 旧: 画像) ──
             if (page.scene != null)
               buildStoryScene(page.scene!)
@@ -224,6 +244,11 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
               ]),
             ),
           ]);
+          return AnimatedSwitcher(
+            duration: PixelTheme.pageFade,
+            child: KeyedSubtree(
+                key: ValueKey('${ep.id}-$_index'), child: legacy),
+          );
         },
       ),
     );
