@@ -566,7 +566,7 @@ class _RoomPainter extends CustomPainter {
     const vw = 160.0;
     final u = size.width / vw;
     final vh = size.height / u;
-    final px = Px(canvas, u, quantize: false);
+    final px = Px(canvas, u, snap: 1.25, quantize: false);
     final rng = math.Random(7);
     final wallH = vh * 0.58;
 
@@ -916,7 +916,7 @@ class _RoomPainter extends CustomPainter {
       'B': Color(0xFFF49AA8),
       'M': Color(0xFFE87F6E),
     };
-    const cell = 1.6;
+    const cell = 1.25;
     final left = cx - rows[0].length * cell / 2;
     for (var y = 0; y < rows.length; y++) {
       for (var x = 0; x < rows[y].length; x++) {
@@ -966,9 +966,9 @@ class _RoomPainter extends CustomPainter {
       'P': Color(0xFFF9C7D3),
       'F': Color(0xFFBFE8FF),
     };
-    const cell = 1.6;
+    const cell = 2.5; // 起きた姿はカメラが寄るぶん大きめ(グリッド2ドット)
     // スマホの光(顔を下から照らす)
-    px.oval(cx, top + 14.5 * cell, 9, 6, const Color(0x2E9FD8FF));
+    px.oval(cx, top + 14.5 * cell, 12, 8, const Color(0x2E9FD8FF));
     final left = cx - rows[0].length * cell / 2;
     for (var y = 0; y < rows.length; y++) {
       for (var x = 0; x < rows[y].length; x++) {
@@ -978,11 +978,11 @@ class _RoomPainter extends CustomPainter {
       }
     }
     // びっくりマーク(頭の上)
-    px.r(cx + 13, top - 5, 1.6, 4.5, const Color(0xFFE8C25A));
-    px.dot(cx + 13, top + 1.2, const Color(0xFFE8C25A));
+    px.r(cx + 20, top - 6, 2.5, 6, const Color(0xFFE8C25A));
+    px.dot(cx + 20, top + 2.5, const Color(0xFFE8C25A));
     // パジャマの陰影
-    px.r(cx - 8, top + 12.5 * cell, 1.6, 3, const Color(0xFFE8A9BC));
-    px.r(cx + 6.4, top + 12.5 * cell, 1.6, 3, const Color(0xFFE8A9BC));
+    px.r(cx - 12.5, top + 12.5 * cell, 2.5, 4, const Color(0xFFE8A9BC));
+    px.r(cx + 10, top + 12.5 * cell, 2.5, 4, const Color(0xFFE8A9BC));
   }
 
   void _paintProps(Px px, double wallH, double vh) {
@@ -1040,7 +1040,7 @@ class _MailScenePainter extends CustomPainter {
     const vw = 160.0;
     final u = size.width / vw;
     final vh = size.height / u;
-    final px = Px(canvas, u, quantize: false);
+    final px = Px(canvas, u, snap: 1.25, quantize: false);
     final rng = math.Random(11);
 
     _paintDesk(px, rng, vw, vh);
