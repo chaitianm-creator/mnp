@@ -1,0 +1,128 @@
+{
+  "episodes": [
+    {
+      "id": "ep1",
+      "title": "第1話 実践デザイナー島へようこそ",
+      "finishLabel": "ゲーム開始",
+      "finishRoute": "/map",
+      "pages": [
+        {
+          "no": 1,
+          "scene": "bedroom_sleep",
+          "headerBadge": "第一話",
+          "headerTitle": "実践デザイナー島へようこそ",
+          "bubble": "ぐーすぴー…"
+        },
+        {
+          "no": 2,
+          "scene": "phone"
+        },
+        {
+          "no": 3,
+          "scene": "bedroom_awake",
+          "headerTitle": "実践デザイナー島…？\n何それ？",
+          "bubble": "実践デザイナー島…？\n何それ？"
+        },
+        {
+          "no": 4,
+          "scene": "light_burst",
+          "headerTitle": "わぁ〜\n（光に吸い込まれる）"
+        },
+        {
+          "no": 5,
+          "scene": "island_overview",
+          "headerTitle": "ここは…どこ!?",
+          "bubble": "ここは…どこ!?"
+        },
+        {
+          "no": 6,
+          "scene": "signboard",
+          "headerTitle": "実践デザイナー島の看板",
+          "boardTitle": "実践デザイナー島",
+          "boardText": "ここでは、実践を通して\n一流のデザイナーを\n目指します。"
+        },
+        {
+          "no": 7,
+          "scene": "miporin_welcome",
+          "speaker": "みぽりん",
+          "text": "ようこそ、実践デザイナー島へ！\nここは、デザインを\"作る\"だけじゃなく、仕事ができるデザイナーを育てる島なんだ。"
+        },
+        {
+          "no": 8,
+          "scene": "miporin_point",
+          "speaker": "みぽりん",
+          "text": "デザインソフトを使えるだけでは、選ばれるデザイナーにはなれない。\nヒアリング、提案、実案件、納品、そして信頼を積み重ねて、一歩ずつ成長していこう！"
+        },
+        {
+          "no": 9,
+          "scene": "heroine_think",
+          "headerTitle": "仕事ができる\nデザイナー…？",
+          "bubble": "仕事ができる\nデザイナー…？"
+        },
+        {
+          "no": 10,
+          "scene": "village_path",
+          "headerBadge": "チュートリアル開始",
+          "headerTitle": "まずは困っている\n村人を探してみよう！",
+          "buttonLabel": "島へ行く"
+        },
+        {
+          "no": 11,
+          "scene": "island_map",
+          "speaker": "みぽりん",
+          "text": "ここが実践デザイナー島マップだよ！\nいろんな場所を回って、困っている村人を助けよう！",
+          "mapLabels": true
+        },
+        {
+          "no": 12,
+          "scene": "bakery",
+          "speaker": "パン屋さん",
+          "text": "いらっしゃい〜 いらっしゃい〜…はぁ。",
+          "subSpeaker": "主人公",
+          "subText": "あ、パン屋さんだ！\n…どうしたんですか？"
+        },
+        {
+          "no": 13,
+          "scene": "bakery",
+          "speaker": "パン屋さん",
+          "text": "実は毎日お店の前は人が通るのに、誰も入ってきてくれないんだ…。",
+          "subSpeaker": "主人公",
+          "subText": "えっ…？どうしてでしょう…？"
+        },
+        {
+          "no": 14,
+          "scene": "bakery",
+          "speaker": "パン屋さん",
+          "text": "パンには自信があるのに、知ってもらえなくてね…。",
+          "choicePrompt": "どう答える？",
+          "choices": [
+            {
+              "text": "そんなの大変ですね！一緒に考えます！",
+              "correct": true
+            },
+            {
+              "text": "パンがおいしくないんじゃないですか？",
+              "correct": false,
+              "feedback": "パン屋さんは しょんぼりしてしまった…。もういちど こたえよう。"
+            }
+          ]
+        },
+        {
+          "no": 15,
+          "scene": "mission",
+          "speaker": "みぽりん",
+          "text": "よし！まずは悩みの原因を一緒に探してみよう！",
+          "mission": {
+            "title": "パン屋さんの悩みを\n聞いてみよう！",
+            "items": [
+              "パン屋さんの悩みをヒアリングしよう",
+              "困っている原因を見つけよう"
+            ],
+            "xp": 50,
+            "coins": 100
+          }
+        }
+      ]
+    }
+  ]
+}
