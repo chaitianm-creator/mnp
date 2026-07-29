@@ -48,39 +48,125 @@ class _Fill extends StatelessWidget {
       Positioned.fill(child: CustomPaint(painter: painter));
 }
 
+
+// ─────────────────────────────────────────────────────────────
+// PICO-8 固定16色パレット(ドット絵 指示ルールUI 準拠)。
+// シーン描画とスプライトの色はすべて最近傍のPICO-8色に量子化する。
+// ─────────────────────────────────────────────────────────────
+const kPico8 = <Color>[
+  Color(0xFF000000), // 0 black
+  Color(0xFF1D2B53), // 1 dark blue
+  Color(0xFF7E2553), // 2 dark purple
+  Color(0xFF008751), // 3 dark green
+  Color(0xFFAB5236), // 4 brown
+  Color(0xFF5F574F), // 5 dark grey
+  Color(0xFFC2C3C7), // 6 light grey
+  Color(0xFFFFF1E8), // 7 white
+  Color(0xFFFF004D), // 8 red
+  Color(0xFFFFA300), // 9 orange
+  Color(0xFFFFEC27), // 10 yellow
+  Color(0xFF00E436), // 11 green
+  Color(0xFF29ADFF), // 12 blue
+  Color(0xFF83769C), // 13 indigo
+  Color(0xFFFF77A8), // 14 pink
+  Color(0xFFFFCCAA), // 15 peach
+];
+
+final Map<int, Color> _picoCache = {};
+
+/// 色相ベースでPICO-8の16色へ写像する(単純な最近傍だと中間色が濁るため)。
+Color pico8(Color c) {
+  final key = c.value & 0x00FFFFFF;
+  final cached = _picoCache[key];
+  if (cached != null) return cached.withAlpha(c.alpha);
+  final r = c.red, g = c.green, b = c.blue;
+  final mx = math.max(r, math.max(g, b));
+  final mn = math.min(r, math.min(g, b));
+  final v = mx, s = mx - mn;
+  Color out;
+  if (s < 28) {
+    out = v < 50
+        ? kPico8[0]
+        : v < 110
+            ? kPico8[5]
+            : v < 200
+                ? kPico8[6]
+                : kPico8[7];
+  } else if (s < 45 && v > 200) {
+    out = kPico8[7]; // クリーム/オフホワイト
+  } else if (b >= r && b >= g) {
+    out = v < 115
+        ? kPico8[1]
+        : (v < 170 && s < 110)
+            ? kPico8[13]
+            : kPico8[12];
+  } else if (g >= r && g >= b) {
+    out = v < 135 ? kPico8[3] : kPico8[11];
+  } else {
+    // 赤系(肌/木/ピンク/黄/オレンジ)
+    if (b > g + 10 && b > r * 0.5) {
+      out = v < 140
+          ? kPico8[2]
+          : s < 40
+              ? kPico8[15]
+              : kPico8[14];
+    } else if (g > r * 0.78) {
+      out = (b > r * 0.6)
+          ? (v >= 170 ? kPico8[15] : kPico8[4])
+          : (v < 170 ? kPico8[9] : kPico8[10]);
+    } else if (g > r * 0.45) {
+      out = v < 105
+          ? kPico8[2]
+          : v < 185
+              ? kPico8[4]
+              : (v >= 225 && s <= 90 ? kPico8[15] : kPico8[9]);
+    } else {
+      out = v < 120 ? kPico8[2] : kPico8[8];
+    }
+  }
+  _picoCache[key] = out;
+  return out.withAlpha(c.alpha);
+}
+
 // ─────────────────────────────────────────────────────────────
 // 仮想ピクセルラスタライザ。すべての描画をドット単位に揃える。
 // ─────────────────────────────────────────────────────────────
 class Px {
-  Px(this.canvas, this.u);
+  Px(this.canvas, this.u, {this.snap = 1});
   final Canvas canvas;
   final double u; // 1仮想ピクセルの実サイズ
+  final double snap; // 64pxルール: この倍数にスナップ(粗いドット)
   final Paint _p = Paint();
 
-  /// 矩形(仮想ピクセル座標にスナップ)
+  /// 矩形(スナップした粗ドット格子に揃える)
   void r(num x, num y, num w, num h, Color c) {
-    _p.color = c;
-    final x0 = (x).floorToDouble(), y0 = (y).floorToDouble();
-    final x1 = (x + w).ceilToDouble(), y1 = (y + h).ceilToDouble();
+    _p.color = pico8(c);
+    final x0 = (x / snap).floorToDouble() * snap;
+    final y0 = (y / snap).floorToDouble() * snap;
+    var x1 = ((x + w) / snap).ceilToDouble() * snap;
+    var y1 = ((y + h) / snap).ceilToDouble() * snap;
+    if (x1 <= x0) x1 = x0 + snap;
+    if (y1 <= y0) y1 = y0 + snap;
     canvas.drawRect(
         Rect.fromLTWH(x0 * u, y0 * u, (x1 - x0) * u + 0.3, (y1 - y0) * u + 0.3),
         _p);
   }
 
-  /// 1ドット
-  void dot(num x, num y, Color c) => r(x, y, 1, 1, c);
+  /// 1ドット(スナップ幅)
+  void dot(num x, num y, Color c) => r(x, y, snap, snap, c);
 
-  /// 楕円(row-scanで段々に)
+  /// 楕円(粗ドットのrow-scan)
   void oval(num cx, num cy, num rx, num ry, Color c) {
-    for (var iy = -ry.ceil(); iy <= ry.ceil(); iy++) {
-      final t = iy / ry;
+    for (var iy = -(ry / snap).ceil(); iy <= (ry / snap).ceil(); iy++) {
+      final yy = iy * snap;
+      final t = yy / ry;
       if (t.abs() > 1) continue;
       final dx = rx * math.sqrt(math.max(0, 1 - t * t));
-      r(cx - dx, cy + iy, dx * 2, 1, c);
+      r(cx - dx, cy + yy, dx * 2, snap, c);
     }
   }
 
-  /// 三角形(row-scan)
+  /// 三角形(粗ドットのrow-scan)
   void tri(num x1, num y1, num x2, num y2, num x3, num y3, Color c) {
     final pts = [
       Offset(x1.toDouble(), y1.toDouble()),
@@ -91,21 +177,23 @@ class Px {
     double xAt(Offset p1, Offset p2, double y) => p2.dy == p1.dy
         ? p1.dx
         : p1.dx + (p2.dx - p1.dx) * (y - p1.dy) / (p2.dy - p1.dy);
-    for (var y = a.dy.floor(); y <= d.dy.ceil(); y++) {
-      final yy = y + 0.5;
+    for (var y = (a.dy / snap).floor(); y <= (d.dy / snap).ceil(); y++) {
+      final yy = y * snap + snap / 2;
       if (yy < a.dy || yy > d.dy) continue;
       final e1 = xAt(a, d, yy);
       final e2 = yy < b.dy ? xAt(a, b, yy) : xAt(b, d, yy);
       final lo = math.min(e1, e2), hi = math.max(e1, e2);
-      r(lo, y, hi - lo, 1, c);
+      r(lo, y * snap, hi - lo, snap, c);
     }
   }
 
-  /// 面のむらノイズ
+  /// 面のむらノイズ(粗ドット)
   void noise(num x, num y, num w, num h, List<Color> colors, int count,
       math.Random rng, {int dotW = 1, int dotH = 1}) {
-    for (var i = 0; i < count; i++) {
-      r(x + rng.nextInt(w.toInt()), y + rng.nextInt(h.toInt()), dotW, dotH,
+    final n = (count / (snap * snap)).ceil();
+    for (var i = 0; i < n; i++) {
+      r(x + rng.nextInt(math.max(1, w.toInt())),
+          y + rng.nextInt(math.max(1, h.toInt())), snap * dotW, snap * dotH,
           colors[rng.nextInt(colors.length)]);
     }
   }
@@ -113,7 +201,8 @@ class Px {
   /// 楕円の内側にむらノイズ
   void ovalNoise(num cx, num cy, num rx, num ry, List<Color> colors, int count,
       math.Random rng) {
-    for (var i = 0; i < count; i++) {
+    final n = (count / (snap * snap)).ceil();
+    for (var i = 0; i < n; i++) {
       final a = rng.nextDouble() * math.pi * 2;
       final d = math.sqrt(rng.nextDouble());
       dot(cx + math.cos(a) * rx * d, cy + math.sin(a) * ry * d,
@@ -123,17 +212,17 @@ class Px {
 
   /// 花(十字5ドット)
   void flower(num x, num y, Color petal, [Color center = const Color(0xFFF6D96B)]) {
-    dot(x - 1, y, petal);
-    dot(x + 1, y, petal);
-    dot(x, y - 1, petal);
-    dot(x, y + 1, petal);
+    dot(x - snap, y, petal);
+    dot(x + snap, y, petal);
+    dot(x, y - snap, petal);
+    dot(x, y + snap, petal);
     dot(x, y, center);
   }
 
   /// きらめき(+字)
   void sparkle(num x, num y, num s, Color c) {
-    r(x - s, y, s * 2 + 1, 1, c);
-    r(x, y - s, 1, s * 2 + 1, c);
+    r(x - s, y, s * 2 + snap, snap, c);
+    r(x, y - s, snap, s * 2 + snap, c);
   }
 }
 
@@ -149,7 +238,7 @@ void drawPixelSprite(Canvas canvas, List<String> rows,
       x < rows[y].length &&
       palette.containsKey(rows[y][x]);
   // アウトライン(塗りの周囲1ドット)
-  p.color = outline;
+  p.color = pico8(outline);
   for (var y = -1; y <= rows.length; y++) {
     for (var x = -1; x <= rows[0].length; x++) {
       if (filled(x, y)) continue;
@@ -168,7 +257,7 @@ void drawPixelSprite(Canvas canvas, List<String> rows,
     for (var x = 0; x < rows[y].length; x++) {
       final c = palette[rows[y][x]];
       if (c == null) continue;
-      p.color = c;
+      p.color = pico8(c);
       canvas.drawRect(
           Rect.fromLTWH(left + x * unit, top + y * unit, unit + 0.3, unit + 0.3),
           p);
@@ -371,7 +460,7 @@ class _BedroomPainter extends CustomPainter {
     final u = math.min(size.width / vw, size.height / vh);
     canvas.save();
     canvas.translate((size.width - vw * u) / 2, (size.height - vh * u) / 2);
-    final px = Px(canvas, u);
+    final px = Px(canvas, u, snap: vw / 64);
     final rng = math.Random(9);
 
     // レターボックス部も含めた下地
@@ -650,7 +739,7 @@ class _LightBurstPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.shortestSide / 160;
-    final px = Px(canvas, u);
+    final px = Px(canvas, u, snap: 2.5);
     final rng = math.Random(21);
     final vw = size.width / u, vh = size.height / u;
 
@@ -711,7 +800,7 @@ class _IslandOverviewPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.width / 160;
-    final px = Px(canvas, u);
+    final px = Px(canvas, u, snap: 2.5);
     final rng = math.Random(3);
     final vw = 160.0, vh = size.height / u;
 
@@ -853,7 +942,7 @@ class _SignboardPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.width / 160;
-    final px = Px(canvas, u);
+    final px = Px(canvas, u, snap: 2.5);
     final rng = math.Random(7);
     final vw = 160.0, vh = size.height / u;
 
@@ -950,7 +1039,7 @@ class _VillagePathPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.width / 160;
-    final px = Px(canvas, u);
+    final px = Px(canvas, u, snap: 2.5);
     final rng = math.Random(11);
     final vw = 160.0, vh = size.height / u;
 
@@ -1060,7 +1149,7 @@ class _BakeryPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.width / 160;
-    final px = Px(canvas, u);
+    final px = Px(canvas, u, snap: 2.5);
     final rng = math.Random(13);
     final vw = 160.0, vh = size.height / u;
 
@@ -1311,7 +1400,7 @@ class _DeskPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.width / 160;
-    final px = Px(canvas, u);
+    final px = Px(canvas, u, snap: 2.5);
     final rng = math.Random(31);
     final vw = 160.0, vh = size.height / u;
 
