@@ -59,19 +59,28 @@
         },
         {
           "no": 11,
-          "image": "assets/images/story/ep1/11.webp"
+          "image": "assets/images/story/ep1/11.webp",
+          "imageWide": "assets/images/story/ep1/11_wide.webp"
         },
         {
           "no": 12,
-          "image": "assets/images/story/ep1/12.webp"
+          "image": "assets/images/story/ep1/12.webp",
+          "imageWide": "assets/images/story/ep1/12_wide.webp"
         },
         {
           "no": 13,
-          "image": "assets/images/story/ep1/13.webp"
+          "image": "assets/images/story/ep1/13.webp",
+          "imageWide": "assets/images/story/ep1/13_wide.webp"
         },
         {
           "no": 14,
-          "image": "assets/images/story/ep1/14.webp"
+          "image": "assets/images/story/ep1/14_wide.webp",
+          "imageWide": "assets/images/story/ep1/14_wide.webp"
+        },
+        {
+          "no": 15,
+          "image": "assets/images/story/ep1/14.webp",
+          "imageWide": "assets/images/story/ep1/15_wide.webp"
         }
       ]
     }
