@@ -106,8 +106,7 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
     return Stack(children: [
       // ── シーン(コード描画 / 旧: 画像) ──
       if (page.scene == 'phone')
-        const Positioned.fill(
-            child: PixelRoomBackground(mode: RoomMode.phone))
+        const Positioned.fill(child: PixelMailScene())
       else if (page.scene == 'bedroom_awake')
         const Positioned.fill(
             child: PixelRoomBackground(mode: RoomMode.awake))

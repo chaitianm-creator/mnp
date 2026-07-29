@@ -481,10 +481,9 @@ class _TrianglePainter extends CustomPainter {
 // 寝室の背景(高密度16bitドット絵)。暖色カスタムパレット(量子化なし)。
 // ─────────────────────────────────────────────────────────────
 
-/// 寝室の状態(1〜3ページ目で共有)。
+/// 寝室の状態(p1/p3で共有。p2はPixelMailSceneの机シーン)。
 enum RoomMode {
   sleep, // p1: すやすや眠っている
-  phone, // p2: 部屋が暗くなり、スマホが光る
   awake, // p3: 起き上がってスマホを見ている
 }
 
@@ -580,32 +579,6 @@ class _RoomPainter extends CustomPainter {
     _paintPlant(px, vw, wallH);
     _paintBed(px, rng, vw, wallH, vh);
     _paintProps(px, wallH, vh);
-    if (mode == RoomMode.phone) {
-      // 部屋を薄暗くして、スマホの光だけが目立つ
-      px.r(0, 0, vw, vh, const Color(0x4A16204A));
-      _paintPhone(px, vw, wallH);
-    }
-  }
-
-  /// 布団の上で光るスマホ(p2)。
-  void _paintPhone(Px px, double vw, double wallH) {
-    final headTop = wallH - 26;
-    final gx = vw / 2 + 17, gy = headTop + 33;
-    const glowA = Color(0x2E9FD8FF);
-    const glowB = Color(0x1E9FD8FF);
-    px.oval(gx + 3, gy + 5, 16, 12, glowB);
-    px.oval(gx + 3, gy + 5, 10, 8, glowA);
-    // 本体(枠 + 画面)
-    px.r(gx - 1, gy - 1, 9, 13, ink);
-    px.r(gx, gy, 7, 11, const Color(0xFF2A3350));
-    px.r(gx + 1, gy + 1, 5, 8, const Color(0xFFBFE8FF));
-    px.r(gx + 1, gy + 1, 5, 2, const Color(0xFFE4F4FF));
-    px.r(gx + 2, gy + 4, 3, 1, const Color(0xFF7FB6E0));
-    px.r(gx + 2, gy + 6, 3, 1, const Color(0xFF7FB6E0));
-    // 光のきらめき
-    px.sparkle(gx - 5, gy - 4, 2, const Color(0xFFD9F1FF));
-    px.sparkle(gx + 11, gy + 1, 1, const Color(0xFFD9F1FF));
-    px.sparkle(gx + 8, gy - 6, 1, const Color(0xFFBFE8FF));
   }
 
   void _paintWall(Px px, math.Random rng, double vw, double wallH) {
@@ -1032,6 +1005,229 @@ class _RoomPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RoomPainter old) => false;
+}
+
+// ─────────────────────────────────────────────────────────────
+// p2: 机の上のスマホに届いた招待メール(クローズアップ)。
+// ─────────────────────────────────────────────────────────────
+
+class PixelMailScene extends StatelessWidget {
+  const PixelMailScene({super.key});
+
+  @override
+  Widget build(BuildContext context) => const CustomPaint(
+      painter: _MailScenePainter(), size: Size.infinite);
+}
+
+class _MailScenePainter extends CustomPainter {
+  const _MailScenePainter();
+
+  // 机(明るい木目)
+  static const desk1 = Color(0xFFD89B5E);
+  static const desk2 = Color(0xFFC9884A);
+  static const desk3 = Color(0xFFB47239);
+  static const deskSeam = Color(0xFF8E5A2B);
+  // スマホ
+  static const bodyEdge = Color(0xFF0C0F14);
+  static const bodyC = Color(0xFF1B2129);
+  static const bodyHi = Color(0xFF39424E);
+  static const screenBg = Color(0xFFE9EDF2);
+  static const headerGold = Color(0xFFF2C63F);
+  static const inkText = Color(0xFF141C26);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const vw = 160.0;
+    final u = size.width / vw;
+    final vh = size.height / u;
+    final px = Px(canvas, u, quantize: false);
+    final rng = math.Random(11);
+
+    _paintDesk(px, rng, vw, vh);
+    _paintPhone(px, canvas, u, vw, vh);
+  }
+
+  void _paintDesk(Px px, math.Random rng, double vw, double vh) {
+    px.r(0, 0, vw, vh, desk2);
+    // 横板 + 木目(板は広め、縦の継ぎ目は控えめに)
+    var row = 0;
+    for (var y = 0.0; y < vh; y += 16, row++) {
+      px.r(0, y, vw, 1, desk1);
+      px.r(0, y + 15, vw, 1, deskSeam);
+      final off = (row % 2) * 32;
+      for (var x = 24.0 + off; x < vw; x += 64) {
+        px.r(x, y + 1, 1, 14, desk3);
+      }
+      for (var i = 0; i < 8; i++) {
+        px.r(rng.nextInt(vw.toInt() - 10).toDouble(), y + 2 + rng.nextInt(12),
+            3 + rng.nextInt(5).toDouble(), 1,
+            rng.nextBool() ? desk3 : desk1);
+      }
+    }
+    px.noise(0, 0, vw.toInt(), vh.toInt(), [desk1, desk3], 120, rng);
+    // コーヒーカップ(左上・見切れ)
+    px.oval(10, vh * 0.16 + 2, 15, 10, const Color(0xFF9A6838)); // 落ち影
+    px.oval(9, vh * 0.16, 14, 10, const Color(0xFFEFE4D2));
+    px.oval(9, vh * 0.16, 10, 7, const Color(0xFF6E4522));
+    px.oval(8, vh * 0.155, 8, 5, const Color(0xFF4E3220));
+    px.oval(6, vh * 0.145, 2.5, 1.5, const Color(0xFF8A6544)); // 湯気の映り
+    // 観葉植物(右上・見切れ)
+    const leafA = Color(0xFF59A04E);
+    const leafB = Color(0xFF3F7E3C);
+    const leafC = Color(0xFF2E5E2C);
+    px.oval(152, vh * 0.10, 14, 12, leafB);
+    px.oval(146, vh * 0.05, 8, 7, leafA);
+    px.oval(157, vh * 0.16, 8, 7, leafC);
+    px.oval(150, vh * 0.14, 6, 5, leafA);
+    px.r(146, vh * 0.19, 14, 3, const Color(0xFFB05F35)); // 鉢のふち
+    px.r(148, vh * 0.19 + 3, 11, 5, const Color(0xFF9A4E2A));
+    // メモ用紙(左下・見切れ)
+    final myy = vh * 0.80;
+    px.r(-6, myy + 1.5, 24, 30, const Color(0xFF9A6838));
+    px.r(-8, myy, 24, 29, const Color(0xFFEFE8D8));
+    px.r(-8, myy, 24, 2, const Color(0xFFDFD4BC));
+    px.r(-2, myy + 6, 14, 1.5, const Color(0xFFB8AD96));
+    px.r(-2, myy + 11, 11, 1.5, const Color(0xFFB8AD96));
+  }
+
+  void _paintPhone(Px px, Canvas canvas, double u, double vw, double vh) {
+    final cx = vw / 2;
+    const pw = 100.0;
+    final left = cx - pw / 2;
+    // 実機らしい縦横比(約1:2)を保ち、縦長画面では上下に机を見せる
+    final ph = math.min(vh * 0.89, pw * 2.05);
+    final pTop = (vh - ph) * 0.45;
+    // 机への落ち影
+    px.r(left + 4, pTop + 4, pw + 2, ph + 2, const Color(0x468E5A2B));
+    // 外枠 → ボディ(角は大きめの階段)
+    void chunk(double x, double y, double w, double h, double s, Color c) {
+      px.r(x + 2 * s, y, w - 4 * s, h, c);
+      px.r(x + s, y + s, w - 2 * s, h - 2 * s, c);
+      px.r(x, y + 2 * s, w, h - 4 * s, c);
+    }
+
+    chunk(left, pTop, pw, ph, 3, bodyEdge);
+    chunk(left + 1.5, pTop + 1.5, pw - 3, ph - 3, 3, bodyC);
+    px.r(left + 8, pTop + 1.5, pw - 16, 1.5, bodyHi); // 上端ハイライト
+    px.r(left + 1.5, pTop + 8, 1.5, ph - 16, bodyHi); // 左端ハイライト
+    // 側面ボタン
+    px.r(left - 1.5, pTop + ph * 0.22, 1.5, 7, const Color(0xFF2A313B));
+    px.r(left - 1.5, pTop + ph * 0.32, 1.5, 10, const Color(0xFF2A313B));
+    px.r(left + pw, pTop + ph * 0.26, 1.5, 12, const Color(0xFF2A313B));
+    // 画面
+    final sx = left + 7, sy = pTop + 8;
+    final sw = pw - 14, sh = ph - 16;
+    px.r(sx, sy, sw, sh, screenBg);
+    // ノッチ + ヘッダー(黒帯に ピコン♪)
+    px.r(sx, sy, sw, 20, const Color(0xFF10151E));
+    px.r(cx - 16, sy - 1, 32, 6, bodyC);
+    px.r(cx - 6, sy + 1, 12, 1.5, bodyEdge);
+    px.oval(cx + 10, sy + 1.8, 1.2, 1.2, const Color(0xFF2A4A6E));
+    // 封筒アイコン(金)
+    const ey = 13.0;
+    px.r(cx - 27, sy + ey - 4, 14, 9, const Color(0xFF8E6A1E));
+    px.r(cx - 26, sy + ey - 3.5, 12, 8, headerGold);
+    px.tri(cx - 26, sy + ey - 3.5, cx - 14, sy + ey - 3.5, cx - 20, sy + ey + 1,
+        const Color(0xFFD8A928));
+    _text(canvas, 'ピコン♪', (cx + 4) * u, (sy + ey) * u, 8.5 * u,
+        headerGold);
+    // ── 招待状カード ──
+    final cy = sy + 24, chh = sh - 30;
+    px.r(sx + 6, cy + 1.5, sw - 12, chh, const Color(0x33202830));
+    px.r(sx + 5, cy, sw - 10, chh, const Color(0xFFF4F6F8));
+    px.r(sx + 5, cy, sw - 10, 1.5, Colors.white);
+    // タイトル
+    _text(canvas, '実践デザイナー島\n招待状', cx * u, (cy + chh * 0.115) * u,
+        8.5 * u, inkText);
+    // 島のイラスト
+    final ix = sx + 10, iw = sw - 20;
+    final iy = cy + chh * 0.225, ih = chh * 0.30;
+    _paintIslandArt(px, ix, iy, iw, ih);
+    // 本文
+    _text(
+        canvas,
+        'あなたを、\n実践デザイナー島へ\nご招待します。',
+        cx * u,
+        (iy + ih + chh * 0.145) * u,
+        7.2 * u,
+        inkText,
+        align: TextAlign.left);
+    // 「くわしく見る」ボタン
+    final bw = sw - 24, bh = math.min(13.0, chh * 0.10);
+    final bx = cx - bw / 2, by = cy + chh * 0.94 - bh;
+    px.r(bx - 1.5, by - 1.5, bw + 3, bh + 3, const Color(0xFF10305E));
+    px.r(bx, by, bw, bh, const Color(0xFF2E62C8));
+    px.r(bx, by, bw, 1.5, const Color(0xFF5C8CE0));
+    px.r(bx, by + bh - 1.5, bw, 1.5, const Color(0xFF1E4490));
+    _text(canvas, 'くわしく見る', cx * u, (by + bh / 2) * u, 7.5 * u,
+        Colors.white);
+    // ホームインジケータ
+    px.r(cx - 10, sy + sh - 3, 20, 1.5, const Color(0xFFB8C0CA));
+  }
+
+  /// カード内の島イラスト(空/海/島/家)。
+  void _paintIslandArt(Px px, double ix, double iy, double iw, double ih) {
+    final cx = ix + iw / 2;
+    // 空と海
+    px.r(ix, iy, iw, ih, const Color(0xFF8FD4F0));
+    px.r(ix, iy + ih * 0.30, iw, ih * 0.70, const Color(0xFF2E7CC4));
+    px.r(ix, iy + ih * 0.72, iw, ih * 0.28, const Color(0xFF2668A8));
+    // 雲
+    px.oval(ix + iw * 0.16, iy + ih * 0.14, 5, 2.2, Colors.white);
+    px.oval(ix + iw * 0.80, iy + ih * 0.10, 4, 2, Colors.white);
+    // 島(砂浜 → 緑 → 山)
+    final gy = iy + ih * 0.62;
+    px.oval(cx, gy + ih * 0.10, iw * 0.38, ih * 0.16, const Color(0xFFDCBB7E));
+    px.oval(cx, gy, iw * 0.31, ih * 0.15, const Color(0xFF59A04E));
+    px.oval(cx - iw * 0.16, gy, iw * 0.10, ih * 0.09, const Color(0xFF3F7E3C));
+    px.oval(cx + iw * 0.18, gy + ih * 0.02, iw * 0.09, ih * 0.08,
+        const Color(0xFF3F7E3C));
+    // 山と雪(島の奥)
+    px.tri(cx + iw * 0.05, iy + ih * 0.18, cx - iw * 0.11, gy, cx + iw * 0.19,
+        gy, const Color(0xFF7C8A96));
+    px.tri(cx + iw * 0.05, iy + ih * 0.18, cx - iw * 0.01, iy + ih * 0.34,
+        cx + iw * 0.11, iy + ih * 0.34, Colors.white);
+    // 山すその緑(手前に木々)
+    px.oval(cx - iw * 0.10, gy - ih * 0.01, iw * 0.10, ih * 0.08,
+        const Color(0xFF59A04E));
+    px.oval(cx + iw * 0.14, gy, iw * 0.09, ih * 0.07,
+        const Color(0xFF3F7E3C));
+    // 家(手前・少し左)
+    final hx = cx - iw * 0.08;
+    px.r(hx - iw * 0.09, gy - ih * 0.07, iw * 0.18, ih * 0.13,
+        const Color(0xFFEFE7D8));
+    px.tri(hx - iw * 0.11, gy - ih * 0.07, hx + iw * 0.11, gy - ih * 0.07, hx,
+        gy - ih * 0.20, const Color(0xFF4A7CB8));
+    px.r(hx - iw * 0.02, gy - ih * 0.005, iw * 0.04, ih * 0.06,
+        const Color(0xFF8E6A42)); // ドア
+    px.dot(hx - iw * 0.06, gy - ih * 0.03, const Color(0xFF4A7CB8)); // 窓
+    px.dot(hx + iw * 0.05, gy - ih * 0.03, const Color(0xFF4A7CB8));
+    // 花と波のきらめき
+    px.dot(cx - iw * 0.20, gy + ih * 0.07, const Color(0xFFE87F9C));
+    px.dot(cx + iw * 0.22, gy + ih * 0.09, const Color(0xFFF6D96B));
+    px.r(ix + iw * 0.10, iy + ih * 0.82, 4, 1, const Color(0xFF7FB8E0));
+    px.r(ix + iw * 0.72, iy + ih * 0.88, 5, 1, const Color(0xFF7FB8E0));
+    px.r(ix + iw * 0.40, iy + ih * 0.92, 4, 1, const Color(0xFF7FB8E0));
+  }
+
+  void _text(Canvas canvas, String s, double x, double y, double fontSize,
+      Color color, {TextAlign align = TextAlign.center}) {
+    final tp = TextPainter(
+      text: TextSpan(
+          text: s,
+          style: TextStyle(
+              color: color,
+              fontSize: fontSize,
+              height: 1.45,
+              fontWeight: FontWeight.w900)),
+      textAlign: align,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(x - tp.width / 2, y - tp.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(_MailScenePainter old) => false;
 }
 
 // ─────────────────────────────────────────────────────────────
