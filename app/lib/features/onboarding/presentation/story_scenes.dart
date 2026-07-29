@@ -271,151 +271,148 @@ class _SpritePainter extends CustomPainter {
   bool shouldRepaint(covariant _SpritePainter old) => old.rows != rows;
 }
 
-// 共通パレット
-const _skin = Color(0xFFF6D7B8);
-const _skinShade = Color(0xFFE8BE9A);
-const _eye = Color(0xFF3E2410);
-const _blush = Color(0xFFF0A8A0);
+// 共通パレット(MOTHER風・AAP-64の色を直接使用)
+const _skin = Color(0xFFFAD6B8);
+const _eye = Color(0xFF141013);
+const _blush = Color(0xFFF5A097);
+const _mouth = Color(0xFFE86A73);
 
-/// みぽりん(ピンクのポニーテール)。pose 0=にっこり 1=指さし
+/// みぽりん(ピンクのボブ+ポニーテール)。pose 0=にっこり 1=指さし
+/// 頭が全身の約6割のちびキャラ比率。
 List<String> miporinRows(int pose) => [
-      '......pppppp....',
-      '.....pPPPPPPp...',
-      '....pPPppppPPp.q',
-      '....pppppppppp.q',
-      '....pffffffffpqq',
-      '....pfeffffefpqq',
-      '....pffffffffpqq',
-      '....pffummuffpqq',
-      '.....fffffff.qq.',
-      '......ffffff.qq.',
-      '....wwwwwwww.qq.',
-      '...wwwwrrwwww.q.',
-      pose == 1 ? '..awwwwwwwwwwwf.' : '..awwwwwwwwwwa..',
-      pose == 1 ? '..a.wwwwwwww..f.' : '..awwwwwwwwwwa..',
-      '....wwwwwwww....',
+      '.....PPPPPP.....',
+      '...PPPPPPPPPP...',
+      '..PPPPPPPPPPPP..',
+      '..PppPPPPPPPPPq.',
+      '.PPppPPPPPPPPPqq',
+      '.PPPPPPPPPPPPPqq',
+      '.PPffffffffffPq.',
+      '.PffffffffffffP.',
+      '.PfeeffffffeefP.',
+      '.PffffffffffffP.',
+      '.PbbfffmmfffbbP.',
+      '..PffffffffffP..',
+      '..PPffffffffPP..',
+      pose == 1 ? '....wwwwwwww.ff.' : '....wwwwwwww....',
+      pose == 1 ? '...fwwwwwwwwff..' : '...fwwwwwwwwf...',
+      pose == 1 ? '...fwwwrrwww....' : '...fwwwrrwwwf...',
       '....RRRRRRRR....',
-      '...RRRrRRrRRR...',
       '...RRRRRRRRRR...',
       '....ff....ff....',
-      '....ff....ff....',
-      '....ss....ss....',
+      '...sss....sss...',
     ];
 
 const miporinPalette = {
-  'p': Color(0xFFE8607A),
-  'P': Color(0xFFF08CA0),
-  'q': Color(0xFFE8607A),
+  'P': Color(0xFFE86A73),
+  'p': Color(0xFFF5A097),
+  'q': Color(0xFFE86A73),
   'f': _skin,
-  'u': _skinShade,
-  'a': _skin,
   'e': _eye,
-  'm': Color(0xFFC44E52),
+  'b': _blush,
+  'm': _mouth,
   'w': Colors.white,
-  'r': Color(0xFFD9494F),
-  'R': Color(0xFFB33A4E),
-  's': Color(0xFF5A3A1E),
+  'r': Color(0xFFB4202A),
+  'R': Color(0xFFB4202A),
+  's': Color(0xFF422433),
 };
 
-/// 主人公(正面)。
+/// 主人公(正面)。茶髪ボブ+白トップス+赤スカート。
 const heroineFrontRows = [
-  '....hhhhhhhh....',
-  '...hhHHHHHHhh...',
-  '..hhHHhhhhHHhh..',
+  '.....hhhhhh.....',
+  '...hhhhhhhhhh...',
   '..hhhhhhhhhhhh..',
-  '..hhffffffffhh..',
-  '..hfeffffffefh..',
+  '..hHHhhhhhhhhh..',
+  '.hhHHhhhhhhhhhh.',
+  '.hhhhhhhhhhhhhh.',
+  '.hhffffffffffhh.',
+  '.hffffffffffffh.',
+  '.hfeeffffffeefh.',
+  '.hffffffffffffh.',
+  '.hbbfffmmfffbbh.',
   '..hffffffffffh..',
-  '..hfbffffffbfh..',
-  '..hffuummuuffh..',
-  '..h.ffffffff.h..',
-  '..h.wwwwwwww.h..',
-  '...wwwwwwwwwwf..',
-  '..awwwwwwwwwwf..',
-  '..awwwwwwwwww...',
+  '..hhffffffffhh..',
+  '....wwwwwwww....',
+  '...fwwwwwwwwf...',
+  '...fwwwrrwwwf...',
   '....RRRRRRRR....',
-  '...RRrRRRRrRR...',
   '...RRRRRRRRRR...',
   '....ff....ff....',
-  '....ff....ff....',
-  '....ss....ss....',
+  '...sss....sss...',
 ];
 
 /// 主人公(後ろ姿)。
 const heroineBackRows = [
-  '....hhhhhhhh....',
+  '.....hhhhhh.....',
   '...hhhhhhhhhh...',
-  '..hhHHhhhhHHhh..',
+  '..hhhhhhhhhhhh..',
+  '..hHHhhhhhhhhh..',
+  '.hhHHhhhhhhhhhh.',
+  '.hhhhhhhhhhhhhh.',
+  '.hhhhhhhhhhhhhh.',
+  '.hhhhhhhhhhhhhh.',
+  '.hhhhhhhhhhhhhh.',
+  '.hhhhhhhhhhhhhh.',
+  '.hhhhhhhhhhhhhh.',
   '..hhhhhhhhhhhh..',
   '..hhhhhhhhhhhh..',
-  '..hhhhhhhhhhhh..',
-  '..hhhhhhhhhhhh..',
-  '...hhhhhhhhhh...',
-  '....hhhhhhhh....',
   '....wwwwwwww....',
-  '...wwwwwwwwww...',
-  '..awwwwwwwwwwa..',
-  '..awwwwwwwwwwa..',
-  '....wwwwwwww....',
+  '...fwwwwwwwwf...',
+  '...fwwwwwwwwf...',
   '....RRRRRRRR....',
-  '...RRrRRRRrRR...',
   '...RRRRRRRRRR...',
   '....ff....ff....',
-  '....ff....ff....',
-  '....ss....ss....',
+  '...sss....sss...',
 ];
 
 const heroinePalette = {
-  'h': Color(0xFF7A4A22),
-  'H': Color(0xFF9A6534),
+  'h': Color(0xFF71413B),
+  'H': Color(0xFFBB7547),
   'f': _skin,
-  'u': _skinShade,
-  'a': _skin,
   'e': _eye,
   'b': _blush,
-  'm': Color(0xFFB3583F),
+  'm': _mouth,
   'w': Colors.white,
-  'r': Color(0xFF9A2E40),
-  'R': Color(0xFFB33A4E),
-  's': Color(0xFF5A3A1E),
+  'r': Color(0xFFE86A73),
+  'R': Color(0xFFB4202A),
+  's': Color(0xFF422433),
 };
 
-/// パン屋さん(コック帽・くたびれ顔)。
+/// パン屋さん(コック帽・ひげ・エプロン)。
 const bakerRows = [
-  '....CCCCCCCC....',
   '...CCCCCCCCCC...',
-  '...CCcCCCCcCC...',
-  '....cccccccc....',
-  '....ffffffff....',
-  '...ffeffffeff...',
-  '...ffffffffff...',
-  '...fMMMMMMMMf...',
-  '....fMMMMMMf....',
-  '.....ffffff.....',
-  '...rrwwwwwwrr...',
-  '..awWWWWWWWWwa..',
-  '..awWWWvWWWWwa..',
-  '..a.WWWWWWWW.a..',
-  '....WWWWWWWW....',
-  '....WWvWWWWW....',
-  '....bb....bb....',
-  '....bb....bb....',
-  '....ss....ss....',
+  '..CCCCCCCCCCCC..',
+  '..CCCCCCCCCCCC..',
+  '..cCCCCCCCCCCc..',
+  '...cccccccccc...',
+  '..ffffffffffff..',
+  '.ffffffffffffff.',
+  '.ffeeffffffeeff.',
+  '.ffffffffffffff.',
+  '.fbbMMMMMMMMbbf.',
+  '.ffMMMMMMMMMMff.',
+  '..ffffMMMMffff..',
+  '..ffffffffffff..',
+  '....UUUUUUUU....',
+  '...fUAAAAAAUf...',
+  '...fUAAAAAAUf...',
+  '....AAAAAAAA....',
+  '...AAAAaaAAAA...',
+  '....VV....VV....',
+  '...sss....sss...',
 ];
 
 const bakerPalette = {
   'C': Colors.white,
-  'c': Color(0xFFE4E0D8),
-  'f': Color(0xFFE8C49A),
+  'c': Color(0xFFDAE0EA),
+  'f': Color(0xFFF4D29C),
   'e': _eye,
-  'M': Color(0xFF5A4632),
-  'r': Color(0xFFC44E52),
-  'w': Colors.white,
-  'W': Color(0xFFF2EFE8),
-  'v': Color(0xFFDDD8CC),
-  'a': Color(0xFFE8C49A),
-  'b': Color(0xFF6E5138),
-  's': Color(0xFF3E2E1C),
+  'b': Color(0xFFE9B5A3),
+  'M': Color(0xFF5A4E44),
+  'U': Color(0xFF588DBE),
+  'A': Colors.white,
+  'a': Color(0xFFDAE0EA),
+  'V': Color(0xFF4A5462),
+  's': Color(0xFF322B28),
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -1259,7 +1256,9 @@ class _CharacterScene extends StatelessWidget {
           Positioned(
             right: pose == 2 ? null : c.maxWidth * 0.03,
             left: pose == 2 ? c.maxWidth * 0.05 : null,
-            bottom: 0,
+            // みぽりん(pose 0/1)は下部の会話ウィンドウに顔が隠れないよう
+            // 腰から上が見える高さに置く
+            bottom: pose == 2 ? 0 : c.maxHeight * 0.155,
             child: pose == 2
                 ? PixelSprite(
                     rows: heroineFrontRows,
