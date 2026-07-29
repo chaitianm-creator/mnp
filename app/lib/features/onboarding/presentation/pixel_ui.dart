@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:design_kingdom/features/onboarding/data/story_repository.dart'
+    show StoryChoice, StoryMission;
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart'
     show Px;
 
@@ -204,6 +206,7 @@ class PixelPanel extends StatelessWidget {
     this.highlight = Colors.white,
     this.innerShadow = PixelTheme.creamShade,
     this.dropShadow,
+    this.frame,
     this.padding = const EdgeInsets.symmetric(
         horizontal: PixelTheme.padPanelH, vertical: PixelTheme.padPanelV),
   });
@@ -215,6 +218,7 @@ class PixelPanel extends StatelessWidget {
   final Color? innerShadow;
   final Color? dropShadow;
   final EdgeInsets padding;
+  final Color? frame;
 
   @override
   Widget build(BuildContext context) {
@@ -229,6 +233,7 @@ class PixelPanel extends StatelessWidget {
         highlight: highlight,
         innerShadow: innerShadow,
         dropShadow: dropShadow,
+        frame: frame,
       ),
       child: Padding(padding: pad, child: child),
     );
@@ -476,9 +481,17 @@ class _TrianglePainter extends CustomPainter {
 // 寝室の背景(高密度16bitドット絵)。暖色カスタムパレット(量子化なし)。
 // ─────────────────────────────────────────────────────────────
 
+/// 寝室の状態(1〜3ページ目で共有)。
+enum RoomMode {
+  sleep, // p1: すやすや眠っている
+  phone, // p2: 部屋が暗くなり、スマホが光る
+  awake, // p3: 起き上がってスマホを見ている
+}
+
 /// 夜の寝室。ランプがかすかに明滅する。
 class PixelRoomBackground extends StatefulWidget {
-  const PixelRoomBackground({super.key});
+  const PixelRoomBackground({super.key, this.mode = RoomMode.sleep});
+  final RoomMode mode;
 
   @override
   State<PixelRoomBackground> createState() => _PixelRoomBackgroundState();
@@ -506,13 +519,14 @@ class _PixelRoomBackgroundState extends State<PixelRoomBackground>
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-        painter: _RoomPainter(_flicker), size: Size.infinite);
+        painter: _RoomPainter(_flicker, widget.mode), size: Size.infinite);
   }
 }
 
 class _RoomPainter extends CustomPainter {
-  _RoomPainter(this.flicker) : super(repaint: flicker);
+  _RoomPainter(this.flicker, this.mode) : super(repaint: flicker);
   final Animation<double> flicker;
+  final RoomMode mode;
 
   // ── 部屋のパレット(同系色3〜5段階) ──
   static const wall = Color(0xFFEED9B8);
@@ -566,6 +580,32 @@ class _RoomPainter extends CustomPainter {
     _paintPlant(px, vw, wallH);
     _paintBed(px, rng, vw, wallH, vh);
     _paintProps(px, wallH, vh);
+    if (mode == RoomMode.phone) {
+      // 部屋を薄暗くして、スマホの光だけが目立つ
+      px.r(0, 0, vw, vh, const Color(0x4A16204A));
+      _paintPhone(px, vw, wallH);
+    }
+  }
+
+  /// 布団の上で光るスマホ(p2)。
+  void _paintPhone(Px px, double vw, double wallH) {
+    final headTop = wallH - 26;
+    final gx = vw / 2 + 17, gy = headTop + 33;
+    const glowA = Color(0x2E9FD8FF);
+    const glowB = Color(0x1E9FD8FF);
+    px.oval(gx + 3, gy + 5, 16, 12, glowB);
+    px.oval(gx + 3, gy + 5, 10, 8, glowA);
+    // 本体(枠 + 画面)
+    px.r(gx - 1, gy - 1, 9, 13, ink);
+    px.r(gx, gy, 7, 11, const Color(0xFF2A3350));
+    px.r(gx + 1, gy + 1, 5, 8, const Color(0xFFBFE8FF));
+    px.r(gx + 1, gy + 1, 5, 2, const Color(0xFFE4F4FF));
+    px.r(gx + 2, gy + 4, 3, 1, const Color(0xFF7FB6E0));
+    px.r(gx + 2, gy + 6, 3, 1, const Color(0xFF7FB6E0));
+    // 光のきらめき
+    px.sparkle(gx - 5, gy - 4, 2, const Color(0xFFD9F1FF));
+    px.sparkle(gx + 11, gy + 1, 1, const Color(0xFFD9F1FF));
+    px.sparkle(gx + 8, gy - 6, 1, const Color(0xFFBFE8FF));
   }
 
   void _paintWall(Px px, math.Random rng, double vw, double wallH) {
@@ -864,13 +904,17 @@ class _RoomPainter extends CustomPainter {
     px.r(bx - 3, bedBottom + 4, bw + 6, 4, wood2);
     px.r(bx - 3, bedBottom + 4, bw + 6, 1, wood1);
     px.r(bx - 3, bedBottom + 7, bw + 6, 1, wood4);
-    // ── 眠る女の子(ちび2頭身・輪郭つき) ──
-    _paintGirl(px, vw / 2, headTop + 15);
-    // 布団の上に出た腕
-    final ax = vw / 2 - 12;
-    px.r(ax - 1, qy + 3, 10, 5, ink);
-    px.r(ax, qy + 4, 8, 3, const Color(0xFFFFDDC2));
-    px.r(ax, qy + 6, 8, 1, const Color(0xFFF0C09E));
+    // ── 女の子(ちび2頭身・輪郭つき) ──
+    if (mode == RoomMode.awake) {
+      _paintGirlSitting(px, vw / 2, headTop - 3);
+    } else {
+      _paintGirl(px, vw / 2, headTop + 15);
+      // 布団の上に出た腕
+      final ax = vw / 2 - 12;
+      px.r(ax - 1, qy + 3, 10, 5, ink);
+      px.r(ax, qy + 4, 8, 3, const Color(0xFFFFDDC2));
+      px.r(ax, qy + 6, 8, 1, const Color(0xFFF0C09E));
+    }
   }
 
   /// 眠る女の子の顔(スプライト風に1マスずつ)。
@@ -916,6 +960,58 @@ class _RoomPainter extends CustomPainter {
     px.dot(cx + 3.5, top + 11, const Color(0xFF5A3A24));
   }
 
+  /// 起き上がってスマホを見る女の子(p3)。
+  void _paintGirlSitting(Px px, double cx, double top) {
+    const rows = [
+      '....######....',
+      '..##HHHHHH##..',
+      '.#HHLLHHHHHH#.',
+      '.#HLHHHHHHHHH#',
+      '#HHHHSSSSSHHH#',
+      '#HHSSSSSSSSH#.',
+      '#HSWESSSSWES#.',
+      '#HSSSSSSSSSS#.',
+      '.#SBSSooSSBS#.',
+      '.#SSSSSSSSSS#.',
+      '..#SSSSSSSS#..',
+      '..##PPPPPP##..',
+      '.#PPPPPPPPPP#.',
+      '#SSPPPPPPPPSS#',
+      '#SSPPFFFFPPSS#',
+      '.##SSFFFFSS##.',
+      '..###PPPP###..',
+    ];
+    const pal = {
+      '#': ink,
+      'H': Color(0xFF9C6234),
+      'L': Color(0xFFC08A50),
+      'S': Color(0xFFFFDDC2),
+      'W': Colors.white,
+      'E': Color(0xFF5A3A24),
+      'B': Color(0xFFF49AA8),
+      'o': Color(0xFFC96A5E),
+      'P': Color(0xFFF9C7D3),
+      'F': Color(0xFFBFE8FF),
+    };
+    const cell = 1.6;
+    // スマホの光(顔を下から照らす)
+    px.oval(cx, top + 14.5 * cell, 9, 6, const Color(0x2E9FD8FF));
+    final left = cx - rows[0].length * cell / 2;
+    for (var y = 0; y < rows.length; y++) {
+      for (var x = 0; x < rows[y].length; x++) {
+        final ch = rows[y][x];
+        if (ch == '.') continue;
+        px.r(left + x * cell, top + y * cell, cell, cell, pal[ch]!);
+      }
+    }
+    // びっくりマーク(頭の上)
+    px.r(cx + 13, top - 5, 1.6, 4.5, const Color(0xFFE8C25A));
+    px.dot(cx + 13, top + 1.2, const Color(0xFFE8C25A));
+    // パジャマの陰影
+    px.r(cx - 8, top + 12.5 * cell, 1.6, 3, const Color(0xFFE8A9BC));
+    px.r(cx + 6.4, top + 12.5 * cell, 1.6, 3, const Color(0xFFE8A9BC));
+  }
+
   void _paintProps(Px px, double wallH, double vh) {
     // 床に積んだ本(左手前)
     final byy = wallH + (vh - wallH) * 0.72;
@@ -936,6 +1032,251 @@ class _RoomPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RoomPainter old) => false;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 会話ウィンドウ・選択肢・ミッションカード(全ページ共通)。
+// ─────────────────────────────────────────────────────────────
+
+/// ピンクの小さなラベルチップ(話者名・見出し)。
+class _PixelChip extends StatelessWidget {
+  const _PixelChip(this.text,
+      {this.fontSize = 11,
+      this.padding = const EdgeInsets.symmetric(horizontal: 9, vertical: 4)});
+  final String text;
+  final double fontSize;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: const _PixelBoxPainter(
+        fill: PixelTheme.pink,
+        outline: PixelTheme.pinkDeep,
+        highlight: PixelTheme.pinkLight,
+      ),
+      child: Padding(
+        padding: padding,
+        child: Text(text,
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: fontSize,
+                height: 1.2,
+                fontWeight: FontWeight.w900)),
+      ),
+    );
+  }
+}
+
+/// RPG会話ウィンドウ(話者チップ + 本文)。
+class PixelMessageWindow extends StatelessWidget {
+  const PixelMessageWindow({super.key, this.speaker, required this.text});
+  final String? speaker;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return PixelPanel(
+      dropShadow: PixelTheme.navyEdge,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 11),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (speaker != null) ...[
+          _PixelChip(speaker!),
+          const SizedBox(height: 6),
+        ],
+        Text(text,
+            style: const TextStyle(
+                color: PixelTheme.brown,
+                fontSize: 15,
+                height: 1.55,
+                fontWeight: FontWeight.w700)),
+      ]),
+    );
+  }
+}
+
+/// 選択肢パネル(どう答える？)。
+class PixelChoicePanel extends StatelessWidget {
+  const PixelChoicePanel({
+    super.key,
+    required this.prompt,
+    required this.choices,
+    required this.onSelect,
+    this.feedback,
+  });
+  final String prompt;
+  final List<StoryChoice> choices;
+  final ValueChanged<StoryChoice> onSelect;
+  final String? feedback;
+
+  @override
+  Widget build(BuildContext context) {
+    return PixelPanel(
+      dropShadow: PixelTheme.navyEdge,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: _PixelChip(prompt,
+                  fontSize: 14,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 6)),
+            ),
+            const SizedBox(height: 12),
+            for (final c in choices)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onSelect(c),
+                  child: PixelPanel(
+                    fill: Colors.white,
+                    outline: PixelTheme.pinkDark,
+                    highlight: const Color(0xFFFFE3EA),
+                    innerShadow: const Color(0xFFF2D8DE),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    child: Row(children: [
+                      Text(c.correct ? '💗' : '💬',
+                          style: const TextStyle(fontSize: 15)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(c.text,
+                            style: const TextStyle(
+                                color: PixelTheme.brown,
+                                fontSize: 14,
+                                height: 1.35,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            if (feedback != null)
+              Text(feedback!,
+                  style: const TextStyle(
+                      color: PixelTheme.pinkDark,
+                      fontSize: 13,
+                      height: 1.4,
+                      fontWeight: FontWeight.w700)),
+          ]),
+    );
+  }
+}
+
+/// ピクセルのチェックボックス。
+class _PixelCheckbox extends StatelessWidget {
+  const _PixelCheckbox({required this.checked});
+  final bool checked;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+        size: const Size(18, 18), painter: _CheckboxPainter(checked));
+  }
+}
+
+class _CheckboxPainter extends CustomPainter {
+  const _CheckboxPainter(this.checked);
+  final bool checked;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint();
+    final u = size.width / 6;
+    p.color = PixelTheme.brown;
+    _stepped(canvas, p, 0, 0, size.width, size.height, u);
+    p.color = checked ? const Color(0xFFFFE3EA) : PixelTheme.cream;
+    _stepped(canvas, p, u, u, size.width - 2 * u, size.height - 2 * u, u);
+    if (checked) {
+      p.color = PixelTheme.pinkDark;
+      // 階段状のチェックマーク
+      canvas.drawRect(Rect.fromLTWH(1.2 * u, 3.0 * u, u, u), p);
+      canvas.drawRect(Rect.fromLTWH(2.0 * u, 3.8 * u, u, u), p);
+      canvas.drawRect(Rect.fromLTWH(2.8 * u, 3.0 * u, u, u), p);
+      canvas.drawRect(Rect.fromLTWH(3.6 * u, 2.2 * u, u, u), p);
+      canvas.drawRect(Rect.fromLTWH(4.4 * u, 1.4 * u, u, u), p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CheckboxPainter old) => old.checked != checked;
+}
+
+/// ミッション発生カード。
+class PixelMissionCard extends StatelessWidget {
+  const PixelMissionCard({super.key, required this.mission});
+  final StoryMission mission;
+
+  @override
+  Widget build(BuildContext context) {
+    return PixelPanel(
+      outline: PixelTheme.brown,
+      frame: PixelTheme.gold,
+      dropShadow: PixelTheme.navyEdge,
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+      child: Column(children: [
+        Transform.translate(
+          offset: const Offset(0, -13),
+          child: _PixelChip('ミッション発生！',
+              fontSize: 16,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 6)),
+        ),
+        Text(mission.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: PixelTheme.brown,
+                fontSize: 19,
+                height: 1.35,
+                fontWeight: FontWeight.w900)),
+        const SizedBox(height: 10),
+        for (final (i, item) in mission.items.indexed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(children: [
+              _PixelCheckbox(checked: i == 0),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(item,
+                    style: const TextStyle(
+                        color: PixelTheme.brown,
+                        fontSize: 13,
+                        height: 1.35,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ]),
+          ),
+        const SizedBox(height: 6),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          _reward('⭐ 経験値', '+${mission.xp}'),
+          const SizedBox(width: 10),
+          _reward('🪙 コイン', '+${mission.coins}'),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _reward(String label, String value) => PixelPanel(
+        fill: PixelTheme.brown,
+        outline: const Color(0xFF241A0E),
+        highlight: PixelTheme.brownMid,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(label,
+              style: const TextStyle(
+                  color: PixelTheme.goldLight,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(width: 6),
+          Text(value,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900)),
+        ]),
+      );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -962,7 +1303,8 @@ class PixelStoryPageOne extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = Stack(children: [
+    // 中央寄せ(PC最大幅)は呼び出し側(StoryPlayerPage)が全ページ共通で行う
+    return Stack(children: [
       const Positioned.fill(child: PixelRoomBackground()),
       SafeArea(
         child: Padding(
@@ -990,17 +1332,5 @@ class PixelStoryPageOne extends StatelessWidget {
         ),
       ),
     ]);
-
-    // PCでは中央寄せ・最大幅430〜480px(引き伸ばさない)
-    return ColoredBox(
-      color: PixelTheme.navyEdge,
-      child: Center(
-        child: ConstrainedBox(
-          constraints:
-              const BoxConstraints(maxWidth: PixelTheme.maxContentWidth),
-          child: content,
-        ),
-      ),
-    );
   }
 }
