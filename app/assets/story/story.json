@@ -33,24 +33,29 @@
         },
         {
           "no": 6,
-          "image": "assets/images/story/ep1/06.webp"
+          "image": "assets/images/story/ep1/06.webp",
+          "imageWide": "assets/images/story/ep1/06_wide.webp"
         },
         {
           "no": 7,
-          "image": "assets/images/story/ep1/07.webp"
+          "image": "assets/images/story/ep1/07.webp",
+          "imageWide": "assets/images/story/ep1/07_wide.webp"
         },
         {
           "no": 8,
-          "image": "assets/images/story/ep1/08.webp"
+          "image": "assets/images/story/ep1/08.webp",
+          "imageWide": "assets/images/story/ep1/08_wide.webp"
         },
         {
           "no": 9,
-          "image": "assets/images/story/ep1/09.webp"
+          "image": "assets/images/story/ep1/09.webp",
+          "imageWide": "assets/images/story/ep1/09_wide.webp"
         },
         {
           "no": 10,
           "image": "assets/images/story/ep1/10.webp",
-          "buttonLabel": "島へ行く"
+          "buttonLabel": "島へ行く",
+          "imageWide": "assets/images/story/ep1/10_wide.webp"
         },
         {
           "no": 11,
