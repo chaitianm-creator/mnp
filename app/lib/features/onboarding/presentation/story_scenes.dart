@@ -50,82 +50,52 @@ class _Fill extends StatelessWidget {
 
 
 // ─────────────────────────────────────────────────────────────
-// PICO-8 固定16色パレット(ドット絵 指示ルールUI 準拠)。
-// シーン描画とスプライトの色はすべて最近傍のPICO-8色に量子化する。
+// AAP-64 固定64色パレット(Adigun A. Polack)。
+// シーン描画とスプライトの色はすべて最近傍のAAP-64色に量子化する。
+// 64色あるため、PICO-8のような色相ルールは不要で最近傍探索がきれいに決まる。
 // ─────────────────────────────────────────────────────────────
-const kPico8 = <Color>[
-  Color(0xFF000000), // 0 black
-  Color(0xFF1D2B53), // 1 dark blue
-  Color(0xFF7E2553), // 2 dark purple
-  Color(0xFF008751), // 3 dark green
-  Color(0xFFAB5236), // 4 brown
-  Color(0xFF5F574F), // 5 dark grey
-  Color(0xFFC2C3C7), // 6 light grey
-  Color(0xFFFFF1E8), // 7 white
-  Color(0xFFFF004D), // 8 red
-  Color(0xFFFFA300), // 9 orange
-  Color(0xFFFFEC27), // 10 yellow
-  Color(0xFF00E436), // 11 green
-  Color(0xFF29ADFF), // 12 blue
-  Color(0xFF83769C), // 13 indigo
-  Color(0xFFFF77A8), // 14 pink
-  Color(0xFFFFCCAA), // 15 peach
+const kAap64 = <Color>[
+  Color(0xFF060608), Color(0xFF141013), Color(0xFF3B1725), Color(0xFF73172D),
+  Color(0xFFB4202A), Color(0xFFDF3E23), Color(0xFFFA6A0A), Color(0xFFF9A31B),
+  Color(0xFFFFD541), Color(0xFFFFFC40), Color(0xFFD6F264), Color(0xFF9CDB43),
+  Color(0xFF59C135), Color(0xFF14A02E), Color(0xFF1A7A3E), Color(0xFF24523B),
+  Color(0xFF122020), Color(0xFF143464), Color(0xFF285CC4), Color(0xFF249FDE),
+  Color(0xFF20D6C7), Color(0xFFA6FCDB), Color(0xFFFFFFFF), Color(0xFFFEF3C0),
+  Color(0xFFFAD6B8), Color(0xFFF5A097), Color(0xFFE86A73), Color(0xFFBC4A9B),
+  Color(0xFF793A80), Color(0xFF403353), Color(0xFF242234), Color(0xFF221C1A),
+  Color(0xFF322B28), Color(0xFF71413B), Color(0xFFBB7547), Color(0xFFDBA463),
+  Color(0xFFF4D29C), Color(0xFFDAE0EA), Color(0xFFB3B9D1), Color(0xFF8B93AF),
+  Color(0xFF6D758D), Color(0xFF4A5462), Color(0xFF333941), Color(0xFF422433),
+  Color(0xFF5B3138), Color(0xFF8E5252), Color(0xFFBA756A), Color(0xFFE9B5A3),
+  Color(0xFFE3E6FF), Color(0xFFB9BFFB), Color(0xFF849BE4), Color(0xFF588DBE),
+  Color(0xFF477D85), Color(0xFF23674E), Color(0xFF328464), Color(0xFF5DAF8D),
+  Color(0xFF92DCBA), Color(0xFFCDF7E2), Color(0xFFE4D2AA), Color(0xFFC7B08B),
+  Color(0xFFA08662), Color(0xFF796755), Color(0xFF5A4E44), Color(0xFF423934),
 ];
 
-final Map<int, Color> _picoCache = {};
+final Map<int, Color> _aapCache = {};
 
-/// 色相ベースでPICO-8の16色へ写像する(単純な最近傍だと中間色が濁るため)。
-Color pico8(Color c) {
+/// 最近傍のAAP-64色へ量子化する(redmean加重RGB距離)。
+Color aap64(Color c) {
   final key = c.value & 0x00FFFFFF;
-  final cached = _picoCache[key];
+  final cached = _aapCache[key];
   if (cached != null) return cached.withAlpha(c.alpha);
   final r = c.red, g = c.green, b = c.blue;
-  final mx = math.max(r, math.max(g, b));
-  final mn = math.min(r, math.min(g, b));
-  final v = mx, s = mx - mn;
-  Color out;
-  if (s < 28) {
-    out = v < 50
-        ? kPico8[0]
-        : v < 110
-            ? kPico8[5]
-            : v < 200
-                ? kPico8[6]
-                : kPico8[7];
-  } else if (s < 45 && v > 200) {
-    out = kPico8[7]; // クリーム/オフホワイト
-  } else if (b >= r && b >= g) {
-    out = v < 115
-        ? kPico8[1]
-        : (v < 170 && s < 110)
-            ? kPico8[13]
-            : kPico8[12];
-  } else if (g >= r && g >= b) {
-    out = v < 135 ? kPico8[3] : kPico8[11];
-  } else {
-    // 赤系(肌/木/ピンク/黄/オレンジ)
-    if (b > g + 10 && b > r * 0.5) {
-      out = v < 140
-          ? kPico8[2]
-          : s < 40
-              ? kPico8[15]
-              : kPico8[14];
-    } else if (g > r * 0.78) {
-      out = (b > r * 0.6)
-          ? (v >= 170 ? kPico8[15] : kPico8[4])
-          : (v < 170 ? kPico8[9] : kPico8[10]);
-    } else if (g > r * 0.45) {
-      out = v < 105
-          ? kPico8[2]
-          : v < 185
-              ? kPico8[4]
-              : (v >= 225 && s <= 90 ? kPico8[15] : kPico8[9]);
-    } else {
-      out = v < 120 ? kPico8[2] : kPico8[8];
+  var best = kAap64[0];
+  // Web(JS)では大きなビットシフトが使えないため、比較初期値はdoubleにする
+  num bestD = double.infinity;
+  for (final p in kAap64) {
+    final dr = r - p.red, dg = g - p.green, db = b - p.blue;
+    final rm = (r + p.red) >> 1;
+    final d = (2 * 256 + rm) * dr * dr + 4 * 256 * dg * dg +
+        (2 * 256 + 255 - rm) * db * db;
+    if (d < bestD) {
+      bestD = d;
+      best = p;
     }
   }
-  _picoCache[key] = out;
-  return out.withAlpha(c.alpha);
+  _aapCache[key] = best;
+  return best.withAlpha(c.alpha);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -141,7 +111,7 @@ class Px {
 
   /// 矩形(スナップした粗ドット格子に揃える)
   void r(num x, num y, num w, num h, Color c) {
-    _p.color = quantize ? pico8(c) : c;
+    _p.color = quantize ? aap64(c) : c;
     final x0 = (x / snap).floorToDouble() * snap;
     final y0 = (y / snap).floorToDouble() * snap;
     var x1 = ((x + w) / snap).ceilToDouble() * snap;
@@ -239,7 +209,7 @@ void drawPixelSprite(Canvas canvas, List<String> rows,
       x < rows[y].length &&
       palette.containsKey(rows[y][x]);
   // アウトライン(塗りの周囲1ドット)
-  p.color = pico8(outline);
+  p.color = aap64(outline);
   for (var y = -1; y <= rows.length; y++) {
     for (var x = -1; x <= rows[0].length; x++) {
       if (filled(x, y)) continue;
@@ -258,7 +228,7 @@ void drawPixelSprite(Canvas canvas, List<String> rows,
     for (var x = 0; x < rows[y].length; x++) {
       final c = palette[rows[y][x]];
       if (c == null) continue;
-      p.color = pico8(c);
+      p.color = aap64(c);
       canvas.drawRect(
           Rect.fromLTWH(left + x * unit, top + y * unit, unit + 0.3, unit + 0.3),
           p);
