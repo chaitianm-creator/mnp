@@ -100,9 +100,11 @@ void main() {
     expect(find.textContaining('入団が完了しました'), findsOneWidget);
     expect(find.text('てすとちゃん'), findsOneWidget);
 
-    // 冒険へ行く → ホームメニュー(ニックネーム + ロック中の今日の依頼)
+    // 冒険へ行く → ホーム(ヘッダーにニックネーム + ロック中の今日の依頼)
     await tapAndSettle(tester, find.text('冒険へ行く'));
     expect(find.text('てすとちゃん'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('練習3つで解放'), 300,
+        scrollable: find.byType(Scrollable).first);
     expect(find.text('練習クエスト'), findsOneWidget);
     expect(find.text('練習3つで解放'), findsOneWidget);
   });

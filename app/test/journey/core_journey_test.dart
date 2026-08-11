@@ -46,12 +46,14 @@ void main() {
       (tester) async {
     await pumpApp(tester);
 
-    // ── SC-10 ホームメニュー(キャラ中心のゲーム様式) ──
+    // ── SC-10 ホーム(エリア詳細「はじまりの街」型) ──
+    expect(find.text('みぽりん先生'), findsOneWidget); // ヒーロー内の仮キャラ
+    await tester.scrollUntilVisible(find.text('今日の依頼'), 300,
+        scrollable: find.byType(Scrollable).first);
     expect(find.text('練習クエスト'), findsOneWidget);
     expect(find.text('今日の依頼'), findsOneWidget);
-    expect(find.text('みぽりん先生'), findsOneWidget);
 
-    // タップ1: メニュー「今日の依頼」 → 依頼リスト(エリアバンドはここで確認)
+    // タップ1: クエストカード「今日の依頼」 → 依頼リスト(エリアバンドはここで確認)
     await tapAndSettle(tester, find.text('今日の依頼'));
     expect(find.text('きょうの依頼'), findsOneWidget);
     expect(find.text('はじまりの街（みぽりん村）'), findsOneWidget);
@@ -132,8 +134,10 @@ void main() {
     expect(find.text('きょうのまとめ'), findsOneWidget);
     expect(find.text('あと1クエストだけやる（3分）'), findsNothing);
 
-    // ホームメニューへ → 「今日の依頼」を開き直すと予約バナー + 2件チェック済み
+    // ホームへ → 「今日の依頼」を開き直すと予約バナー + 2件チェック済み
     await tapAndSettle(tester, find.text('きょうはここまで！ホームへ'));
+    await tester.scrollUntilVisible(find.text('今日の依頼'), 300,
+        scrollable: find.byType(Scrollable).first);
     await tapAndSettle(tester, find.text('今日の依頼'));
     expect(find.textContaining('予約したお仕事'), findsOneWidget);
     expect(find.byIcon(Icons.check_circle), findsNWidgets(3)); // サマリー1 + 依頼2
@@ -141,12 +145,15 @@ void main() {
 
   testWidgets('中断確認ダイアログは1タップで抜けられる(Phase 4 §7-2)', (tester) async {
     await pumpApp(tester);
+    await tester.scrollUntilVisible(find.text('今日の依頼'), 300,
+        scrollable: find.byType(Scrollable).first);
     await tapAndSettle(tester, find.text('今日の依頼'));
     await tapAndSettle(tester, find.textContaining('もちもち王国パン'));
     await tapAndSettle(tester, find.byIcon(Icons.close));
     expect(find.text('ここまでにする？'), findsOneWidget);
     await tapAndSettle(tester, find.text('あとで'));
-    expect(find.text('練習クエスト'), findsOneWidget); // ホームメニューへ戻れた
+    // ホームへ戻れた(スクロール位置は保持されるためクエスト一覧で確認)
+    expect(find.text('今日の依頼'), findsOneWidget);
   });
 
   testWidgets('練習クエスト未クリアでは「今日の依頼」はロックされる', (tester) async {
@@ -156,7 +163,9 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: DesignKingdomApp()));
     await tester.pumpAndSettle();
 
-    // ロック中の案内文
+    // ロック中のバッジ
+    await tester.scrollUntilVisible(find.text('練習3つで解放'), 300,
+        scrollable: find.byType(Scrollable).first);
     expect(find.text('練習3つで解放'), findsOneWidget);
     await tapAndSettle(tester, find.text('今日の依頼'));
     expect(find.textContaining('練習クエストを3つクリアすると解放'), findsOneWidget);
