@@ -1141,8 +1141,9 @@ class _BakeryPainter extends CustomPainter {
           const Color(0xFFA89066));
     }
 
-    // 店舗
-    final sx = -6.0, sy = vh * 0.14, sw = vw * 0.72, sh = vh * 0.36;
+    // 店舗(横長画面では幅を抑えてワイヤーフレームのPC配置に合わせる)
+    final land = size.width > size.height;
+    final sx = -6.0, sy = vh * 0.14, sw = vw * (land ? 0.45 : 0.72), sh = vh * 0.36;
     // 壁(細かいレンガ)
     px.r(sx, sy, sw, sh, const Color(0xFFEADFC2));
     final brickH = sh / 12;

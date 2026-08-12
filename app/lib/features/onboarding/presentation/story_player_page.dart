@@ -69,22 +69,18 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
             }
           }
 
-          // PCでは中央寄せ・最大幅(比率維持)。ページ切替は250msフェード。
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-              child: LayoutBuilder(builder: (context, box) {
-                final size = Size(box.maxWidth, box.maxHeight);
-                return AnimatedSwitcher(
-                  duration: _pageFade,
-                  child: KeyedSubtree(
-                    key: ValueKey('${ep.id}-$_index'),
-                    child: _buildPage(ep, page, size, isLast, advance),
-                  ),
-                );
-              }),
-            ),
-          );
+          // シーンは常に全画面。UI列はSP=460px / PC(900px以上)=1080pxに
+          // 制約する(ワイヤーフレームのPC/SPレイアウト準拠)。250msフェード。
+          return LayoutBuilder(builder: (context, box) {
+            final size = Size(box.maxWidth, box.maxHeight);
+            return AnimatedSwitcher(
+              duration: _pageFade,
+              child: KeyedSubtree(
+                key: ValueKey('${ep.id}-$_index'),
+                child: _buildPage(ep, page, size, isLast, advance),
+              ),
+            );
+          });
         },
       ),
     );
@@ -94,6 +90,7 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
       VoidCallback advance) {
     final hasChoices = page.choices.isNotEmpty;
     final landscape = size.width > size.height;
+    final wide = size.width >= 900; // PCワイドレイアウト
     final showButton = (isLast || page.buttonLabel != null) && !hasChoices;
 
     return Stack(children: [
@@ -174,9 +171,9 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
       // ── パン屋の看板文字 ──
       if (page.scene == 'bakery' || page.scene == 'mission')
         Positioned(
-          left: size.width * 0.12,
+          left: size.width * (wide ? 0.045 : 0.12),
           top: size.height * 0.155,
-          width: size.width * 0.32,
+          width: size.width * (wide ? 0.2 : 0.32),
           child: const IgnorePointer(
             child: Text('パン屋',
                 textAlign: TextAlign.center,
@@ -188,31 +185,37 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
         ),
       // ── パン屋・主人公のスプライト(会話シーン) ──
       if (page.scene == 'bakery') ...[
+        // PC(WF17a)では店の右横に2人を並べる。SPは店の前(左右)に立たせる。
         Positioned(
-          left: size.width * 0.1,
-          bottom: size.height * 0.24,
+          left: size.width * (wide ? 0.55 : 0.1),
+          bottom: size.height * (wide ? 0.30 : 0.24),
           child: IgnorePointer(
             child: PixelSprite(
                 rows: bakerRows,
                 palette: bakerPalette,
-                width: size.width * 0.3),
+                width: wide ? size.height * 0.26 : size.width * 0.3),
           ),
         ),
         Positioned(
-          right: size.width * 0.06,
-          bottom: size.height * 0.24,
+          right: size.width * (wide ? 0.14 : 0.06),
+          bottom: size.height * (wide ? 0.28 : 0.24),
           child: IgnorePointer(
             child: PixelSprite(
                 rows: heroineFrontRows,
                 palette: heroinePalette,
-                width: size.width * 0.26),
+                width: wide ? size.height * 0.22 : size.width * 0.26),
           ),
         ),
       ],
       SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Column(children: [
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: size.width.clamp(0.0, wide ? 1080.0 : _maxContentWidth),
+            height: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(children: [
             const SizedBox(height: 10),
             // ── ページ番号 + スキップ ──
             Row(children: [
@@ -310,6 +313,8 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
               ),
             const SizedBox(height: 12),
           ]),
+            ),
+          ),
         ),
       ),
     ]);
