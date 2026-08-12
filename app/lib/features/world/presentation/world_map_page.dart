@@ -8,6 +8,7 @@ import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
 import 'package:design_kingdom/core/widgets/kd_widgets.dart';
+import 'package:design_kingdom/core/widgets/pn_shell.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 
 /// エリア定義(Phase 8 §1.2 の確定マッピング)。
@@ -98,16 +99,10 @@ const kAreas = [
       color: KdColors.pink700),
 ];
 
-/// SC-30 冒険マップ(PRO NAVI クリーンスタイル)。
+/// SC-30 冒険マップ(PRO NAVI ワイヤーフレーム準拠・共通シェル使用)。
 /// 現在地カード + クリア状況 + エリア一覧カード。キャラはドット絵のまま。
 class WorldMapPage extends ConsumerWidget {
   const WorldMapPage({super.key});
-
-  static const _ink = Color(0xFF4A443A);
-  static const _sub = Color(0xFF938A78);
-  static const _line = Color(0xFFE6E0D2);
-  static const _green = Color(0xFFA8D18F);
-  static const _greenInk = Color(0xFF3E5C33);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -119,56 +114,46 @@ class WorldMapPage extends ConsumerWidget {
     final clearedAreas =
         kAreas.where((a) => progress.stageOf(a.id) >= 3).length;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('冒険マップ')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
-            children: [
-              _currentAreaCard(context),
-              const SizedBox(height: 10),
-              _summaryCard(clearedAreas),
-              const SizedBox(height: 18),
-              const Row(children: [
-                Text('🗺', style: TextStyle(fontSize: 16)),
-                SizedBox(width: 6),
-                Text('エリア一覧',
-                    style: TextStyle(
-                        color: _ink,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900)),
-              ]),
-              const SizedBox(height: 10),
-              for (final area in kAreas) ...[
-                _AreaCard(
-                  area: area,
-                  unlocked: unlockedOf(area),
-                  current: area.order == 1,
-                  stage: progress.stageOf(area.id),
-                  onTap: () => context.push(
-                      area.order == 1 ? '/village' : '/area/${area.id}'),
-                ),
-                const SizedBox(height: 10),
-              ],
-            ],
+    return PnShell(
+      current: '冒険マップ',
+      mainBuilder: (context, wide) => [
+        _currentAreaCard(context, withSpeech: wide),
+        const SizedBox(height: 10),
+        _summaryCard(clearedAreas),
+        const SizedBox(height: 18),
+        const Row(children: [
+          Text('🗺', style: TextStyle(fontSize: 16)),
+          SizedBox(width: 6),
+          Text('エリア一覧',
+              style: TextStyle(
+                  color: pnInk, fontSize: 16, fontWeight: FontWeight.w900)),
+        ]),
+        const SizedBox(height: 10),
+        for (final area in kAreas) ...[
+          _AreaCard(
+            area: area,
+            unlocked: unlockedOf(area),
+            current: area.order == 1,
+            stage: progress.stageOf(area.id),
+            onTap: () => context.push(
+                area.order == 1 ? '/village' : '/area/${area.id}'),
           ),
-        ),
-      ),
+          const SizedBox(height: 10),
+        ],
+      ],
     );
   }
 
   /// 現在地カード(ストライプ地 + みぽりん先生)。
-  Widget _currentAreaCard(BuildContext context) {
+  Widget _currentAreaCard(BuildContext context, {bool withSpeech = false}) {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _line),
+        border: Border.all(color: pnLine),
       ),
       clipBehavior: Clip.antiAlias,
       child: CustomPaint(
-        painter: const _MapStripePainter(),
+        painter: const PnStripePainter(),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -180,32 +165,33 @@ class WorldMapPage extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: pnCard,
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: _line),
+                        border: Border.all(color: pnLine),
                       ),
                       child: const Text('現在地',
                           style: TextStyle(
-                              color: _sub,
+                              color: pnSub,
                               fontSize: 11,
                               fontWeight: FontWeight.w700)),
                     ),
                     const SizedBox(height: 8),
                     const Text('🏠 はじまりの街',
                         style: TextStyle(
-                            color: _ink,
+                            color: pnInk,
                             fontSize: 22,
                             fontWeight: FontWeight.w900)),
                     const SizedBox(height: 6),
-                    const Text('すべての旅が始まる村。まずはここでデザインの基礎を身につけよう。',
+                    const Text(
+                        'すべての旅が始まる村。まずはここでデザインの基礎を身につけよう。',
                         style: TextStyle(
-                            color: _ink, fontSize: 12.5, height: 1.6)),
+                            color: pnInk, fontSize: 12.5, height: 1.6)),
                     const SizedBox(height: 10),
                     FilledButton(
                       onPressed: () => context.push('/village'),
                       style: FilledButton.styleFrom(
-                          backgroundColor: _green,
-                          foregroundColor: _greenInk,
+                          backgroundColor: pnGreen,
+                          foregroundColor: pnGreenInk,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 18, vertical: 8)),
                       child: const Text('村の中を見る',
@@ -216,14 +202,29 @@ class WorldMapPage extends ConsumerWidget {
             ),
             const SizedBox(width: 12),
             Column(children: [
+              if (withSpeech)
+                Container(
+                  width: 190,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: pnCard,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: pnLine),
+                  ),
+                  child: const Text(
+                    '行きたいエリアを選んでね！クリアするとつぎのエリアが解放されるよ。',
+                    style: TextStyle(color: pnInk, fontSize: 12, height: 1.6),
+                  ),
+                ),
               PixelSprite(
                   rows: miporinRows(0),
                   palette: miporinPalette,
-                  width: 76),
+                  width: withSpeech ? 92 : 76),
               const SizedBox(height: 4),
               const Text('みぽりん先生',
                   style: TextStyle(
-                      color: _sub,
+                      color: pnSub,
                       fontSize: 11,
                       fontWeight: FontWeight.w700)),
             ]),
@@ -233,22 +234,16 @@ class WorldMapPage extends ConsumerWidget {
     );
   }
 
-  Widget _summaryCard(int cleared) => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _line),
-        ),
-        padding: const EdgeInsets.all(14),
+  Widget _summaryCard(int cleared) => PnPanel(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             const Text('クリアエリア',
                 style: TextStyle(
-                    color: _sub, fontSize: 12, fontWeight: FontWeight.w700)),
+                    color: pnSub, fontSize: 12, fontWeight: FontWeight.w700)),
             const Spacer(),
             Text('$cleared / ${kAreas.length}',
                 style: const TextStyle(
-                    color: _ink, fontSize: 18, fontWeight: FontWeight.w900)),
+                    color: pnInk, fontSize: 18, fontWeight: FontWeight.w900)),
           ]),
           const SizedBox(height: 8),
           ClipRRect(
@@ -256,8 +251,8 @@ class WorldMapPage extends ConsumerWidget {
             child: LinearProgressIndicator(
                 value: cleared / kAreas.length,
                 minHeight: 8,
-                backgroundColor: const Color(0xFFF7F5EF),
-                color: _green),
+                backgroundColor: pnBg,
+                color: pnGreen),
           ),
         ]),
       );
@@ -278,15 +273,11 @@ class _AreaCard extends StatelessWidget {
   final int stage;
   final VoidCallback onTap;
 
-  static const _ink = WorldMapPage._ink;
-  static const _sub = WorldMapPage._sub;
-  static const _line = WorldMapPage._line;
-
   @override
   Widget build(BuildContext context) {
     final pastel = Color.lerp(area.color, Colors.white, 0.55)!;
     return Material(
-      color: Colors.white,
+      color: pnCard,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -295,8 +286,7 @@ class _AreaCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-                color: current ? WorldMapPage._green : _line,
-                width: current ? 1.6 : 1),
+                color: current ? pnGreen : pnLine, width: current ? 1.6 : 1),
           ),
           padding: const EdgeInsets.all(14),
           child: Row(children: [
@@ -305,15 +295,14 @@ class _AreaCard extends StatelessWidget {
               height: 42,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                  color: unlocked ? pastel : const Color(0xFFF7F5EF),
-                  shape: BoxShape.circle),
+                  color: unlocked ? pastel : pnBg, shape: BoxShape.circle),
               child: unlocked
                   ? Text('${area.order}'.padLeft(2, '0'),
                       style: const TextStyle(
-                          color: _ink,
+                          color: pnInk,
                           fontSize: 13,
                           fontWeight: FontWeight.w900))
-                  : const Icon(Icons.lock_rounded, size: 16, color: _sub),
+                  : const Icon(Icons.lock_rounded, size: 16, color: pnSub),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -326,7 +315,7 @@ class _AreaCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                color: unlocked ? _ink : _sub,
+                                color: unlocked ? pnInk : pnSub,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w900)),
                       ),
@@ -338,8 +327,7 @@ class _AreaCard extends StatelessWidget {
                     ]),
                     const SizedBox(height: 3),
                     Text('${area.mindTheme}　・　スキル: ${area.skillLabel}',
-                        style: const TextStyle(
-                            color: _sub, fontSize: 11.5)),
+                        style: const TextStyle(color: pnSub, fontSize: 11.5)),
                     if (unlocked) ...[
                       const SizedBox(height: 5),
                       Row(children: [
@@ -348,12 +336,12 @@ class _AreaCard extends StatelessWidget {
                               size: 13,
                               color: i <= stage
                                   ? const Color(0xFFE98FA9)
-                                  : _line),
+                                  : pnLine),
                       ]),
                     ],
                   ]),
             ),
-            const Icon(Icons.chevron_right_rounded, color: _sub),
+            const Icon(Icons.chevron_right_rounded, color: pnSub),
           ]),
         ),
       ),
@@ -366,33 +354,8 @@ class _AreaCard extends StatelessWidget {
             color: color, borderRadius: BorderRadius.circular(999)),
         child: Text(label,
             style: const TextStyle(
-                color: _ink, fontSize: 10, fontWeight: FontWeight.w700)),
+                color: pnInk, fontSize: 10, fontWeight: FontWeight.w700)),
       );
-}
-
-/// 現在地カードの斜めストライプ背景。
-class _MapStripePainter extends CustomPainter {
-  const _MapStripePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = const Color(0xFFF0EADC);
-    canvas.drawRect(Offset.zero & size, p);
-    p.color = const Color(0xFFE9E1CE);
-    const gap = 26.0;
-    for (var x = -size.height; x < size.width; x += gap) {
-      final path = Path()
-        ..moveTo(x, size.height)
-        ..lineTo(x + size.height, 0)
-        ..lineTo(x + size.height + 10, 0)
-        ..lineTo(x + 10, size.height)
-        ..close();
-      canvas.drawPath(path, p);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_MapStripePainter old) => false;
 }
 
 class _Facility {
