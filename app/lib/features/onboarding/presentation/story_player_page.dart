@@ -101,7 +101,7 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
     return Stack(children: [
       // ── シーン(ドット絵のまま) ──
       if (page.scene == 'phone')
-        const Positioned.fill(child: PixelMailScene())
+        const Positioned.fill(child: PixelDeskScene())
       else if (page.scene == 'bedroom_sleep')
         const Positioned.fill(
             child: PixelRoomBackground(mode: RoomMode.sleep))
@@ -202,10 +202,31 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Column(children: [
             const SizedBox(height: 10),
-            // ── ページ番号 ──
+            // ── ページ番号 + スキップ ──
             Row(children: [
               _counterChip('${page.no} / ${ep.pages.length}'),
               const Spacer(),
+              Material(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(999),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () => _finish(ep),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: _line),
+                    ),
+                    child: const Text('スキップ',
+                        style: TextStyle(
+                            color: _sub,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ),
             ]),
             const SizedBox(height: 10),
             if (page.headerBadge != null || page.headerTitle != null)
@@ -213,6 +234,10 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
             if (page.bubble != null) ...[
               const SizedBox(height: 14),
               _SpeechBubble(text: page.bubble!),
+            ],
+            if (page.scene == 'phone') ...[
+              const Spacer(),
+              Center(child: _InvitePhoneCard(onDetail: advance)),
             ],
             const Spacer(),
             // ── 会話ウィンドウ ──
@@ -685,6 +710,107 @@ class _NextButton extends StatelessWidget {
         const SizedBox(width: 4),
         Text(label),
       ]),
+    );
+  }
+}
+
+/// 招待状シーン(p2): クリーンなスマホUIカード(ワイヤーフレーム7準拠)。
+class _InvitePhoneCard extends StatelessWidget {
+  const _InvitePhoneCard({required this.onDetail});
+  final VoidCallback onDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onDetail, // カードのどこを押しても次へ(全画面タップと同じ)
+      child: Container(
+      width: 290,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: const Color(0xFF9A938A), width: 2.5),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x2E4A443A), blurRadius: 18, offset: Offset(0, 6)),
+        ],
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // スピーカー
+        Container(
+          width: 56,
+          height: 6,
+          decoration: BoxDecoration(
+            color: const Color(0xFFC9C2B6),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        const SizedBox(height: 14),
+        // 通知チップ
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3EEE2),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE0D8C6)),
+          ),
+          child: const Text('✉ 通知：ピコン♪',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: _ink, fontSize: 13.5, fontWeight: FontWeight.w800)),
+        ),
+        const SizedBox(height: 12),
+        const Text('実践デザイナー島\n招待状',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: _ink,
+                fontSize: 17,
+                height: 1.45,
+                fontWeight: FontWeight.w900)),
+        const SizedBox(height: 10),
+        // 島のイラスト(ドット絵)
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: const SizedBox(
+              width: double.infinity,
+              height: 110,
+              child: PixelIslandThumb()),
+        ),
+        const SizedBox(height: 12),
+        const Text('あなたを、\n実践デザイナー島へ\nご招待します。',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: _ink, fontSize: 13, height: 1.65)),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 44,
+          child: FilledButton(
+            onPressed: onDetail,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFBBD8EE),
+              foregroundColor: const Color(0xFF44607A),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              textStyle:
+                  const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800),
+            ),
+            child: const Text('くわしく見る'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // ホームバー
+        Container(
+          width: 48,
+          height: 5,
+          decoration: BoxDecoration(
+            color: const Color(0xFFC9C2B6),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+      ]),
+      ),
     );
   }
 }

@@ -1019,8 +1019,41 @@ class PixelMailScene extends StatelessWidget {
       painter: _MailScenePainter(), size: Size.infinite);
 }
 
+/// 机だけの背景(スマホUIはFlutter側で重ねる)。
+class PixelDeskScene extends StatelessWidget {
+  const PixelDeskScene({super.key});
+
+  @override
+  Widget build(BuildContext context) => const CustomPaint(
+      painter: _MailScenePainter(drawPhone: false), size: Size.infinite);
+}
+
+/// 島のイラスト(招待状カード内のサムネ)。
+class PixelIslandThumb extends StatelessWidget {
+  const PixelIslandThumb({super.key});
+
+  @override
+  Widget build(BuildContext context) => const CustomPaint(
+      painter: _IslandThumbPainter(), size: Size.infinite);
+}
+
+class _IslandThumbPainter extends CustomPainter {
+  const _IslandThumbPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final u = size.width / 160;
+    final px = Px(canvas, u, snap: 0.625, quantize: false);
+    paintIslandArt(px, 0, 0, 160, size.height / u);
+  }
+
+  @override
+  bool shouldRepaint(_IslandThumbPainter old) => false;
+}
+
 class _MailScenePainter extends CustomPainter {
-  const _MailScenePainter();
+  const _MailScenePainter({this.drawPhone = true});
+  final bool drawPhone;
 
   // 机(明るい木目)
   static const desk1 = Color(0xFFD89B5E);
@@ -1044,7 +1077,7 @@ class _MailScenePainter extends CustomPainter {
     final rng = math.Random(11);
 
     _paintDesk(px, rng, vw, vh);
-    _paintPhone(px, canvas, u, vw, vh);
+    if (drawPhone) _paintPhone(px, canvas, u, vw, vh);
   }
 
   void _paintDesk(Px px, math.Random rng, double vw, double vh) {
@@ -1166,7 +1199,31 @@ class _MailScenePainter extends CustomPainter {
   }
 
   /// カード内の島イラスト(空/海/島/家)。
-  void _paintIslandArt(Px px, double ix, double iy, double iw, double ih) {
+  void _paintIslandArt(Px px, double ix, double iy, double iw, double ih) =>
+      paintIslandArt(px, ix, iy, iw, ih);
+
+  void _text(Canvas canvas, String s, double x, double y, double fontSize,
+      Color color, {TextAlign align = TextAlign.center}) {
+    final tp = TextPainter(
+      text: TextSpan(
+          text: s,
+          style: TextStyle(
+              color: color,
+              fontSize: fontSize,
+              height: 1.45,
+              fontWeight: FontWeight.w900)),
+      textAlign: align,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(x - tp.width / 2, y - tp.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(_MailScenePainter old) => false;
+}
+
+/// 島のイラスト(空/海/島/家)。招待状カードとサムネで共用。
+void paintIslandArt(Px px, double ix, double iy, double iw, double ih) {
     final cx = ix + iw / 2;
     // 空と海
     px.r(ix, iy, iw, ih, const Color(0xFF8FD4F0));
@@ -1208,26 +1265,6 @@ class _MailScenePainter extends CustomPainter {
     px.r(ix + iw * 0.10, iy + ih * 0.82, 4, 1, const Color(0xFF7FB8E0));
     px.r(ix + iw * 0.72, iy + ih * 0.88, 5, 1, const Color(0xFF7FB8E0));
     px.r(ix + iw * 0.40, iy + ih * 0.92, 4, 1, const Color(0xFF7FB8E0));
-  }
-
-  void _text(Canvas canvas, String s, double x, double y, double fontSize,
-      Color color, {TextAlign align = TextAlign.center}) {
-    final tp = TextPainter(
-      text: TextSpan(
-          text: s,
-          style: TextStyle(
-              color: color,
-              fontSize: fontSize,
-              height: 1.45,
-              fontWeight: FontWeight.w900)),
-      textAlign: align,
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(x - tp.width / 2, y - tp.height / 2));
-  }
-
-  @override
-  bool shouldRepaint(_MailScenePainter old) => false;
 }
 
 // ─────────────────────────────────────────────────────────────
