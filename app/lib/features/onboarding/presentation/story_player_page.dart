@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/features/onboarding/data/story_repository.dart';
 import 'package:design_kingdom/features/onboarding/presentation/pixel_ui.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 
 /// オンボーディング/ストーリー再生(/story/:ep)。
-/// 各ページは「コード描画シーン + 16bit風ピクセルUI(pixel_ui.dart)」。
+/// シーン背景・キャラはドット絵のまま、UI部品(ページ番号/見出し/吹き出し/
+/// 会話ウィンドウ/選択肢/ミッション/ボタン)はホームと同じクリーンな様式。
 /// 文言・構成は story.json でデータ管理 — 第2話以降も追加できる。
 class StoryPlayerPage extends ConsumerStatefulWidget {
   const StoryPlayerPage({super.key, required this.episodeId});
@@ -17,6 +19,15 @@ class StoryPlayerPage extends ConsumerStatefulWidget {
   @override
   ConsumerState<StoryPlayerPage> createState() => _StoryPlayerPageState();
 }
+
+const _pageFade = Duration(milliseconds: 250);
+const _maxContentWidth = 460.0;
+const _ink = KdColors.ink900;
+const _sub = Color(0xFF938A78);
+const _line = KdColors.border;
+const _green = KdColors.grass500;
+const _greenInk = Color(0xFF3E5C33);
+const _pinkChip = Color(0xFFE98FA9);
 
 class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
   int _index = 0;
@@ -36,19 +47,15 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
     final episodes = ref.watch(storyEpisodesProvider);
 
     return Scaffold(
-      backgroundColor: PixelTheme.navyEdge,
+      backgroundColor: const Color(0xFFEFEBE0),
       body: episodes.when(
-        loading: () => const Center(
-            child: CircularProgressIndicator(color: Colors.white)),
-        error: (e, _) => const Center(
-            child: Text('ストーリーを読み込めなかったよ',
-                style: TextStyle(color: Colors.white))),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) =>
+            const Center(child: Text('ストーリーを読み込めなかったよ')),
         data: (list) {
           final ep = list.where((e) => e.id == widget.episodeId).firstOrNull;
           if (ep == null || ep.pages.isEmpty) {
-            return const Center(
-                child: Text('このお話は準備中だよ',
-                    style: TextStyle(color: Colors.white)));
+            return const Center(child: Text('このお話は準備中だよ'));
           }
           final page = ep.pages[_index.clamp(0, ep.pages.length - 1)];
           final isLast = _index >= ep.pages.length - 1;
@@ -67,12 +74,11 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
           // PCでは中央寄せ・最大幅(比率維持)。ページ切替は250msフェード。
           return Center(
             child: ConstrainedBox(
-              constraints:
-                  const BoxConstraints(maxWidth: PixelTheme.maxContentWidth),
+              constraints: const BoxConstraints(maxWidth: _maxContentWidth),
               child: LayoutBuilder(builder: (context, box) {
                 final size = Size(box.maxWidth, box.maxHeight);
                 return AnimatedSwitcher(
-                  duration: PixelTheme.pageFade,
+                  duration: _pageFade,
                   child: KeyedSubtree(
                     key: ValueKey('${ep.id}-$_index'),
                     child: _buildPage(ep, page, size, isLast, advance),
@@ -88,25 +94,17 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
 
   Widget _buildPage(StoryEpisode ep, StoryPage page, Size size, bool isLast,
       VoidCallback advance) {
-    // 第1話1ページ目は完成済みの専用レイアウト
-    if (ep.id == 'ep1' && page.no == 1) {
-      return PixelStoryPageOne(
-        pageNo: page.no,
-        totalPages: ep.pages.length,
-        headerBadge: page.headerBadge,
-        headerTitle: page.headerTitle,
-        bubble: page.bubble,
-        onNext: advance,
-      );
-    }
-
     final hasChoices = page.choices.isNotEmpty;
     final landscape = size.width > size.height;
+    final showButton = (isLast || page.buttonLabel != null) && !hasChoices;
 
     return Stack(children: [
-      // ── シーン(コード描画 / 旧: 画像) ──
+      // ── シーン(ドット絵のまま) ──
       if (page.scene == 'phone')
         const Positioned.fill(child: PixelMailScene())
+      else if (page.scene == 'bedroom_sleep')
+        const Positioned.fill(
+            child: PixelRoomBackground(mode: RoomMode.sleep))
       else if (page.scene == 'bedroom_awake')
         const Positioned.fill(
             child: PixelRoomBackground(mode: RoomMode.awake))
@@ -201,36 +199,33 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
       ],
       SafeArea(
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: PixelTheme.padPage),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Column(children: [
             const SizedBox(height: 10),
-            // ── ページ番号 + ヘッダー ──
+            // ── ページ番号 ──
             Row(children: [
-              PixelPageIndicator(page: page.no, total: ep.pages.length),
+              _counterChip('${page.no} / ${ep.pages.length}'),
               const Spacer(),
             ]),
             const SizedBox(height: 10),
             if (page.headerBadge != null || page.headerTitle != null)
-              PixelStoryHeader(
-                  badge: page.headerBadge, title: page.headerTitle),
+              _HeaderCard(badge: page.headerBadge, title: page.headerTitle),
             if (page.bubble != null) ...[
-              const SizedBox(height: 16),
-              PixelSpeechBubble(text: page.bubble!),
+              const SizedBox(height: 14),
+              _SpeechBubble(text: page.bubble!),
             ],
             const Spacer(),
             // ── 会話ウィンドウ ──
             if (page.text != null)
-              PixelMessageWindow(speaker: page.speaker, text: page.text!),
+              _MessageCard(speaker: page.speaker, text: page.text!),
             if (page.subText != null) ...[
               const SizedBox(height: 8),
-              PixelMessageWindow(
-                  speaker: page.subSpeaker, text: page.subText!),
+              _MessageCard(speaker: page.subSpeaker, text: page.subText!),
             ],
             // ── 選択肢(どう答える？) ──
             if (hasChoices) ...[
               const SizedBox(height: 8),
-              PixelChoicePanel(
+              _ChoiceCard(
                 prompt: page.choicePrompt ?? 'どう答える？',
                 choices: page.choices,
                 feedback: _choiceFeedback,
@@ -247,19 +242,32 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
             // ── ミッションカード ──
             if (page.mission != null) ...[
               const SizedBox(height: 8),
-              PixelMissionCard(mission: page.mission!),
+              _MissionCard(mission: page.mission!),
             ],
             // ── 可視ボタン ──
-            if ((isLast || page.buttonLabel != null) && !hasChoices)
+            if (showButton)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: SizedBox(
-                  width: 232,
-                  child: PixelButton(
+                  width: 240,
+                  height: 48,
+                  child: _NextButton(
                     label: isLast ? ep.finishLabel : page.buttonLabel!,
                     onTap: advance,
                   ),
                 ),
+              )
+            else if (!hasChoices)
+              const Padding(
+                padding: EdgeInsets.only(top: 10),
+                child: Text('タップして次へ',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        shadows: [
+                          Shadow(color: Colors.black38, blurRadius: 6),
+                        ])),
               ),
             const SizedBox(height: 12),
           ]),
@@ -285,15 +293,15 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
           top: size.height * fy,
           child: IgnorePointer(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
               decoration: BoxDecoration(
-                color: PixelTheme.cream,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: PixelTheme.brown, width: 2),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: _line),
               ),
               child: Text(text,
                   style: const TextStyle(
-                      color: PixelTheme.brown,
+                      color: _ink,
                       fontSize: 12,
                       fontWeight: FontWeight.w800)),
             ),
@@ -301,6 +309,18 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
         ),
     ];
   }
+
+  Widget _counterChip(String label) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: _line),
+        ),
+        child: Text(label,
+            style: const TextStyle(
+                color: _ink, fontSize: 12.5, fontWeight: FontWeight.w800)),
+      );
 
   Widget _outlinedText(String text, double size, Color fill, Color outline) {
     final base = TextStyle(
@@ -318,5 +338,353 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
       Text(text,
           textAlign: TextAlign.center, style: base.copyWith(color: fill)),
     ]);
+  }
+}
+
+/// 話タイトル(白カード + ピンクのバッジチップ)。
+class _HeaderCard extends StatelessWidget {
+  const _HeaderCard({this.badge, this.title});
+  final String? badge;
+  final String? title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _line),
+        boxShadow: const [
+          BoxShadow(color: Color(0x1A4A443A), blurRadius: 10, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (badge != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+            decoration: BoxDecoration(
+              color: _pinkChip,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(badge!,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900)),
+          ),
+        if (title != null)
+          Text(title!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: _ink,
+                  fontSize: 16,
+                  height: 1.4,
+                  fontWeight: FontWeight.w800)),
+      ]),
+    );
+  }
+}
+
+/// 主人公の吹き出し(白カード + しっぽ)。
+class _SpeechBubble extends StatelessWidget {
+  const _SpeechBubble({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _line),
+          boxShadow: const [
+            BoxShadow(color: Color(0x144A443A), blurRadius: 8, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Text(text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: _ink,
+                fontSize: 19,
+                height: 1.5,
+                fontWeight: FontWeight.w800)),
+      ),
+      CustomPaint(size: const Size(18, 9), painter: _TailPainter()),
+    ]);
+  }
+}
+
+class _TailPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fill = Paint()..color = Colors.white;
+    final stroke = Paint()
+      ..color = _line
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, fill);
+    canvas.drawPath(path, stroke);
+  }
+
+  @override
+  bool shouldRepaint(_TailPainter old) => false;
+}
+
+/// 会話ウィンドウ(白カード + 話者チップ)。
+class _MessageCard extends StatelessWidget {
+  const _MessageCard({this.speaker, required this.text});
+  final String? speaker;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 11, 16, 13),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.96),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _line),
+        boxShadow: const [
+          BoxShadow(color: Color(0x144A443A), blurRadius: 8, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (speaker != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2.5),
+            decoration: BoxDecoration(
+              color: _pinkChip,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(speaker!,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(height: 6),
+        ],
+        Text(text,
+            style: const TextStyle(
+                color: _ink,
+                fontSize: 15,
+                height: 1.6,
+                fontWeight: FontWeight.w700)),
+      ]),
+    );
+  }
+}
+
+/// 選択肢パネル(どう答える？)。
+class _ChoiceCard extends StatelessWidget {
+  const _ChoiceCard({
+    required this.prompt,
+    required this.choices,
+    required this.onSelect,
+    this.feedback,
+  });
+  final String prompt;
+  final List<StoryChoice> choices;
+  final ValueChanged<StoryChoice> onSelect;
+  final String? feedback;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.96),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _line),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: _pinkChip,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(prompt,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900)),
+          ),
+        ),
+        const SizedBox(height: 10),
+        for (final c in choices)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => onSelect(c),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFEED4DC), width: 1.4),
+                  ),
+                  child: Row(children: [
+                    Text(c.correct ? '💗' : '💬',
+                        style: const TextStyle(fontSize: 15)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(c.text,
+                          style: const TextStyle(
+                              color: _ink,
+                              fontSize: 14,
+                              height: 1.4,
+                              fontWeight: FontWeight.w700)),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        if (feedback != null)
+          Text(feedback!,
+              style: const TextStyle(
+                  color: Color(0xFFD16E8E),
+                  fontSize: 13,
+                  height: 1.5,
+                  fontWeight: FontWeight.w700)),
+      ]),
+    );
+  }
+}
+
+/// ミッション発生カード。
+class _MissionCard extends StatelessWidget {
+  const _MissionCard({required this.mission});
+  final StoryMission mission;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _line),
+        boxShadow: const [
+          BoxShadow(color: Color(0x1A4A443A), blurRadius: 10, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Column(children: [
+        Transform.translate(
+          offset: const Offset(0, -13),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
+            decoration: BoxDecoration(
+              color: _pinkChip,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: const Text('ミッション発生！',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900)),
+          ),
+        ),
+        Text(mission.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: _ink,
+                fontSize: 19,
+                height: 1.35,
+                fontWeight: FontWeight.w900)),
+        const SizedBox(height: 10),
+        for (final (i, item) in mission.items.indexed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Row(children: [
+              Icon(
+                  i == 0
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  size: 18,
+                  color: i == 0 ? KdColors.grass500 : _sub),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(item,
+                    style: const TextStyle(
+                        color: _ink,
+                        fontSize: 13,
+                        height: 1.4,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ]),
+          ),
+        const SizedBox(height: 8),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          _reward('⭐ 経験値', '+${mission.xp}'),
+          const SizedBox(width: 10),
+          _reward('🪙 コイン', '+${mission.coins}'),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _reward(String label, String value) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFBF4E2),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0xFFEBD9AE)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(label,
+              style: const TextStyle(
+                  color: Color(0xFF8A744A),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(width: 6),
+          Text(value,
+              style: const TextStyle(
+                  color: _ink,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w900)),
+        ]),
+      );
+}
+
+/// 進行ボタン(次へ/島へ行く/ゲーム開始)。
+class _NextButton extends StatelessWidget {
+  const _NextButton({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      onPressed: onTap,
+      style: FilledButton.styleFrom(
+        backgroundColor: _green,
+        foregroundColor: _greenInk,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.play_arrow_rounded, size: 20),
+        const SizedBox(width: 4),
+        Text(label),
+      ]),
+    );
   }
 }
