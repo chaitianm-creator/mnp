@@ -672,11 +672,8 @@ class _MissionCard extends StatelessWidget {
             ]),
           ),
         const SizedBox(height: 8),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          _reward('⭐ 経験値', '+${mission.xp}'),
-          const SizedBox(width: 10),
-          _reward('🪙 コイン', '+${mission.coins}'),
-        ]),
+        // WF21: 報酬は「獲得ポイント」チップ1つに集約
+        _reward('⭐ 獲得ポイント', '+${mission.xp}'),
       ]),
     );
   }
@@ -704,7 +701,7 @@ class _MissionCard extends StatelessWidget {
       );
 }
 
-/// 進行ボタン(次へ/島へ行く/ゲーム開始)。
+/// 進行ボタン(次へ/島へ行く/開始)。
 class _NextButton extends StatelessWidget {
   const _NextButton({required this.label, required this.onTap});
   final String label;

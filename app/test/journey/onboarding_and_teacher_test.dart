@@ -53,9 +53,10 @@ void main() {
     await tapAndSettle(
         tester, find.text('そんなの大変ですね！一緒に考えます！'));
     expect(find.text('15 / 15'), findsOneWidget);
-    // 最終ページ(15 ミッション発生)のみ「ゲーム開始」ボタン
+    // 最終ページ(15 ミッション発生)のみ「開始」ボタン(WF21)
     expect(find.text('ミッション発生！'), findsOneWidget);
-    await tapAndSettle(tester, find.text('ゲーム開始'));
+    expect(find.textContaining('獲得ポイント'), findsOneWidget);
+    await tapAndSettle(tester, find.text('開始'));
 
     // 実践デザイナー島(全画面ワールドマップ)へ遷移(現在地カードは常時表示)
     expect(find.text('はじまりの街（みぽりん村）'), findsOneWidget);

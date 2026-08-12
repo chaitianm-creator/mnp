@@ -123,14 +123,14 @@ class StoryEpisode {
 
   final String id;
   final String title;
-  final String finishLabel; // 最終ページのボタン文言(例: ゲーム開始)
+  final String finishLabel; // 最終ページのボタン文言(例: 開始)
   final String finishRoute; // 終了後の遷移先(例: /map)
   final List<StoryPage> pages;
 
   static StoryEpisode fromJson(Map<String, dynamic> j) => StoryEpisode(
         id: j['id'] as String,
         title: j['title'] as String? ?? '',
-        finishLabel: j['finishLabel'] as String? ?? 'ゲーム開始',
+        finishLabel: j['finishLabel'] as String? ?? '開始',
         finishRoute: j['finishRoute'] as String? ?? '/map',
         pages: [
           for (final p in (j['pages'] as List).cast<Map<String, dynamic>>())
