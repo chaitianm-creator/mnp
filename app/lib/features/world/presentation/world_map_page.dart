@@ -99,8 +99,9 @@ const kAreas = [
       color: KdColors.pink700),
 ];
 
-/// SC-30 ワールドマップ(PRO NAVI ワイヤーフレーム2a/2b準拠)。
-/// マップキャンバス(イラスト+エリアラベル+ズーム) + 現在地カード + エリア一覧。
+/// SC-30 ワールドマップ(全画面表示)。
+/// マップが画面いっぱいに広がり、タイトル/現在地/エリア一覧/ズームは
+/// マップの上に浮かせる。PC=エリア一覧を左サイドパネル、SP=下からシート。
 class WorldMapPage extends ConsumerStatefulWidget {
   const WorldMapPage({super.key});
 
@@ -122,8 +123,34 @@ const _anchors = <Offset>[
 
 String _shortName(AreaDef a) => a.name.split('（').first;
 
+/// レイアウトに応じたラベル位置(PC: 左のエリア一覧パネルと下部カードを避ける)。
+List<Offset> _anchorsFor(bool wide) => [
+      for (final a in _anchors)
+        wide
+            ? Offset(0.30 + a.dx * 0.66, 0.05 + a.dy * 0.82)
+            : Offset(a.dx, 0.03 + a.dy * 0.84),
+    ];
+
 class _WorldMapPageState extends ConsumerState<WorldMapPage> {
+  final _tc = TransformationController();
   double _zoom = 1.0;
+
+  @override
+  void dispose() {
+    _tc.dispose();
+    super.dispose();
+  }
+
+  void _setZoom(double z, Size size) {
+    _zoom = z.clamp(1.0, 2.2);
+    // 中央を基準に拡大(平行移動して中心を保つ)
+    final dx = size.width * (1 - _zoom) / 2;
+    final dy = size.height * (1 - _zoom) / 2;
+    _tc.value = Matrix4.identity()
+      ..translate(dx, dy)
+      ..scale(_zoom);
+    setState(() {});
+  }
 
   bool _unlockedOf(AreaDef a, UserProgress progress) =>
       a.order == 1 ||
@@ -131,64 +158,6 @@ class _WorldMapPageState extends ConsumerState<WorldMapPage> {
 
   void _openArea(AreaDef area) => context
       .push(area.order == 1 ? '/village' : '/area/${area.id}');
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = ref.watch(userProgressProvider);
-    final unlockedCount =
-        kAreas.where((a) => _unlockedOf(a, progress)).length;
-
-    return PnShell(
-      current: '冒険マップ',
-      spTitle: 'ワールドマップ',
-      mainBuilder: (context, wide) => [
-        _titleRow(unlockedCount, progress.level),
-        const SizedBox(height: 10),
-        _mapCanvas(progress, height: wide ? 400.0 : 460.0),
-        const SizedBox(height: 12),
-        _currentAreaCard(wide: wide),
-        const SizedBox(height: 18),
-        Row(children: [
-          const Text('エリア一覧',
-              style: TextStyle(
-                  color: pnInk, fontSize: 16, fontWeight: FontWeight.w900)),
-          const SizedBox(width: 8),
-          Text('解放 $unlockedCount / ${kAreas.length}',
-              style: const TextStyle(color: pnSub, fontSize: 12)),
-        ]),
-        const SizedBox(height: 10),
-        if (wide)
-          GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 0.92,
-            children: [
-              for (final area in kAreas)
-                _AreaGridTile(
-                  area: area,
-                  unlocked: _unlockedOf(area, progress),
-                  status: _statusOf(area, progress),
-                  onTap: () => _openArea(area),
-                ),
-            ],
-          )
-        else ...[
-          for (final area in kAreas) ...[
-            _AreaListTile(
-              area: area,
-              unlocked: _unlockedOf(area, progress),
-              status: _statusOf(area, progress),
-              onTap: () => _openArea(area),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ],
-      ],
-    );
-  }
 
   String _statusOf(AreaDef area, UserProgress progress) {
     if (area.order == 1) {
@@ -200,59 +169,36 @@ class _WorldMapPageState extends ConsumerState<WorldMapPage> {
     return 'ロック中';
   }
 
-  Widget _titleRow(int unlockedCount, int level) => Row(children: [
-        const Text('🏝', style: TextStyle(fontSize: 18)),
-        const SizedBox(width: 6),
-        const Text('ワールドマップ',
-            style: TextStyle(
-                color: pnInk, fontSize: 18, fontWeight: FontWeight.w900)),
-        const SizedBox(width: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(
-            color: pnCard,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: pnLine),
-          ),
-          child: Text('全${kAreas.length}エリア / 解放 $unlockedCount',
-              style: const TextStyle(
-                  color: pnSub, fontSize: 11, fontWeight: FontWeight.w700)),
-        ),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(
-            color: pnYellow.withOpacity(0.6),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text('Lv.$level',
-              style: const TextStyle(
-                  color: pnInk, fontSize: 12, fontWeight: FontWeight.w900)),
-        ),
-      ]);
+  @override
+  Widget build(BuildContext context) {
+    final progress = ref.watch(userProgressProvider);
+    final unlockedCount =
+        kAreas.where((a) => _unlockedOf(a, progress)).length;
 
-  /// マップキャンバス(島イラスト + ラベルピル + ズーム)。
-  Widget _mapCanvas(UserProgress progress, {required double height}) {
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: pnLine),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: LayoutBuilder(builder: (context, c) {
-        final size = Size(c.maxWidth, height);
-        return Stack(children: [
+    return Scaffold(
+      backgroundColor: pnBg,
+      body: LayoutBuilder(builder: (context, c) {
+        final wide = c.maxWidth >= 980;
+        final size = Size(c.maxWidth, c.maxHeight);
+        final anchors = _anchorsFor(wide);
+        return SizedBox.fromSize(
+            size: size,
+            child: Stack(children: [
+          // ── 画面いっぱいのマップ(ピンチ/ドラッグ/ズームボタン対応) ──
           Positioned.fill(
-            child: ClipRect(
-              child: Transform.scale(
-                scale: _zoom,
+            child: InteractiveViewer(
+              transformationController: _tc,
+              minScale: 1.0,
+              maxScale: 2.2,
+              child: SizedBox(
+                width: size.width,
+                height: size.height,
                 child: Stack(children: [
                   Positioned.fill(
                     child: CustomPaint(
                         painter: _MiniMapPainter(
                       anchors: [
-                        for (final a in _anchors)
+                        for (final a in anchors)
                           Offset(a.dx * size.width, a.dy * size.height),
                       ],
                       colors: [for (final a in kAreas) a.color],
@@ -260,8 +206,8 @@ class _WorldMapPageState extends ConsumerState<WorldMapPage> {
                   ),
                   for (var i = 0; i < kAreas.length; i++)
                     Positioned(
-                      left: _anchors[i].dx * size.width + 14,
-                      top: _anchors[i].dy * size.height - 12,
+                      left: anchors[i].dx * size.width + 14,
+                      top: anchors[i].dy * size.height - 12,
                       child: _mapPill(
                           kAreas[i], _unlockedOf(kAreas[i], progress)),
                     ),
@@ -269,24 +215,115 @@ class _WorldMapPageState extends ConsumerState<WorldMapPage> {
               ),
             ),
           ),
-          // ズームボタン
+          // ── タイトル行(マップの上に浮かせる) ──
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: Row(children: [
+                _floatChip(
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text('🏝', style: TextStyle(fontSize: 15)),
+                    SizedBox(width: 5),
+                    Text('ワールドマップ',
+                        style: TextStyle(
+                            color: pnInk,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900)),
+                  ]),
+                ),
+                const SizedBox(width: 8),
+                _floatChip(
+                  child: Text(
+                      wide
+                          ? '全${kAreas.length}エリア / 解放 $unlockedCount'
+                          : '解放 $unlockedCount/${kAreas.length}',
+                      style: const TextStyle(
+                          color: pnSub,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
+                ),
+                const Spacer(),
+                if (!wide)
+                  _floatChip(
+                    onTap: () => _showAreaSheet(progress),
+                    child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.list_rounded, size: 15, color: pnInk),
+                          SizedBox(width: 4),
+                          Text('エリア一覧',
+                              style: TextStyle(
+                                  color: pnInk,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800)),
+                        ]),
+                  ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: pnYellow.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text('Lv.${progress.level}',
+                      style: const TextStyle(
+                          color: pnInk,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900)),
+                ),
+              ]),
+            ),
+          ),
+          // ── エリア一覧(PC: 左サイドの浮きパネル) ──
+          if (wide)
+            Positioned(
+              left: 14,
+              top: 64,
+              bottom: 14,
+              width: 300,
+              child: _areaPanel(progress, unlockedCount),
+            ),
+          // ── ズームボタン ──
           Positioned(
-            right: 10,
-            bottom: 10,
+            right: 14,
+            bottom: wide ? 130 : 150,
             child: Column(children: [
-              _zoomButton('＋',
-                  onTap: () => setState(
-                      () => _zoom = (_zoom + 0.3).clamp(1.0, 1.9))),
+              _zoomButton('＋', onTap: () => _setZoom(_zoom + 0.3, size)),
               const SizedBox(height: 6),
-              _zoomButton('−',
-                  onTap: () => setState(
-                      () => _zoom = (_zoom - 0.3).clamp(1.0, 1.9))),
+              _zoomButton('−', onTap: () => _setZoom(_zoom - 0.3, size)),
             ]),
           ),
-        ]);
+          // ── 現在地カード(下部に浮かせる) ──
+          Positioned(
+            left: wide ? 340 : 12,
+            right: wide ? null : 12,
+            width: wide ? 470 : null,
+            bottom: 14,
+            child: _currentAreaCard(progress, wide: wide),
+          ),
+        ]));
       }),
     );
   }
+
+  Widget _floatChip({required Widget child, VoidCallback? onTap}) => Material(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: pnLine),
+            ),
+            child: child,
+          ),
+        ),
+      );
 
   Widget _zoomButton(String label, {required VoidCallback onTap}) => Material(
         color: Colors.white,
@@ -295,8 +332,8 @@ class _WorldMapPageState extends ConsumerState<WorldMapPage> {
           borderRadius: BorderRadius.circular(10),
           onTap: onTap,
           child: Container(
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
@@ -359,148 +396,163 @@ class _WorldMapPageState extends ConsumerState<WorldMapPage> {
     );
   }
 
-  /// 現在地カード(サムネ + 進捗 + この街へ入る)。
-  Widget _currentAreaCard({required bool wide}) {
-    final progress = ref.watch(userProgressProvider);
-    final delivered = progress.areaDelivered['area_01_hajimari'] ?? 0;
-    final thumb = ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: SizedBox(
-        width: 76,
-        height: 56,
-        child: CustomPaint(
-          painter: const PnStripePainter(),
-          child: const Center(
-            child: Text('エリア画像',
-                style: TextStyle(fontSize: 10, color: pnSub)),
-          ),
-        ),
+  /// エリア一覧パネル(PC左サイド)。
+  Widget _areaPanel(UserProgress progress, int unlockedCount) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.96),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: pnLine),
       ),
-    );
-    final info = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('現在地', style: TextStyle(color: pnSub, fontSize: 11)),
-      const SizedBox(height: 2),
-      const Text('はじまりの街（みぽりん村）',
-          style: TextStyle(
-              color: pnInk, fontSize: 16, fontWeight: FontWeight.w900)),
-      const SizedBox(height: 7),
-      ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: LinearProgressIndicator(
-            value: (delivered / 3).clamp(0.0, 1.0),
-            minHeight: 7,
-            backgroundColor: pnBg,
-            color: pnGreen),
-      ),
-      const SizedBox(height: 5),
-      Text('$delivered/3 クエスト完了',
-          style: const TextStyle(color: pnSub, fontSize: 11.5)),
-    ]);
-    final button = FilledButton(
-      onPressed: () => context.push('/village'),
-      style: FilledButton.styleFrom(
-          backgroundColor: pnGreen,
-          foregroundColor: pnGreenInk,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 22, vertical: 10)),
-      child: const Text('この街へ入る',
-          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
-    );
-
-    return PnPanel(
-      child: wide
-          ? Row(children: [
-              thumb,
-              const SizedBox(width: 14),
-              Expanded(child: info),
-              const SizedBox(width: 14),
-              button,
-            ])
-          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Row(children: [
-                thumb,
-                const SizedBox(width: 14),
-                Expanded(child: info),
-              ]),
-              const SizedBox(height: 12),
-              button,
-            ]),
-    );
-  }
-}
-
-/// エリア一覧(PC: グリッドタイル)。
-class _AreaGridTile extends StatelessWidget {
-  const _AreaGridTile(
-      {required this.area,
-      required this.unlocked,
-      required this.status,
-      required this.onTap});
-  final AreaDef area;
-  final bool unlocked;
-  final String status;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: pnCard,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-                color: area.order == 1 ? pnGreen : pnLine,
-                width: area.order == 1 ? 1.6 : 1),
-          ),
-          padding: const EdgeInsets.all(10),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: CustomPaint(
-                  painter: const PnStripePainter(),
-                  child: Center(
-                    child: unlocked
-                        ? null
-                        : const Icon(Icons.lock_rounded,
-                            size: 18, color: pnSub),
-                  ),
-                ),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Text('エリア一覧',
+              style: TextStyle(
+                  color: pnInk, fontSize: 14, fontWeight: FontWeight.w900)),
+          const SizedBox(width: 8),
+          Text('解放 $unlockedCount / ${kAreas.length}',
+              style: const TextStyle(color: pnSub, fontSize: 11)),
+        ]),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView(children: [
+            for (final area in kAreas) ...[
+              _AreaListTile(
+                area: area,
+                unlocked: _unlockedOf(area, progress),
+                status: _statusOf(area, progress),
+                onTap: () => _openArea(area),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(_shortName(area),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: unlocked ? pnInk : pnSub,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900)),
-            const SizedBox(height: 3),
-            Row(children: [
-              if (!unlocked) ...[
-                const Icon(Icons.lock_rounded, size: 11, color: pnSub),
-                const SizedBox(width: 3),
-              ],
-              Expanded(
-                child: Text(status,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: pnSub, fontSize: 10.5)),
-              ),
-            ]),
+              const SizedBox(height: 8),
+            ],
           ]),
         ),
+      ]),
+    );
+  }
+
+  /// エリア一覧(SP: 下からシート)。
+  void _showAreaSheet(UserProgress progress) {
+    final unlockedCount =
+        kAreas.where((a) => _unlockedOf(a, progress)).length;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Text('エリア一覧',
+                      style: TextStyle(
+                          color: pnInk,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900)),
+                  const SizedBox(width: 8),
+                  Text('解放 $unlockedCount / ${kAreas.length}',
+                      style: const TextStyle(color: pnSub, fontSize: 11)),
+                ]),
+                const SizedBox(height: 10),
+                Flexible(
+                  child: ListView(shrinkWrap: true, children: [
+                    for (final area in kAreas) ...[
+                      _AreaListTile(
+                        area: area,
+                        unlocked: _unlockedOf(area, progress),
+                        status: _statusOf(area, progress),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _openArea(area);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ]),
+                ),
+              ]),
+        ),
       ),
+    );
+  }
+
+  /// 現在地カード(マップ下部に浮かせる)。
+  Widget _currentAreaCard(UserProgress progress, {required bool wide}) {
+    final delivered = progress.areaDelivered['area_01_hajimari'] ?? 0;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.97),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: pnLine),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x224A443A), blurRadius: 14, offset: Offset(0, 4)),
+        ],
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Row(children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(
+            width: 64,
+            height: 50,
+            child: CustomPaint(
+              painter: const PnStripePainter(),
+              child: const Center(
+                child: Text('エリア画像',
+                    style: TextStyle(fontSize: 9, color: pnSub)),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('現在地',
+                    style: TextStyle(color: pnSub, fontSize: 10.5)),
+                const Text('はじまりの街（みぽりん村）',
+                    style: TextStyle(
+                        color: pnInk,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w900)),
+                const SizedBox(height: 5),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                      value: (delivered / 3).clamp(0.0, 1.0),
+                      minHeight: 6,
+                      backgroundColor: pnBg,
+                      color: pnGreen),
+                ),
+                const SizedBox(height: 4),
+                Text('$delivered/3 クエスト完了',
+                    style: const TextStyle(color: pnSub, fontSize: 10.5)),
+              ]),
+        ),
+        const SizedBox(width: 12),
+        FilledButton(
+          onPressed: () => context.push('/village'),
+          style: FilledButton.styleFrom(
+              backgroundColor: pnGreen,
+              foregroundColor: pnGreenInk,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 10)),
+          child: const Text('この街へ入る',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
+        ),
+      ]),
     );
   }
 }
 
-/// エリア一覧(SP: 行タイル)。
+/// エリア一覧の行タイル(左サイドパネル/下からシート共用)。
 class _AreaListTile extends StatelessWidget {
   const _AreaListTile(
       {required this.area,
@@ -532,8 +584,8 @@ class _AreaListTile extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
-                width: 56,
-                height: 44,
+                width: 52,
+                height: 40,
                 child: CustomPaint(
                   painter: const PnStripePainter(),
                   child: Center(
@@ -553,7 +605,7 @@ class _AreaListTile extends StatelessWidget {
                     Text(_shortName(area),
                         style: TextStyle(
                             color: unlocked ? pnInk : pnSub,
-                            fontSize: 14,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w900)),
                     const SizedBox(height: 2),
                     Row(children: [
@@ -562,14 +614,18 @@ class _AreaListTile extends StatelessWidget {
                             size: 11, color: pnSub),
                         const SizedBox(width: 3),
                       ],
-                      Text(status,
-                          style: const TextStyle(
-                              color: pnSub, fontSize: 11)),
+                      Flexible(
+                        child: Text(status,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: pnSub, fontSize: 10.5)),
+                      ),
                     ]),
                   ]),
             ),
             Icon(unlocked ? Icons.chevron_right_rounded : Icons.lock_rounded,
-                size: unlocked ? 24 : 16, color: pnSub),
+                size: unlocked ? 22 : 15, color: pnSub),
           ]),
         ),
       ),
@@ -601,8 +657,8 @@ class _MiniMapPainter extends CustomPainter {
           p);
     }
     // 島(砂のふち → 草地)
-    final island = Rect.fromLTWH(size.width * 0.05, size.height * 0.03,
-        size.width * 0.90, size.height * 0.94);
+    final island = Rect.fromLTWH(size.width * 0.04, size.height * 0.025,
+        size.width * 0.92, size.height * 0.95);
     p.color = const Color(0xFFEBE0C4);
     canvas.drawRRect(
         RRect.fromRectAndRadius(island, const Radius.circular(70)), p);
@@ -626,26 +682,26 @@ class _MiniMapPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
     p
       ..color = const Color(0xFFDFD3B6)
-      ..strokeWidth = 13;
+      ..strokeWidth = 15;
     canvas.drawPath(road, p);
     p
       ..color = const Color(0xFFF3EBD8)
-      ..strokeWidth = 9;
+      ..strokeWidth = 11;
     canvas.drawPath(road, p);
     p.style = PaintingStyle.fill;
     // 木(小さな三角ツリー)
-    for (var i = 0; i < 14; i++) {
+    for (var i = 0; i < 22; i++) {
       final x = size.width * (0.10 + rng.nextDouble() * 0.80);
       final y = size.height * (0.06 + rng.nextDouble() * 0.88);
       p.color = const Color(0xFFA9CC8E);
       final tree = Path()
-        ..moveTo(x, y - 7)
-        ..lineTo(x - 5, y + 3)
-        ..lineTo(x + 5, y + 3)
+        ..moveTo(x, y - 8)
+        ..lineTo(x - 5.5, y + 3)
+        ..lineTo(x + 5.5, y + 3)
         ..close();
       canvas.drawPath(tree, p);
       p.color = const Color(0xFFB98A55);
-      canvas.drawRect(Rect.fromLTWH(x - 1, y + 3, 2, 3), p);
+      canvas.drawRect(Rect.fromLTWH(x - 1, y + 3, 2, 3.5), p);
     }
     // ランドマーク(エリア色の丸)
     for (var i = 0; i < anchors.length; i++) {
