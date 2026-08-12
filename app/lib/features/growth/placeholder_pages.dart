@@ -8,8 +8,9 @@ import 'package:design_kingdom/core/theme/kd_theme.dart';
 import 'package:design_kingdom/core/widgets/kd_widgets.dart';
 import 'package:design_kingdom/core/widgets/pn_shell.dart';
 
-/// SC-40 冒険日誌(スキル) = PRO NAVI ワイヤーフレーム準拠。
-/// 共通シェル(PnShell)にスキルバー+そうびコレクションを差し込む。
+/// SC-40 スキル = 画面いっぱいの全幅レイアウト(ワイヤーフレーム準拠)。
+/// 上部バー(スキル+Lv+アバター) + EXPと6スキルの一枚カード +
+/// そうび・どうぐ(中央チップ見出し+グリッド)。
 class SkillsPage extends ConsumerWidget {
   const SkillsPage({super.key});
 
@@ -50,211 +51,196 @@ class SkillsPage extends ConsumerWidget {
           _ => 0.10 + delivered * 0.03,
         };
 
-    return PnShell(
-      current: '冒険日誌',
-      spTitle: '冒険日誌',
-      mainBuilder: (context, wide) => [
-        Row(children: [
-          const Text('📖', style: TextStyle(fontSize: 18)),
-          const SizedBox(width: 6),
-          const Text('冒険日誌',
-              style: TextStyle(
-                  color: pnInk, fontSize: 18, fontWeight: FontWeight.w900)),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: pnCard,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: pnLine),
-            ),
-            child: const Text('そだてるスキルと そうび',
-                style: TextStyle(
-                    color: pnSub, fontSize: 11, fontWeight: FontWeight.w700)),
-          ),
-        ]),
-        const SizedBox(height: 12),
-        // ── ひとことバナー ──
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-          decoration: BoxDecoration(
-            color: pnPink,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Center(
-            child: Text('敵はいない。敵は、昨日の自分。',
-                style: TextStyle(
-                    color: Color(0xFFB56A83),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800)),
-          ),
-        ),
-        const SizedBox(height: 12),
-        // ── レベル + EXP ──
-        PnPanel(
-          child: Row(children: [
-            Container(
-              width: 52,
-              height: 52,
-              alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                  color: pnYellow, shape: BoxShape.circle),
-              child: Text('Lv.${p.level}',
-                  style: const TextStyle(
-                      color: pnInk,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900)),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      const Text('EXP',
-                          style: TextStyle(
-                              color: pnSub,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700)),
-                      const Spacer(),
-                      Text('${p.xp} / 100',
+    return Scaffold(
+      backgroundColor: pnBg,
+      body: SafeArea(
+        child: LayoutBuilder(builder: (context, c) {
+          final cols = c.maxWidth >= 760 ? 3 : 2;
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+            children: [
+              // ── 上部バー(タイトル + Lv + アバター) ──
+              Row(children: [
+                const Text('スキル',
+                    style: TextStyle(
+                        color: pnInk,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: pnYellow.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text('Lv.${p.level}',
+                      style: const TextStyle(
+                          color: pnInk,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900)),
+                ),
+                const SizedBox(width: 8),
+                const CircleAvatar(
+                    radius: 15,
+                    backgroundColor: pnPink,
+                    child: Text('🙂', style: TextStyle(fontSize: 14))),
+              ]),
+              const SizedBox(height: 12),
+              // ── EXP + 6スキル(一枚カード) ──
+              PnPanel(
+                padding: const EdgeInsets.all(16),
+                child: Column(children: [
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: pnBg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: pnLine),
+                      ),
+                      child: Text('Lv.${p.level}',
                           style: const TextStyle(
                               color: pnInk,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800)),
-                    ]),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                          value: (p.xp % 100) / 100,
-                          minHeight: 8,
-                          backgroundColor: pnBg,
-                          color: pnGreen),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              const Text('EXP',
+                                  style: TextStyle(
+                                      color: pnSub,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700)),
+                              const Spacer(),
+                              Text('${p.xp} / 100',
+                                  style: const TextStyle(
+                                      color: pnInk,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800)),
+                            ]),
+                            const SizedBox(height: 5),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                  value: (p.xp % 100) / 100,
+                                  minHeight: 7,
+                                  backgroundColor: pnBg,
+                                  color: const Color(0xFFE98FA9)),
+                            ),
+                          ]),
                     ),
                   ]),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 18),
-        // ── そだてるスキル ──
-        const Row(children: [
-          Text('🌱', style: TextStyle(fontSize: 16)),
-          SizedBox(width: 6),
-          Text('そだてるスキル',
-              style: TextStyle(
-                  color: pnInk, fontSize: 16, fontWeight: FontWeight.w900)),
-        ]),
-        const SizedBox(height: 10),
-        PnPanel(
-          child: Column(children: [
-            for (final (i, c) in _categories.indexed) ...[
-              if (i > 0) const SizedBox(height: 14),
-              Row(children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: c.$3,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(c.$2, color: pnInk, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          Text(c.$1,
-                              style: const TextStyle(
-                                  color: pnInk,
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w800)),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: pnBg,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: const Text('Lv.1',
-                                style: TextStyle(
-                                    color: pnSub,
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w800)),
-                          ),
-                        ]),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                              value: skillValue(i),
-                              minHeight: 7,
-                              backgroundColor: pnBg,
-                              color: c.$3),
+                  const SizedBox(height: 18),
+                  for (final (i, cat) in _categories.indexed) ...[
+                    if (i > 0) const SizedBox(height: 14),
+                    Row(children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: cat.$3,
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                      ]),
+                        child: Icon(cat.$2, color: pnInk, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                Text(cat.$1,
+                                    style: const TextStyle(
+                                        color: pnInk,
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w800)),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: pnBg,
+                                    borderRadius:
+                                        BorderRadius.circular(999),
+                                  ),
+                                  child: const Text('Lv.1',
+                                      style: TextStyle(
+                                          color: pnSub,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w800)),
+                                ),
+                              ]),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(999),
+                                child: LinearProgressIndicator(
+                                    value: skillValue(i),
+                                    minHeight: 7,
+                                    backgroundColor: pnBg,
+                                    color: cat.$3),
+                              ),
+                            ]),
+                      ),
+                    ]),
+                  ],
+                ]),
+              ),
+              const SizedBox(height: 20),
+              // ── そうび・どうぐ(中央チップ見出し) ──
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 22, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0C9D6),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text('そうび・どうぐ',
+                      style: TextStyle(
+                          color: Color(0xFF9E5570),
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w900)),
                 ),
-              ]),
+              ),
+              const SizedBox(height: 12),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cols,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  mainAxisExtent: 172,
+                ),
+                itemCount: _items.length,
+                itemBuilder: (context, i) {
+                  final item = _items[i];
+                  final owned = i < delivered; // 納品1件ごとに1つ解放(DEMO)
+                  return _ItemCard(
+                    name: item.$1,
+                    kind: item.$2,
+                    icon: item.$3,
+                    effect: item.$4,
+                    flavor: item.$5,
+                    owned: owned,
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              const Center(
+                child: Text('お仕事を納品すると、そうびが1つずつ手に入るよ',
+                    style: TextStyle(color: pnSub, fontSize: 12)),
+              ),
             ],
-          ]),
-        ),
-        const SizedBox(height: 18),
-        // ── そうび・どうぐ ──
-        const Row(children: [
-          Text('🎒', style: TextStyle(fontSize: 16)),
-          SizedBox(width: 6),
-          Text('そうび・どうぐ',
-              style: TextStyle(
-                  color: pnInk, fontSize: 16, fontWeight: FontWeight.w900)),
-        ]),
-        const SizedBox(height: 10),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: wide ? 3 : 2,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            mainAxisExtent: 172,
-          ),
-          itemCount: _items.length,
-          itemBuilder: (context, i) {
-            final item = _items[i];
-            final owned = i < delivered; // 納品1件ごとに1つ解放(DEMO)
-            return _ItemCard(
-              name: item.$1,
-              kind: item.$2,
-              icon: item.$3,
-              effect: item.$4,
-              flavor: item.$5,
-              owned: owned,
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        const Center(
-          child: Text('お仕事を納品すると、そうびが1つずつ手に入るよ',
-              style: TextStyle(color: pnSub, fontSize: 12)),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE9F2DF),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Center(
-            child: Text('コツコツ育てたスキルが、あなたの冒険を支えてくれるよ！',
-                style: TextStyle(
-                    color: Color(0xFF5E8A4E),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800)),
-          ),
-        ),
-      ],
+          );
+        }),
+      ),
     );
   }
 }
