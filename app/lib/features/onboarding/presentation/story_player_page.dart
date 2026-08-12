@@ -164,6 +164,13 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
           bottom: size.height * 0.40,
           child: IgnorePointer(child: _SpeechBubble(text: page.bubble!)),
         ),
+      // ── 考えるシーン: 吹き出しを主人公(左下)の真上に ──
+      if (page.scene == 'heroine_think' && page.bubble != null)
+        Positioned(
+          left: 10,
+          bottom: (size.width * 0.42).clamp(0.0, 230.0) * 1.25 + 12,
+          child: IgnorePointer(child: _SpeechBubble(text: page.bubble!)),
+        ),
       // ── 島マップの場所ラベル ──
       if (page.mapLabels) ..._mapLabels(size),
       // ── パン屋の看板文字 ──
@@ -239,7 +246,8 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
             if (page.headerBadge != null || page.headerTitle != null)
               _HeaderCard(badge: page.headerBadge, title: page.headerTitle),
             if (page.bubble != null &&
-                page.scene != 'island_overview') ...[
+                page.scene != 'island_overview' &&
+                page.scene != 'heroine_think') ...[
               const SizedBox(height: 14),
               _SpeechBubble(text: page.bubble!),
             ],
