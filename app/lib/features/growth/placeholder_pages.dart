@@ -6,33 +6,37 @@ import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
 import 'package:design_kingdom/core/widgets/kd_widgets.dart';
+import 'package:design_kingdom/core/widgets/pn_shell.dart';
 
-/// SC-40 スキル = RPGステータス画面。
-/// 6系統のスキルバー(HP/MPバー様式) + そうびアイテム(アイテムカード素材様式)。
-/// ツリーUI・分岐選択は Phase 9 後半の次マイルストーンで実装。
+/// SC-40 冒険日誌(スキル) = PRO NAVI ワイヤーフレーム準拠。
+/// 共通シェル(PnShell)にスキルバー+そうびコレクションを差し込む。
 class SkillsPage extends ConsumerWidget {
   const SkillsPage({super.key});
 
-  // 6系統(Phase 8 §1.2)。バーの色はエリア地形の語彙と揃える。
+  // 6系統(Phase 8 §1.2)。淡いパステルで色分け。
   static const _categories = [
-    ('制作技術', Icons.brush, KdColors.pink500),
-    ('ヒアリング', Icons.hearing, KdColors.ocean500),
-    ('提案力', Icons.lightbulb, KdColors.gold500),
-    ('改善力', Icons.refresh, KdColors.lava500),
-    ('自己管理', Icons.schedule, KdColors.grass500),
-    ('コミュニティ', Icons.group, KdColors.pink700),
+    ('制作技術', Icons.brush_rounded, Color(0xFFF4B8C8)),
+    ('ヒアリング', Icons.hearing_rounded, Color(0xFFB8D4EE)),
+    ('提案力', Icons.lightbulb_rounded, Color(0xFFF2DFA7)),
+    ('改善力', Icons.refresh_rounded, Color(0xFFF4CBA8)),
+    ('自己管理', Icons.schedule_rounded, Color(0xFFC4E0B2)),
+    ('コミュニティ', Icons.group_rounded, Color(0xFFDCD3F2)),
   ];
 
-  // そうびアイテム(みぽりん王国 素材パックのアイテムカード)。
-  // DEMO: 納品数に応じて1つずつ解放される。
+  // そうびアイテム。DEMO: 納品数に応じて1つずつ解放される。
   static const _items = [
-    ('デザインペン', '伝説の武器', Icons.edit, '制作力 +9', 'アイデアを形にする魔法のペン。'),
-    ('共感のリボン', 'そうび', Icons.loyalty, '伝える力 +8', '相手の気持ちに寄り添う魔法のリボン。'),
-    ('自信のティアラ', 'そうび', Icons.workspace_premium, '自己肯定感 +10',
-        '自分の魅力に気づける魔法のティアラ。'),
-    ('実践のローブ', 'そうび', Icons.checkroom, '行動力 +10', '学びを成果につなげる魔法のローブ。'),
-    ('信頼のリング', 'そうび', Icons.donut_large, '選ばれる力 +10', '人とのご縁を育てる魔法のリング。'),
-    ('未来のコンパス', 'どうぐ', Icons.explore, '判断力 +8', '進むべき方向を示してくれるコンパス。'),
+    ('デザインペン', '伝説の武器', Icons.edit_rounded, '制作力 +9',
+        'アイデアを形にする魔法のペン。'),
+    ('共感のリボン', 'そうび', Icons.loyalty_rounded, '伝える力 +8',
+        '相手の気持ちに寄り添う魔法のリボン。'),
+    ('自信のティアラ', 'そうび', Icons.workspace_premium_rounded,
+        '自己肯定感 +10', '自分の魅力に気づける魔法のティアラ。'),
+    ('実践のローブ', 'そうび', Icons.checkroom_rounded, '行動力 +10',
+        '学びを成果につなげる魔法のローブ。'),
+    ('信頼のリング', 'そうび', Icons.donut_large_rounded, '選ばれる力 +10',
+        '人とのご縁を育てる魔法のリング。'),
+    ('未来のコンパス', 'どうぐ', Icons.explore_rounded, '判断力 +8',
+        '進むべき方向を示してくれるコンパス。'),
   ];
 
   @override
@@ -46,129 +50,216 @@ class SkillsPage extends ConsumerWidget {
           _ => 0.10 + delivered * 0.03,
         };
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('スキル')),
-      body: SafeArea(
-        child: ListView(padding: const EdgeInsets.all(20), children: [
-          const KdBandMessage('敵はいない。敵は、昨日の自分。'),
-          const SizedBox(height: 16),
-          // ── ステータス(レベル枠 + EXPバー) ──
-          KdParchmentCard(
-            child: Row(children: [
-              // レベル枠(素材パックの木製プレート様式)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: KdColors.wood900,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: KdColors.gold500, width: 2),
-                ),
-                child: Text('Lv.${p.level}',
-                    style: KdTheme.dot(size: 18, color: Colors.white)
-                        .copyWith(fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child:
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Text('EXP',
-                        style: KdTheme.dot(size: 12, color: KdColors.ink900)
-                            .copyWith(fontWeight: FontWeight.w700)),
-                    const Spacer(),
-                    Text('${p.xp} / 100',
-                        style: KdTheme.dot(size: 12, color: KdColors.ink900)),
-                  ]),
-                  const SizedBox(height: 4),
-                  _SkillBar(
-                      value: (p.xp % 100) / 100, color: KdColors.grass500),
-                ]),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 20),
-          // ── そだてるスキル(6系統のステータスバー) ──
-          Center(child: KdRibbonBanner('そだてるスキル', fontSize: 14)),
-          const SizedBox(height: 12),
-          KdParchmentCard(
-            child: Column(children: [
-              for (final (i, c) in _categories.indexed) ...[
-                if (i > 0) const SizedBox(height: 14),
-                Row(children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: c.$3,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: KdColors.wood900, width: 2),
-                    ),
-                    child: Icon(c.$2, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            Text(c.$1,
-                                style: KdTheme.dot(
-                                        size: 13, color: KdColors.ink900)
-                                    .copyWith(fontWeight: FontWeight.w700)),
-                            const Spacer(),
-                            Text('Lv.1',
-                                style: KdTheme.dot(
-                                    size: 12, color: KdColors.heading)),
-                          ]),
-                          const SizedBox(height: 4),
-                          _SkillBar(value: skillValue(i), color: c.$3),
-                        ]),
-                  ),
-                ]),
-              ],
-            ]),
-          ),
-          const SizedBox(height: 20),
-          // ── そうびアイテム(アイテムカード素材様式) ──
-          Center(child: KdRibbonBanner('そうび・どうぐ', fontSize: 14)),
-          const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              mainAxisExtent: 168,
+    return PnShell(
+      current: '冒険日誌',
+      spTitle: '冒険日誌',
+      mainBuilder: (context, wide) => [
+        Row(children: [
+          const Text('📖', style: TextStyle(fontSize: 18)),
+          const SizedBox(width: 6),
+          const Text('冒険日誌',
+              style: TextStyle(
+                  color: pnInk, fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: pnCard,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: pnLine),
             ),
-            itemCount: _items.length,
-            itemBuilder: (context, i) {
-              final item = _items[i];
-              final owned = i < delivered; // 納品1件ごとに1つ解放(DEMO)
-              return _ItemCard(
-                name: item.$1,
-                kind: item.$2,
-                icon: item.$3,
-                effect: item.$4,
-                flavor: item.$5,
-                owned: owned,
-              );
-            },
+            child: const Text('そだてるスキルと そうび',
+                style: TextStyle(
+                    color: pnSub, fontSize: 11, fontWeight: FontWeight.w700)),
           ),
-          const SizedBox(height: 6),
-          Text('お仕事を納品すると、そうびが1つずつ手に入るよ',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 16),
-          const KdBandMessage('コツコツ育てたスキルが、あなたの冒険を支えてくれるよ！'),
         ]),
-      ),
+        const SizedBox(height: 12),
+        // ── ひとことバナー ──
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+          decoration: BoxDecoration(
+            color: pnPink,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Center(
+            child: Text('敵はいない。敵は、昨日の自分。',
+                style: TextStyle(
+                    color: Color(0xFFB56A83),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800)),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // ── レベル + EXP ──
+        PnPanel(
+          child: Row(children: [
+            Container(
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                  color: pnYellow, shape: BoxShape.circle),
+              child: Text('Lv.${p.level}',
+                  style: const TextStyle(
+                      color: pnInk,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900)),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      const Text('EXP',
+                          style: TextStyle(
+                              color: pnSub,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700)),
+                      const Spacer(),
+                      Text('${p.xp} / 100',
+                          style: const TextStyle(
+                              color: pnInk,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800)),
+                    ]),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                          value: (p.xp % 100) / 100,
+                          minHeight: 8,
+                          backgroundColor: pnBg,
+                          color: pnGreen),
+                    ),
+                  ]),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 18),
+        // ── そだてるスキル ──
+        const Row(children: [
+          Text('🌱', style: TextStyle(fontSize: 16)),
+          SizedBox(width: 6),
+          Text('そだてるスキル',
+              style: TextStyle(
+                  color: pnInk, fontSize: 16, fontWeight: FontWeight.w900)),
+        ]),
+        const SizedBox(height: 10),
+        PnPanel(
+          child: Column(children: [
+            for (final (i, c) in _categories.indexed) ...[
+              if (i > 0) const SizedBox(height: 14),
+              Row(children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: c.$3,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(c.$2, color: pnInk, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Text(c.$1,
+                              style: const TextStyle(
+                                  color: pnInk,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800)),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: pnBg,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Text('Lv.1',
+                                style: TextStyle(
+                                    color: pnSub,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w800)),
+                          ),
+                        ]),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                              value: skillValue(i),
+                              minHeight: 7,
+                              backgroundColor: pnBg,
+                              color: c.$3),
+                        ),
+                      ]),
+                ),
+              ]),
+            ],
+          ]),
+        ),
+        const SizedBox(height: 18),
+        // ── そうび・どうぐ ──
+        const Row(children: [
+          Text('🎒', style: TextStyle(fontSize: 16)),
+          SizedBox(width: 6),
+          Text('そうび・どうぐ',
+              style: TextStyle(
+                  color: pnInk, fontSize: 16, fontWeight: FontWeight.w900)),
+        ]),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: wide ? 3 : 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            mainAxisExtent: 172,
+          ),
+          itemCount: _items.length,
+          itemBuilder: (context, i) {
+            final item = _items[i];
+            final owned = i < delivered; // 納品1件ごとに1つ解放(DEMO)
+            return _ItemCard(
+              name: item.$1,
+              kind: item.$2,
+              icon: item.$3,
+              effect: item.$4,
+              flavor: item.$5,
+              owned: owned,
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+        const Center(
+          child: Text('お仕事を納品すると、そうびが1つずつ手に入るよ',
+              style: TextStyle(color: pnSub, fontSize: 12)),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE9F2DF),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Center(
+            child: Text('コツコツ育てたスキルが、あなたの冒険を支えてくれるよ！',
+                style: TextStyle(
+                    color: Color(0xFF5E8A4E),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800)),
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// スキルバー: HP/MPバー様式(木枠レール + 2トーン充填)。色はスキルごと。
+/// スキルバー(プロフィールで使用): 角丸2トーンの進捗バー。
 class _SkillBar extends StatelessWidget {
   const _SkillBar({required this.value, required this.color});
   final double value; // 0.0-1.0
@@ -176,30 +267,18 @@ class _SkillBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 12,
-      decoration: BoxDecoration(
-        color: KdColors.parchmentLight,
-        border: Border.all(color: KdColors.border, width: 1.5),
-        borderRadius: BorderRadius.circular(3),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(1),
-        child: FractionallySizedBox(
-          alignment: Alignment.centerLeft,
-          widthFactor: value.clamp(0.0, 1.0),
-          child: Column(children: [
-            Expanded(
-                child: Container(color: Color.lerp(color, Colors.white, 0.45))),
-            Expanded(flex: 2, child: Container(color: color)),
-          ]),
-        ),
-      ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: LinearProgressIndicator(
+          value: value.clamp(0.0, 1.0),
+          minHeight: 8,
+          backgroundColor: const Color(0xFFF7F5EF),
+          color: color),
     );
   }
 }
 
-/// アイテムカード(そうび・どうぐ): 素材パックのカード様式。未入手はシルエット。
+/// アイテムカード(そうび・どうぐ)。未入手はシルエット。
 class _ItemCard extends StatelessWidget {
   const _ItemCard({
     required this.name,
@@ -218,44 +297,46 @@ class _ItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KdParchmentCard(
+    return PnPanel(
       padding: const EdgeInsets.all(10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
         Text(kind,
-            style: KdTheme.dot(
-                size: 10,
-                color: owned ? KdColors.heading : KdColors.textSecondary)),
-        const SizedBox(height: 4),
+            style: TextStyle(
+                color: owned ? const Color(0xFFD16E8E) : pnSub,
+                fontSize: 10,
+                fontWeight: FontWeight.w800)),
+        const SizedBox(height: 6),
         Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: owned ? KdColors.pink100 : KdColors.border.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-                color: owned ? KdColors.pink500 : KdColors.border, width: 2),
+            color: owned ? pnPink : pnBg,
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(owned ? icon : Icons.lock,
-              size: 24,
-              color: owned ? KdColors.pink700 : KdColors.textSecondary),
+          child: Icon(owned ? icon : Icons.lock_rounded,
+              size: 22,
+              color: owned ? const Color(0xFFD16E8E) : pnSub),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 7),
         Text(owned ? name : '？？？',
-            style: KdTheme.dot(size: 12, color: KdColors.ink900)
-                .copyWith(fontWeight: FontWeight.w700)),
+            style: TextStyle(
+                color: owned ? pnInk : pnSub,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w900)),
         const SizedBox(height: 2),
         Text(owned ? effect : '- - -',
-            style: KdTheme.dot(size: 11, color: KdColors.heading)),
+            style: TextStyle(
+                color: owned ? const Color(0xFFD16E8E) : pnSub,
+                fontSize: 11,
+                fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         Expanded(
           child: Text(owned ? flavor : 'お仕事を納品すると手に入るよ',
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
               maxLines: 2,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(fontSize: 11, height: 1.4)),
+              style: const TextStyle(
+                  color: pnSub, fontSize: 10.5, height: 1.45)),
         ),
       ]),
     );
