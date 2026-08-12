@@ -9,7 +9,6 @@ import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
 import 'package:design_kingdom/core/widgets/kd_widgets.dart';
 import 'package:design_kingdom/core/widgets/pn_shell.dart';
-import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 
 /// エリア定義(Phase 8 §1.2 の確定マッピング)。
 /// 本番は areas コレクション(Phase 5 §2.1)から取得 — DEMO は静的定義。

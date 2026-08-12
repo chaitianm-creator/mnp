@@ -25,8 +25,6 @@ const _maxContentWidth = 460.0;
 const _ink = KdColors.ink900;
 const _sub = Color(0xFF938A78);
 const _line = KdColors.border;
-const _green = KdColors.grass500;
-const _greenInk = Color(0xFF3E5C33);
 const _pinkChip = Color(0xFFE98FA9);
 
 class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
@@ -290,8 +288,8 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: SizedBox(
-                  width: 240,
-                  height: 48,
+                  width: 300,
+                  height: 56,
                   child: _NextButton(
                     label: isLast ? ep.finishLabel : page.buttonLabel!,
                     onTap: advance,
@@ -716,10 +714,10 @@ class _NextButton extends StatelessWidget {
     return FilledButton(
       onPressed: onTap,
       style: FilledButton.styleFrom(
-        backgroundColor: _green,
-        foregroundColor: _greenInk,
+        backgroundColor: const Color(0xFFF2AFC1),
+        foregroundColor: const Color(0xFF8E4A62),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+        textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.play_arrow_rounded, size: 20),

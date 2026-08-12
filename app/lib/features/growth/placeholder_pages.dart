@@ -5,9 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:design_kingdom/core/state/account.dart';
 import 'package:design_kingdom/core/state/outfit.dart';
 import 'package:design_kingdom/core/state/user_progress.dart';
-import 'package:design_kingdom/core/theme/kd_colors.dart';
-import 'package:design_kingdom/core/theme/kd_theme.dart';
-import 'package:design_kingdom/core/widgets/kd_widgets.dart';
 import 'package:design_kingdom/core/widgets/pn_shell.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 
