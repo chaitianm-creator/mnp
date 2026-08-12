@@ -32,6 +32,8 @@ Widget buildStoryScene(String scene) {
       return const _CharacterScene(pose: 2);
     case 'village_path':
       return const _Fill(_VillagePathPainter());
+    case 'village_path_plain': // タイトル用(主人公なし)
+      return const _Fill(_VillagePathPainter(withHeroine: false));
     case 'bakery':
     case 'mission':
       return _Fill(_BakeryPainter(dim: scene == 'mission'));
@@ -888,8 +890,10 @@ class _IslandOverviewPainter extends CustomPainter {
             [Colors.white, const Color(0xFFF2A5C0), const Color(0xFFF6D96B)][i % 3]);
       }
       // 主人公(後ろ姿)
-      drawPixelSprite(canvas, heroineBackRows, heroinePalette, vw * 0.08 * u,
-          vh * 0.56 * u, math.max(1.6, vw / 84) * u);
+      if (withHeroine) {
+        drawPixelSprite(canvas, heroineBackRows, heroinePalette,
+            vw * 0.08 * u, vh * 0.56 * u, math.max(1.6, vw / 84) * u);
+      }
     }
   }
 
@@ -1002,7 +1006,8 @@ class _SignboardPainter extends CustomPainter {
 // 村の道(奥へ続く道 + 家々)。
 // ─────────────────────────────────────────────────────────────
 class _VillagePathPainter extends CustomPainter {
-  const _VillagePathPainter();
+  const _VillagePathPainter({this.withHeroine = true});
+  final bool withHeroine;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1099,8 +1104,10 @@ class _VillagePathPainter extends CustomPainter {
       }
     }
     // 主人公(後ろ姿・道の上)
-    drawPixelSprite(canvas, heroineBackRows, heroinePalette, (vw / 2 - 11) * u,
-        vh * 0.68 * u, 1.5 * u);
+    if (withHeroine) {
+      drawPixelSprite(canvas, heroineBackRows, heroinePalette,
+          (vw / 2 - 11) * u, vh * 0.68 * u, 1.5 * u);
+    }
   }
 
   @override
