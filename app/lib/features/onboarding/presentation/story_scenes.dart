@@ -713,46 +713,32 @@ class _LightBurstPainter extends CustomPainter {
     final rng = math.Random(21);
     final vw = size.width / u, vh = size.height / u;
 
-    px.r(0, 0, vw, vh, const Color(0xFF241B12));
-    // うっすら床板
-    for (var i = 0; i < 10; i++) {
-      px.r(0, vh * 0.4 + i * vh * 0.06, vw, 1, const Color(0xFF2E2216));
-    }
-    px.noise(0, 0, vw, vh, [const Color(0xFF2A2015), const Color(0xFF201810)],
-        300, rng);
-
+    // 2トーンの集中線(WF9: 濃茶 + オリーブ)
+    px.r(0, 0, vw, vh, const Color(0xFF4A3F2C));
     final cx = vw / 2, cy = vh * 0.42;
-    // 放射光(三角を段々に)
-    for (var i = 0; i < 30; i++) {
-      final a = i * math.pi / 15 + 0.1;
-      final len = vh * (0.45 + rng.nextDouble() * 0.25);
-      final w = 0.03 + rng.nextDouble() * 0.05;
-      final c = i % 3 == 0
-          ? const Color(0x77F7D774)
-          : (i % 3 == 1 ? const Color(0x55F2C14E) : const Color(0x44E8A83C));
-      px.tri(
-          cx,
-          cy,
-          cx + math.cos(a - w) * len,
-          cy + math.sin(a - w) * len,
-          cx + math.cos(a + w) * len,
-          cy + math.sin(a + w) * len,
-          c);
+    const rays = 28;
+    final len = (vw + vh).toDouble();
+    for (var i = 0; i < rays; i++) {
+      if (i.isOdd) continue; // 1本おきに明るい帯
+      final a0 = i * 2 * math.pi / rays;
+      final a1 = (i + 1) * 2 * math.pi / rays;
+      px.tri(cx, cy, cx + math.cos(a0) * len, cy + math.sin(a0) * len,
+          cx + math.cos(a1) * len, cy + math.sin(a1) * len,
+          const Color(0xFF6E5F41));
     }
-    // 中心の光球(3段)
-    px.oval(cx, cy, vw * 0.17, vw * 0.17, const Color(0x88F7D774));
-    px.oval(cx, cy, vw * 0.12, vw * 0.12, const Color(0xFFF7E9AE));
-    px.oval(cx, cy, vw * 0.07, vw * 0.07, const Color(0xFFFFF8DC));
-    // 主人公(後ろ姿・浮かぶ)
+    // 中心の光球(3段) + 主人公(後ろ姿)
+    px.oval(cx, cy, vw * 0.20, vw * 0.20, const Color(0x66F2E3B4));
+    px.oval(cx, cy, vw * 0.15, vw * 0.15, const Color(0xFFEFDFA8));
+    px.oval(cx, cy, vw * 0.10, vw * 0.10, const Color(0xFFFBF2D2));
     drawPixelSprite(canvas, heroineBackRows, heroinePalette,
-        (cx - 12) * u, (cy - 6) * u, 1.6 * u);
-    // きらめき
-    for (var i = 0; i < 60; i++) {
+        (cx - 12) * u, (cy - 10) * u, 1.5 * u);
+    // きらめき(金色・控えめ)
+    for (var i = 0; i < 40; i++) {
       final x = rng.nextDouble() * vw;
       final y = rng.nextDouble() * vh;
-      final s = 1 + rng.nextInt(3);
+      final s = 1 + rng.nextInt(2);
       px.sparkle(x, y, s,
-          rng.nextBool() ? const Color(0xFFF7E9AE) : const Color(0xAAF2C14E));
+          rng.nextBool() ? const Color(0xFFF2E3B4) : const Color(0xAAE8C25A));
     }
   }
 

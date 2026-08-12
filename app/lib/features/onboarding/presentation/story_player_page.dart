@@ -157,6 +157,13 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
                 ]),
           ),
         ),
+      // ── 到着シーン: 吹き出しを主人公(左下)の近くに ──
+      if (page.scene == 'island_overview' && page.bubble != null)
+        Positioned(
+          left: 8,
+          bottom: size.height * 0.40,
+          child: IgnorePointer(child: _SpeechBubble(text: page.bubble!)),
+        ),
       // ── 島マップの場所ラベル ──
       if (page.mapLabels) ..._mapLabels(size),
       // ── パン屋の看板文字 ──
@@ -231,7 +238,8 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
             const SizedBox(height: 10),
             if (page.headerBadge != null || page.headerTitle != null)
               _HeaderCard(badge: page.headerBadge, title: page.headerTitle),
-            if (page.bubble != null) ...[
+            if (page.bubble != null &&
+                page.scene != 'island_overview') ...[
               const SizedBox(height: 14),
               _SpeechBubble(text: page.bubble!),
             ],
