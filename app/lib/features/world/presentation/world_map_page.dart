@@ -8,6 +8,7 @@ import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
 import 'package:design_kingdom/core/widgets/kd_widgets.dart';
+import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 
 /// エリア定義(Phase 8 §1.2 の確定マッピング)。
 /// 本番は areas コレクション(Phase 5 §2.1)から取得 — DEMO は静的定義。
@@ -97,715 +98,303 @@ const kAreas = [
       color: KdColors.pink700),
 ];
 
-/// SC-30 世界マップ = 海に浮かぶ王国の島々。
-/// レトロRPGのワールドマップ様式: 青い海の上に8つの島が並び、
-/// 各島にエリアのランドマーク(村・森・湖・塔・火山・草原・洞窟・城)が建つ。
+/// SC-30 冒険マップ(PRO NAVI クリーンスタイル)。
+/// 現在地カード + クリア状況 + エリア一覧カード。キャラはドット絵のまま。
 class WorldMapPage extends ConsumerWidget {
   const WorldMapPage({super.key});
 
-  // 島の蛇行(左右への振れ幅の並び)
-  static const _sway = [-0.30, 0.30, -0.32, 0.32, -0.30, 0.28, 0.32, -0.05];
-  static const _rowH = 200.0;
-  static const _topPad = 64.0;
-  static const _bottomPad = 72.0;
+  static const _ink = Color(0xFF4A443A);
+  static const _sub = Color(0xFF938A78);
+  static const _line = Color(0xFFE6E0D2);
+  static const _green = Color(0xFFA8D18F);
+  static const _greenInk = Color(0xFF3E5C33);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final progress = ref.watch(userProgressProvider);
+    // DEMO: エリア①のみ解放。②以降は①クリア(12件)で解放(Phase 5 §2.1)
+    bool unlockedOf(AreaDef a) =>
+        a.order == 1 ||
+        (progress.areaDelivered['area_01_hajimari'] ?? 0) >= 12;
+    final clearedAreas =
+        kAreas.where((a) => progress.stageOf(a.id) >= 3).length;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('ワールドマップ')),
-      body: LayoutBuilder(builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final totalH = _topPad + kAreas.length * _rowH + _bottomPad;
-        final centers = <Offset>[
-          for (var i = 0; i < kAreas.length; i++)
-            Offset(
-              w / 2 + _sway[i % _sway.length] * (w * 0.5),
-              _topPad + i * _rowH + _rowH / 2 - 20,
-            ),
-        ];
-
-        return SingleChildScrollView(
-          child: SizedBox(
-            width: w,
-            height: totalH,
-            child: Stack(children: [
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _WorldMapPainter(centers: centers),
+      appBar: AppBar(title: const Text('冒険マップ')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
+            children: [
+              _currentAreaCard(context),
+              const SizedBox(height: 10),
+              _summaryCard(clearedAreas),
+              const SizedBox(height: 18),
+              const Row(children: [
+                Text('🗺', style: TextStyle(fontSize: 16)),
+                SizedBox(width: 6),
+                Text('エリア一覧',
+                    style: TextStyle(
+                        color: _ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900)),
+              ]),
+              const SizedBox(height: 10),
+              for (final area in kAreas) ...[
+                _AreaCard(
+                  area: area,
+                  unlocked: unlockedOf(area),
+                  current: area.order == 1,
+                  stage: progress.stageOf(area.id),
+                  onTap: () => context.push(
+                      area.order == 1 ? '/village' : '/area/${area.id}'),
                 ),
-              ),
-              for (var i = 0; i < kAreas.length; i++)
-                _positionedArea(
-                  context,
-                  kAreas[i],
-                  centers[i],
-                  // DEMO: エリア①のみ解放。②以降は①クリア(12件)で解放(Phase 5 §2.1)
-                  unlocked: kAreas[i].order == 1 ||
-                      (progress.areaDelivered['area_01_hajimari'] ?? 0) >= 12,
-                  stage: progress.stageOf(kAreas[i].id),
-                ),
-            ]),
+                const SizedBox(height: 10),
+              ],
+            ],
           ),
-        );
-      }),
-    );
-  }
-
-  Widget _positionedArea(BuildContext context, AreaDef area, Offset center,
-      {required bool unlocked, required int stage}) {
-    const boxW = 210.0;
-    const boxH = 190.0;
-    return Positioned(
-      left: center.dx - boxW / 2,
-      top: center.dy - boxH / 2,
-      child: SizedBox(
-        width: boxW,
-        height: boxH,
-        child: _MapNode(
-          area: area,
-          unlocked: unlocked,
-          stage: stage,
-          // エリア①は村の中へ、その他はエリアガイドへ
-          onTap: () => context.push(
-              area.order == 1 ? '/village' : '/area/${area.id}'),
         ),
       ),
     );
   }
-}
 
-/// 島のタップ領域 + 地名ラベル(白ピル + 番号の丸 = 参考マップのラベル様式)。
-/// 島とランドマークの絵は _WorldMapPainter が背景に描く。
-class _MapNode extends StatelessWidget {
-  const _MapNode(
-      {required this.area,
-      required this.unlocked,
-      required this.stage,
-      required this.onTap});
-  final AreaDef area;
-  final bool unlocked;
-  final int stage;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: area.name,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent, // 島のどこを押しても反応
-        onTap: onTap,
-        child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-          // 地名ラベル(白ピル + 番号)
-          Container(
-            padding: const EdgeInsets.fromLTRB(5, 4, 12, 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: KdColors.wood900, width: 2),
-              boxShadow: const [
-                BoxShadow(color: KdColors.wood900, offset: Offset(0, 2)),
-              ],
+  /// 現在地カード(ストライプ地 + みぽりん先生)。
+  Widget _currentAreaCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: CustomPaint(
+        painter: const _MapStripePainter(),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: _line),
+                      ),
+                      child: const Text('現在地',
+                          style: TextStyle(
+                              color: _sub,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700)),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('🏠 はじまりの街',
+                        style: TextStyle(
+                            color: _ink,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 6),
+                    const Text('すべての旅が始まる村。まずはここでデザインの基礎を身につけよう。',
+                        style: TextStyle(
+                            color: _ink, fontSize: 12.5, height: 1.6)),
+                    const SizedBox(height: 10),
+                    FilledButton(
+                      onPressed: () => context.push('/village'),
+                      style: FilledButton.styleFrom(
+                          backgroundColor: _green,
+                          foregroundColor: _greenInk,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 8)),
+                      child: const Text('村の中を見る',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w800)),
+                    ),
+                  ]),
             ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                width: 20,
-                height: 20,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: unlocked ? KdColors.pink700 : const Color(0xFF8E8471),
-                  shape: BoxShape.circle,
-                ),
-                child: unlocked
-                    ? Text('${area.order}',
-                        style: KdTheme.dot(size: 11, color: Colors.white)
-                            .copyWith(fontWeight: FontWeight.w700))
-                    : const Icon(Icons.lock, size: 12, color: Colors.white),
-              ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(area.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: KdTheme.dot(size: 12, color: KdColors.ink900)
-                        .copyWith(fontWeight: FontWeight.w700)),
-              ),
+            const SizedBox(width: 12),
+            Column(children: [
+              PixelSprite(
+                  rows: miporinRows(0),
+                  palette: miporinPalette,
+                  width: 76),
+              const SizedBox(height: 4),
+              const Text('みぽりん先生',
+                  style: TextStyle(
+                      color: _sub,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700)),
             ]),
-          ),
-          if (unlocked) ...[
-            const SizedBox(height: 3),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              for (var i = 1; i <= 3; i++)
-                Icon(Icons.local_florist,
-                    size: 12,
-                    color: i <= stage
-                        ? KdColors.pink500
-                        : Colors.white.withOpacity(0.7)),
-            ]),
-          ],
-          const SizedBox(height: 8),
-        ]),
+          ]),
+        ),
       ),
     );
   }
+
+  Widget _summaryCard(int cleared) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _line),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Text('クリアエリア',
+                style: TextStyle(
+                    color: _sub, fontSize: 12, fontWeight: FontWeight.w700)),
+            const Spacer(),
+            Text('$cleared / ${kAreas.length}',
+                style: const TextStyle(
+                    color: _ink, fontSize: 18, fontWeight: FontWeight.w900)),
+          ]),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+                value: cleared / kAreas.length,
+                minHeight: 8,
+                backgroundColor: const Color(0xFFF7F5EF),
+                color: _green),
+          ),
+        ]),
+      );
 }
 
-/// 王国の地方マップ: ひと続きの大陸の上に8つの街が道路でつながる
-/// (レトロRPGの「タウンマップ」様式)。海には渦巻き・小島・帆船。
-/// 乱数は固定シード = 毎フレーム同じ絵(ちらつき防止)。
-class _WorldMapPainter extends CustomPainter {
-  const _WorldMapPainter({required this.centers});
-  final List<Offset> centers;
+/// エリアカード(番号バブル + 名前 + テーマ + 状態チップ)。
+class _AreaCard extends StatelessWidget {
+  const _AreaCard({
+    required this.area,
+    required this.unlocked,
+    required this.current,
+    required this.stage,
+    required this.onTap,
+  });
+  final AreaDef area;
+  final bool unlocked;
+  final bool current;
+  final int stage;
+  final VoidCallback onTap;
 
-  // タウンマップのパレット(参考画像の実測系: やわらかいフラットカラー)
-  static const _sea = Color(0xFF7EC4EA);
-  static const _seaLight = Color(0xFF9AD4F2);
-  static const _seaDark = Color(0xFF69B4E0);
-  static const _sand = Color(0xFFE8DCA8);
-  static const _land = Color(0xFF8CC868);
-  static const _landDark = Color(0xFF7DBA58);
-  static const _landLight = Color(0xFF9DD378);
-  static const _road = Color(0xFFF2ECCB);
-  static const _roadEdge = Color(0xFFD9CFA0);
+  static const _ink = WorldMapPage._ink;
+  static const _sub = WorldMapPage._sub;
+  static const _line = WorldMapPage._line;
+
+  @override
+  Widget build(BuildContext context) {
+    final pastel = Color.lerp(area.color, Colors.white, 0.55)!;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: current ? WorldMapPage._green : _line,
+                width: current ? 1.6 : 1),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Row(children: [
+            Container(
+              width: 42,
+              height: 42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                  color: unlocked ? pastel : const Color(0xFFF7F5EF),
+                  shape: BoxShape.circle),
+              child: unlocked
+                  ? Text('${area.order}'.padLeft(2, '0'),
+                      style: const TextStyle(
+                          color: _ink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900))
+                  : const Icon(Icons.lock_rounded, size: 16, color: _sub),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Flexible(
+                        child: Text(area.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: unlocked ? _ink : _sub,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900)),
+                      ),
+                      const SizedBox(width: 8),
+                      if (current)
+                        _chip('現在地', const Color(0xFFDDEECF))
+                      else if (!unlocked)
+                        _chip('ロック', const Color(0xFFF0EDE4)),
+                    ]),
+                    const SizedBox(height: 3),
+                    Text('${area.mindTheme}　・　スキル: ${area.skillLabel}',
+                        style: const TextStyle(
+                            color: _sub, fontSize: 11.5)),
+                    if (unlocked) ...[
+                      const SizedBox(height: 5),
+                      Row(children: [
+                        for (var i = 1; i <= 3; i++)
+                          Icon(Icons.local_florist,
+                              size: 13,
+                              color: i <= stage
+                                  ? const Color(0xFFE98FA9)
+                                  : _line),
+                      ]),
+                    ],
+                  ]),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: _sub),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(String label, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+            color: color, borderRadius: BorderRadius.circular(999)),
+        child: Text(label,
+            style: const TextStyle(
+                color: _ink, fontSize: 10, fontWeight: FontWeight.w700)),
+      );
+}
+
+/// 現在地カードの斜めストライプ背景。
+class _MapStripePainter extends CustomPainter {
+  const _MapStripePainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rng = math.Random(21);
-    final p = Paint();
-
-    // ── 海(むら + 渦巻き + 小島 + 船) ──
-    p.color = _sea;
+    final p = Paint()..color = const Color(0xFFF0EADC);
     canvas.drawRect(Offset.zero & size, p);
-    for (var i = 0; i < (size.width * size.height) / 1600; i++) {
-      final x = rng.nextDouble() * size.width;
-      final y = rng.nextDouble() * size.height;
-      p.color = rng.nextBool() ? _seaDark : _seaLight;
-      canvas.drawRect(
-          Rect.fromLTWH(x.floorToDouble(), y.floorToDouble(), 7, 7), p);
-    }
-
-    // ── 大陸(街をつなぐひと続きの陸地): 砂浜の縁 → 草地 ──
-    Path landAt(double inflate) {
-      final path = Path();
-      for (var i = 0; i < centers.length; i++) {
-        final c = centers[i];
-        path.addOval(Rect.fromCenter(
-            center: c,
-            width: math.min(size.width * 0.92, 360) + inflate * 2,
-            height: 210 + inflate * 2));
-        if (i < centers.length - 1) {
-          final a = centers[i];
-          final b = centers[i + 1];
-          final mid = Offset.lerp(a, b, 0.5)!;
-          path.addOval(Rect.fromCenter(
-              center: mid,
-              width: size.width * 0.62 + inflate * 2,
-              height: (b.dy - a.dy).abs() * 0.9 + inflate * 2));
-        }
-      }
-      return path;
-    }
-
-    canvas.drawPath(landAt(16), Paint()..color = _sand);
-    final land = landAt(0);
-    canvas.drawPath(land, Paint()..color = _land);
-
-    // 陸地の中の飾り(むら・木立・山脈)はクリップして描く
-    canvas.save();
-    canvas.clipPath(land);
-    for (var i = 0; i < (size.width * size.height) / 1500; i++) {
-      final x = rng.nextDouble() * size.width;
-      final y = rng.nextDouble() * size.height;
-      p.color = rng.nextBool() ? _landDark : _landLight;
-      canvas.drawRect(
-          Rect.fromLTWH(x.floorToDouble(), y.floorToDouble(), 7, 7), p);
-    }
-    // 山脈(バンドの縁に交互に)と木立
-    for (var i = 0; i < centers.length; i++) {
-      final c = centers[i];
-      final side = i.isEven ? 1.0 : -1.0;
-      _mountains(canvas,
-          Offset(size.width / 2 + side * size.width * 0.34, c.dy - 60), rng);
-      for (var t = 0; t < 4; t++) {
-        _pine(
-            canvas,
-            Offset(size.width / 2 - side * size.width * (0.24 + rng.nextDouble() * 0.12),
-                c.dy - 40 + rng.nextDouble() * 110),
-            dark: rng.nextBool());
-      }
-    }
-    canvas.restore();
-
-    // ── 道路(街から街へ。淡いクリーム色の道) ──
-    final roadEdge = Paint()
-      ..color = _roadEdge
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 17
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final road = Paint()
-      ..color = _road
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 11
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final route = Path()..moveTo(centers.first.dx, centers.first.dy);
-    for (var i = 0; i < centers.length - 1; i++) {
-      final a = centers[i];
-      final b = centers[i + 1];
-      route.quadraticBezierTo(
-          a.dx, (a.dy + b.dy) / 2, (a.dx + b.dx) / 2, (a.dy + b.dy) / 2);
-      route.quadraticBezierTo(b.dx, (a.dy + b.dy) / 2, b.dx, b.dy);
-    }
-    canvas.drawPath(route, roadEdge);
-    canvas.drawPath(route, road);
-
-    // ── 海の飾り: 渦巻き・小島・帆船 ──
-    for (var i = 0; i < centers.length; i += 2) {
-      final side = i.isEven ? -1.0 : 1.0;
-      _whirl(
-          canvas,
-          Offset(size.width / 2 + side * size.width * 0.465,
-              centers[i].dy + 130 + rng.nextDouble() * 30));
-    }
-    _islet(canvas, Offset(size.width * 0.08, centers[2].dy + 60), rng);
-    _islet(canvas, Offset(size.width * 0.93, centers[5].dy + 90), rng);
-    _ship(canvas, Offset(size.width * 0.12, size.height - 70));
-
-    // ── 各街のランドマーク ──
-    for (var i = 0; i < centers.length; i++) {
-      final c = centers[i].translate(0, -6);
-      switch (i) {
-        case 0:
-          _village(canvas, c);
-        case 1:
-          _forest(canvas, c, math.Random(60));
-        case 2:
-          _lake(canvas, c);
-        case 3:
-          _tower(canvas, c);
-        case 4:
-          _volcano(canvas, c);
-        case 5:
-          _meadow(canvas, c, math.Random(61));
-        case 6:
-          _cave(canvas, c);
-        case 7:
-          _castle(canvas, c);
-      }
-    }
-  }
-
-  // ── 地形の部品 ──────────────────────────────
-
-  void _mountains(Canvas canvas, Offset c, math.Random rng) {
-    // 三山の山脈(茶の山 + 白い雪帽子)
-    for (final (dx, s) in [(-34.0, 0.8), (0.0, 1.0), (32.0, 0.75)]) {
-      final peak = c.translate(dx, 0);
-      final h = 44 * s;
-      final w = 42 * s;
-      final tri = Path()
-        ..moveTo(peak.dx - w, peak.dy + h * 0.5)
-        ..lineTo(peak.dx, peak.dy - h * 0.5)
-        ..lineTo(peak.dx + w, peak.dy + h * 0.5)
+    p.color = const Color(0xFFE9E1CE);
+    const gap = 26.0;
+    for (var x = -size.height; x < size.width; x += gap) {
+      final path = Path()
+        ..moveTo(x, size.height)
+        ..lineTo(x + size.height, 0)
+        ..lineTo(x + size.height + 10, 0)
+        ..lineTo(x + 10, size.height)
         ..close();
-      canvas.drawPath(tri, Paint()..color = const Color(0xFF9C7A50));
-      final shade = Path()
-        ..moveTo(peak.dx, peak.dy - h * 0.5)
-        ..lineTo(peak.dx + w, peak.dy + h * 0.5)
-        ..lineTo(peak.dx + w * 0.25, peak.dy + h * 0.5)
-        ..close();
-      canvas.drawPath(shade, Paint()..color = const Color(0xFF836540));
-      final snow = Path()
-        ..moveTo(peak.dx - w * 0.28, peak.dy - h * 0.5 + h * 0.28)
-        ..lineTo(peak.dx, peak.dy - h * 0.5)
-        ..lineTo(peak.dx + w * 0.28, peak.dy - h * 0.5 + h * 0.28)
-        ..lineTo(peak.dx + w * 0.14, peak.dy - h * 0.5 + h * 0.2)
-        ..lineTo(peak.dx, peak.dy - h * 0.5 + h * 0.3)
-        ..lineTo(peak.dx - w * 0.14, peak.dy - h * 0.5 + h * 0.2)
-        ..close();
-      canvas.drawPath(snow, Paint()..color = Colors.white);
+      canvas.drawPath(path, p);
     }
-  }
-
-  void _whirl(Canvas canvas, Offset c) {
-    final p = Paint()
-      ..color = _seaLight
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(Rect.fromCircle(center: c, radius: 13), 0.4, 4.6, false, p);
-    canvas.drawArc(Rect.fromCircle(center: c, radius: 8), 2.2, 4.4, false, p);
-    canvas.drawArc(Rect.fromCircle(center: c, radius: 3.6), 4.0, 4.0, false, p);
-  }
-
-  void _islet(Canvas canvas, Offset c, math.Random rng) {
-    canvas.drawOval(Rect.fromCenter(center: c, width: 66, height: 36),
-        Paint()..color = _sand);
-    canvas.drawOval(
-        Rect.fromCenter(center: c.translate(0, -3), width: 52, height: 26),
-        Paint()..color = _land);
-    _pine(canvas, c.translate(-8, -8), dark: rng.nextBool());
-    _flowerDot(canvas, c.translate(12, -4), Colors.white);
-  }
-
-  void _flowerDot(Canvas canvas, Offset c, Color color) {
-    final p = Paint()..color = color;
-    canvas.drawRect(Rect.fromCenter(center: c, width: 3, height: 3), p);
-    canvas.drawRect(
-        Rect.fromCenter(center: c.translate(-3, 0), width: 3, height: 3), p);
-    canvas.drawRect(
-        Rect.fromCenter(center: c.translate(3, 0), width: 3, height: 3), p);
-    canvas.drawRect(
-        Rect.fromCenter(center: c.translate(0, -3), width: 3, height: 3), p);
-    canvas.drawRect(
-        Rect.fromCenter(center: c.translate(0, 3), width: 3, height: 3), p);
-  }
-
-  // ── 街のランドマーク ────────────────────────
-
-  void _house(Canvas canvas, Offset base, double s, {Color? roof}) {
-    canvas.drawRect(
-        Rect.fromCenter(center: base, width: 24 * s, height: 16 * s),
-        Paint()..color = const Color(0xFFFFF3E0));
-    canvas.drawRect(
-        Rect.fromCenter(center: base, width: 24 * s, height: 16 * s),
-        Paint()
-          ..color = KdColors.wood900
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5);
-    final roofPath = Path()
-      ..moveTo(base.dx - 15 * s, base.dy - 8 * s)
-      ..lineTo(base.dx + 15 * s, base.dy - 8 * s)
-      ..lineTo(base.dx, base.dy - 21 * s)
-      ..close();
-    canvas.drawPath(roofPath, Paint()..color = roof ?? KdColors.pink500);
-    canvas.drawPath(
-        roofPath,
-        Paint()
-          ..color = KdColors.wood900
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5);
-    canvas.drawRect(
-        Rect.fromCenter(
-            center: base.translate(0, 4 * s), width: 5 * s, height: 8 * s),
-        Paint()..color = KdColors.wood900);
-  }
-
-  void _village(Canvas canvas, Offset c) {
-    _house(canvas, c.translate(-42, 0), 0.85);
-    _house(canvas, c.translate(0, -12), 1.0);
-    _house(canvas, c.translate(42, 2), 0.85, roof: KdColors.gold500);
-    canvas.drawCircle(c.translate(0, 14), 8,
-        Paint()..color = const Color(0xFFBFC9CC));
-    canvas.drawCircle(c.translate(0, 14), 5, Paint()..color = _sea);
-  }
-
-  void _forest(Canvas canvas, Offset c, math.Random rng) {
-    for (var i = 0; i < 9; i++) {
-      final dx = (rng.nextDouble() - 0.5) * 140;
-      final dy = (rng.nextDouble() - 0.5) * 60 - 4;
-      _pine(canvas, c.translate(dx, dy), dark: rng.nextBool());
-    }
-  }
-
-  void _pine(Canvas canvas, Offset base, {bool dark = false}) {
-    canvas.drawRect(
-        Rect.fromCenter(center: base.translate(0, 14), width: 5, height: 8),
-        Paint()..color = const Color(0xFF6D4C2F));
-    final leaf = Paint()
-      ..color = dark ? const Color(0xFF2F7D33) : const Color(0xFF48A04C);
-    for (var t = 0; t < 3; t++) {
-      final w = 24.0 - t * 6;
-      final y = 8.0 - t * 9;
-      final tri = Path()
-        ..moveTo(base.dx - w / 2, base.dy + y)
-        ..lineTo(base.dx + w / 2, base.dy + y)
-        ..lineTo(base.dx, base.dy + y - 12)
-        ..close();
-      canvas.drawPath(tri, leaf);
-    }
-  }
-
-  void _lake(Canvas canvas, Offset c) {
-    canvas.drawOval(
-        Rect.fromCenter(center: c.translate(0, 2), width: 120, height: 50),
-        Paint()..color = _sand);
-    canvas.drawOval(
-        Rect.fromCenter(center: c.translate(0, 2), width: 108, height: 40),
-        Paint()..color = _sea);
-    for (final dx in [-24.0, 20.0]) {
-      final s = c.translate(dx, 2);
-      canvas.drawOval(Rect.fromCenter(center: s, width: 13, height: 8),
-          Paint()..color = Colors.white);
-      canvas.drawLine(
-          s.translate(4, -2),
-          s.translate(4, -8),
-          Paint()
-            ..color = Colors.white
-            ..strokeWidth = 3);
-      canvas.drawCircle(s.translate(4, -8), 2.2, Paint()..color = Colors.white);
-    }
-    _pine(canvas, c.translate(-70, -6));
-    _pine(canvas, c.translate(68, -2), dark: true);
-  }
-
-  void _tower(Canvas canvas, Offset c) {
-    final body =
-        Rect.fromCenter(center: c.translate(0, -12), width: 36, height: 58);
-    canvas.drawRect(body, Paint()..color = const Color(0xFFF2E6D0));
-    canvas.drawRect(
-        body,
-        Paint()
-          ..color = KdColors.wood900
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2);
-    for (var t = 0; t < 3; t++) {
-      final y = body.top + 12.0 + t * 16;
-      canvas.drawRect(Rect.fromLTWH(body.left, y, body.width, 3),
-          Paint()..color = const Color(0xFFD9C4A0));
-      canvas.drawRect(
-          Rect.fromCenter(center: Offset(c.dx, y + 8), width: 6, height: 8),
-          Paint()..color = const Color(0xFFE8B84B));
-    }
-    final roof = Path()
-      ..moveTo(body.left - 6, body.top)
-      ..lineTo(body.right + 6, body.top)
-      ..lineTo(c.dx, body.top - 20)
-      ..close();
-    canvas.drawPath(roof, Paint()..color = KdColors.pink500);
-    canvas.drawPath(
-        roof,
-        Paint()
-          ..color = KdColors.wood900
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2);
-    _heart(canvas, Offset(c.dx, body.top - 27), 6, KdColors.pink700);
-  }
-
-  void _volcano(Canvas canvas, Offset c) {
-    final mountain = Path()
-      ..moveTo(c.dx - 76, c.dy + 30)
-      ..lineTo(c.dx - 36, c.dy - 22)
-      ..lineTo(c.dx - 14, c.dy - 38)
-      ..lineTo(c.dx + 14, c.dy - 38)
-      ..lineTo(c.dx + 38, c.dy - 19)
-      ..lineTo(c.dx + 76, c.dy + 30)
-      ..close();
-    canvas.drawPath(mountain, Paint()..color = const Color(0xFF5C5049));
-    canvas.drawPath(
-        mountain,
-        Paint()
-          ..color = KdColors.wood900
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2);
-    canvas.drawOval(
-        Rect.fromCenter(center: c.translate(0, -36), width: 26, height: 9),
-        Paint()..color = KdColors.lava500);
-    final lava = Paint()
-      ..color = KdColors.lava500
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeJoin = StrokeJoin.miter;
-    for (final (dx, wob) in [(-14.0, 7.0), (4.0, -6.0), (18.0, 5.0)]) {
-      final crack = Path()
-        ..moveTo(c.dx + dx, c.dy - 32)
-        ..lineTo(c.dx + dx + wob, c.dy - 12)
-        ..lineTo(c.dx + dx - wob * 0.5, c.dy + 8)
-        ..lineTo(c.dx + dx + wob * 0.8, c.dy + 26);
-      canvas.drawPath(crack, lava);
-    }
-    final smoke = Paint()..color = const Color(0xFFCFD2D4);
-    canvas.drawCircle(c.translate(-5, -50), 7, smoke);
-    canvas.drawCircle(c.translate(5, -58), 9, smoke);
-  }
-
-  void _meadow(Canvas canvas, Offset c, math.Random rng) {
-    for (var i = 0; i < 12; i++) {
-      final dx = (rng.nextDouble() - 0.5) * 150;
-      final dy = (rng.nextDouble() - 0.5) * 56;
-      _flowerDot(canvas, c.translate(dx, dy),
-          rng.nextBool() ? KdColors.pink100 : Colors.white);
-    }
-    final base = c.translate(0, -4);
-    final towerP = Path()
-      ..moveTo(base.dx - 11, base.dy + 24)
-      ..lineTo(base.dx + 11, base.dy + 24)
-      ..lineTo(base.dx + 7, base.dy - 16)
-      ..lineTo(base.dx - 7, base.dy - 16)
-      ..close();
-    canvas.drawPath(towerP, Paint()..color = const Color(0xFFD9B36A));
-    canvas.drawPath(
-        towerP,
-        Paint()
-          ..color = KdColors.wood900
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2);
-    final hub = base.translate(0, -18);
-    final blade = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 4.5;
-    for (final a in [0.8, 2.37, 3.94, 5.51]) {
-      canvas.drawLine(
-          hub, hub.translate(math.cos(a) * 20, math.sin(a) * 20), blade);
-    }
-    canvas.drawCircle(hub, 3, Paint()..color = KdColors.wood900);
-  }
-
-  void _cave(Canvas canvas, Offset c) {
-    final mountain = Path()
-      ..moveTo(c.dx - 74, c.dy + 30)
-      ..lineTo(c.dx - 34, c.dy - 26)
-      ..lineTo(c.dx, c.dy - 42)
-      ..lineTo(c.dx + 36, c.dy - 22)
-      ..lineTo(c.dx + 74, c.dy + 30)
-      ..close();
-    canvas.drawPath(mountain, Paint()..color = const Color(0xFF6E6258));
-    canvas.drawPath(
-        mountain,
-        Paint()
-          ..color = KdColors.wood900
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2);
-    final arch = Path()
-      ..moveTo(c.dx - 12, c.dy + 28)
-      ..lineTo(c.dx - 12, c.dy + 8)
-      ..arcToPoint(Offset(c.dx + 12, c.dy + 8),
-          radius: const Radius.circular(12))
-      ..lineTo(c.dx + 12, c.dy + 28)
-      ..close();
-    canvas.drawPath(arch, Paint()..color = const Color(0xFF1E1826));
-    for (final (dx, col) in [
-      (-30.0, Color(0xFF7FB9F0)),
-      (28.0, Color(0xFFB388FF)),
-    ]) {
-      final k = c.translate(dx, 20);
-      final crystal = Path()
-        ..moveTo(k.dx, k.dy - 9)
-        ..lineTo(k.dx + 5, k.dy)
-        ..lineTo(k.dx, k.dy + 7)
-        ..lineTo(k.dx - 5, k.dy)
-        ..close();
-      canvas.drawPath(crystal, Paint()..color = col);
-    }
-  }
-
-  void _castle(Canvas canvas, Offset c) {
-    final body = Paint()..color = KdColors.pink500;
-    final dark = Paint()..color = KdColors.pink700;
-    final outline = Paint()
-      ..color = KdColors.wood900
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeJoin = StrokeJoin.miter;
-    final base = c.translate(0, 26);
-    final bodyRect =
-        Rect.fromCenter(center: base.translate(0, -22), width: 80, height: 42);
-    canvas.drawRect(bodyRect, body);
-    for (var i = 0; i < 5; i++) {
-      canvas.drawRect(
-          Rect.fromLTWH(bodyRect.left + 3 + i * 16.0, bodyRect.top - 6, 10, 6),
-          body);
-    }
-    for (final dx in [-46.0, 46.0]) {
-      final tower =
-          Rect.fromCenter(center: base.translate(dx, -28), width: 22, height: 54);
-      canvas.drawRect(tower, body);
-      final roof = Path()
-        ..moveTo(tower.left - 5, tower.top)
-        ..lineTo(tower.right + 5, tower.top)
-        ..lineTo(tower.center.dx, tower.top - 16)
-        ..close();
-      canvas.drawPath(roof, dark);
-      canvas.drawPath(roof, outline);
-      canvas.drawRect(tower, outline);
-      canvas.drawLine(Offset(tower.center.dx, tower.top - 16),
-          Offset(tower.center.dx, tower.top - 27), outline);
-      final flag = Path()
-        ..moveTo(tower.center.dx, tower.top - 27)
-        ..lineTo(tower.center.dx + 10, tower.top - 24)
-        ..lineTo(tower.center.dx, tower.top - 21)
-        ..close();
-      canvas.drawPath(flag, dark);
-    }
-    final center =
-        Rect.fromCenter(center: base.translate(0, -50), width: 26, height: 42);
-    canvas.drawRect(center, body);
-    final centerRoof = Path()
-      ..moveTo(center.left - 5, center.top)
-      ..lineTo(center.right + 5, center.top)
-      ..lineTo(center.center.dx, center.top - 18)
-      ..close();
-    canvas.drawPath(centerRoof, dark);
-    canvas.drawPath(centerRoof, outline);
-    canvas.drawRect(center, outline);
-    canvas.drawRect(bodyRect, outline);
-    canvas.drawRect(
-        Rect.fromCenter(
-            center: Offset(base.dx, bodyRect.bottom - 8), width: 14, height: 16),
-        Paint()..color = KdColors.wood900);
-    _heart(canvas, Offset(base.dx, bodyRect.top + 9), 5.5, Colors.white);
-  }
-
-  void _heart(Canvas canvas, Offset c, double s, Color color) {
-    final p = Paint()..color = color;
-    canvas.drawCircle(c.translate(-s * 0.45, -s * 0.25), s * 0.52, p);
-    canvas.drawCircle(c.translate(s * 0.45, -s * 0.25), s * 0.52, p);
-    final tip = Path()
-      ..moveTo(c.dx - s * 0.95, c.dy - s * 0.08)
-      ..lineTo(c.dx + s * 0.95, c.dy - s * 0.08)
-      ..lineTo(c.dx, c.dy + s)
-      ..close();
-    canvas.drawPath(tip, p);
-  }
-
-  void _ship(Canvas canvas, Offset c) {
-    final hull = Path()
-      ..moveTo(c.dx - 24, c.dy)
-      ..lineTo(c.dx + 24, c.dy)
-      ..lineTo(c.dx + 15, c.dy + 13)
-      ..lineTo(c.dx - 15, c.dy + 13)
-      ..close();
-    canvas.drawPath(hull, Paint()..color = const Color(0xFF8A5A2B));
-    canvas.drawPath(
-        hull,
-        Paint()
-          ..color = KdColors.wood900
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2);
-    canvas.drawLine(c, c.translate(0, -32),
-        Paint()
-          ..color = KdColors.wood900
-          ..strokeWidth = 2.5);
-    final sail = Path()
-      ..moveTo(c.dx - 2, c.dy - 30)
-      ..lineTo(c.dx - 20, c.dy - 8)
-      ..lineTo(c.dx - 2, c.dy - 8)
-      ..close();
-    canvas.drawPath(sail, Paint()..color = Colors.white);
-    final sail2 = Path()
-      ..moveTo(c.dx + 2, c.dy - 26)
-      ..lineTo(c.dx + 16, c.dy - 8)
-      ..lineTo(c.dx + 2, c.dy - 8)
-      ..close();
-    canvas.drawPath(sail2, Paint()..color = Colors.white);
-    final flag = Path()
-      ..moveTo(c.dx, c.dy - 32)
-      ..lineTo(c.dx + 9, c.dy - 29)
-      ..lineTo(c.dx, c.dy - 26)
-      ..close();
-    canvas.drawPath(flag, Paint()..color = KdColors.pink700);
   }
 
   @override
-  bool shouldRepaint(covariant _WorldMapPainter old) =>
-      old.centers != centers;
+  bool shouldRepaint(_MapStripePainter old) => false;
 }
 
-/// エリアガイドの静的コンテンツ(エリア紹介ページ)。
-/// 本番は areas コレクションから取得 — DEMO は全8エリアを静的定義。
 class _Facility {
   const _Facility(this.icon, this.color, this.name, this.desc, {this.role = ''});
   final IconData icon;
