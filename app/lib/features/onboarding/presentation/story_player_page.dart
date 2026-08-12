@@ -552,12 +552,13 @@ class _ChoiceCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              color: _pinkChip,
+              color: const Color(0xFFCFE3F2), // WF19: どう答える？は水色チップ
               borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFFAFCBE4)),
             ),
             child: Text(prompt,
                 style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF44607A),
                     fontSize: 13.5,
                     fontWeight: FontWeight.w900)),
           ),
