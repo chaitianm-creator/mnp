@@ -1411,3 +1411,21 @@ class _DeskPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+// ─────────────────────────────────────────────────────────────
+// きせかえ(主人公の服の配色バリエーション)。
+// (名前, トップス, リボン, スカート) — AAP-64の色を使用。
+// ─────────────────────────────────────────────────────────────
+const kOutfits = <(String, Color, Color, Color)>[
+  ('しろ', Colors.white, Color(0xFFE86A73), Color(0xFFB4202A)),
+  ('さくら', Color(0xFFF5A097), Color(0xFFE86A73), Color(0xFFBC4A9B)),
+  ('そら', Color(0xFFDAE0EA), Color(0xFF849BE4), Color(0xFF588DBE)),
+  ('わかば', Color(0xFFCDF7E2), Color(0xFF5DAF8D), Color(0xFF328464)),
+  ('ひまわり', Color(0xFFFEF3C0), Color(0xFFDF3E23), Color(0xFFF9A31B)),
+];
+
+/// きせかえを反映した主人公パレット。
+Map<String, Color> heroinePaletteFor(int outfit) {
+  final o = kOutfits[outfit.clamp(0, kOutfits.length - 1)];
+  return {...heroinePalette, 'w': o.$2, 'r': o.$3, 'R': o.$4};
+}

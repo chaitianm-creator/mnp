@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:design_kingdom/core/state/account.dart';
+import 'package:design_kingdom/core/state/outfit.dart';
 import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 
@@ -354,8 +355,10 @@ class _PnShellState extends ConsumerState<PnShell> {
             color: pnBg,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const PixelSprite(
-              rows: heroineFrontRows, palette: heroinePalette, width: 96),
+          child: PixelSprite(
+              rows: heroineFrontRows,
+              palette: heroinePaletteFor(ref.watch(outfitProvider)),
+              width: 96),
         ),
         const SizedBox(height: 10),
         Text(account?.nickname ?? 'デザイナー冒険者',

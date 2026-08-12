@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:design_kingdom/core/state/account.dart';
+import 'package:design_kingdom/core/state/outfit.dart';
 import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
 import 'package:design_kingdom/core/widgets/kd_widgets.dart';
 import 'package:design_kingdom/core/widgets/pn_shell.dart';
+import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 
 /// SC-40 スキル = 画面いっぱいの全幅レイアウト(ワイヤーフレーム準拠)。
 /// 上部バー(スキル+Lv+アバター) + EXPと6スキルの一枚カード +
@@ -87,110 +90,18 @@ class SkillsPage extends ConsumerWidget {
                     child: Text('🙂', style: TextStyle(fontSize: 14))),
               ]),
               const SizedBox(height: 12),
-              // ── EXP + 6スキル(一枚カード) ──
-              PnPanel(
-                padding: const EdgeInsets.all(16),
-                child: Column(children: [
-                  Row(children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: pnBg,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: pnLine),
-                      ),
-                      child: Text('Lv.${p.level}',
-                          style: const TextStyle(
-                              color: pnInk,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(children: [
-                              const Text('EXP',
-                                  style: TextStyle(
-                                      color: pnSub,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700)),
-                              const Spacer(),
-                              Text('${p.xp} / 100',
-                                  style: const TextStyle(
-                                      color: pnInk,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800)),
-                            ]),
-                            const SizedBox(height: 5),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(999),
-                              child: LinearProgressIndicator(
-                                  value: (p.xp % 100) / 100,
-                                  minHeight: 7,
-                                  backgroundColor: pnBg,
-                                  color: const Color(0xFFE98FA9)),
-                            ),
-                          ]),
-                    ),
-                  ]),
-                  const SizedBox(height: 18),
-                  for (final (i, cat) in _categories.indexed) ...[
-                    if (i > 0) const SizedBox(height: 14),
-                    Row(children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: cat.$3,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(cat.$2, color: pnInk, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(children: [
-                                Text(cat.$1,
-                                    style: const TextStyle(
-                                        color: pnInk,
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w800)),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: pnBg,
-                                    borderRadius:
-                                        BorderRadius.circular(999),
-                                  ),
-                                  child: const Text('Lv.1',
-                                      style: TextStyle(
-                                          color: pnSub,
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w800)),
-                                ),
-                              ]),
-                              const SizedBox(height: 6),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(999),
-                                child: LinearProgressIndicator(
-                                    value: skillValue(i),
-                                    minHeight: 7,
-                                    backgroundColor: pnBg,
-                                    color: cat.$3),
-                              ),
-                            ]),
-                      ),
-                    ]),
-                  ],
-                ]),
-              ),
+              // ── キャラクター + EXP/スキル(PCは横並び) ──
+              if (c.maxWidth >= 760)
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  SizedBox(width: 300, child: _characterCard(ref)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _skillsCard(p, skillValue)),
+                ])
+              else ...[
+                _characterCard(ref),
+                const SizedBox(height: 12),
+                _skillsCard(p, skillValue),
+              ],
               const SizedBox(height: 20),
               // ── そうび・どうぐ(中央チップ見出し) ──
               Center(
@@ -241,6 +152,202 @@ class SkillsPage extends ConsumerWidget {
           );
         }),
       ),
+    );
+  }
+  /// キャラクターカード(きせかえ付き)。
+  Widget _characterCard(WidgetRef ref) {
+    final account = ref.watch(accountProvider);
+    final p = ref.watch(userProgressProvider);
+    final outfit = ref.watch(outfitProvider);
+    return PnPanel(
+      child: Column(children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: pnBg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: PixelSprite(
+              rows: heroineFrontRows,
+              palette: heroinePaletteFor(outfit),
+              width: 96),
+        ),
+        const SizedBox(height: 10),
+        Text(account?.nickname ?? 'デザイナー冒険者',
+            style: const TextStyle(
+                color: pnInk, fontSize: 15, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 2),
+        const Text('勇者のステータス',
+            style: TextStyle(color: pnSub, fontSize: 11)),
+        const SizedBox(height: 8),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text('Lv.${p.level}',
+              style: const TextStyle(
+                  color: pnInk, fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(width: 8),
+          const Text('見習い冒険者',
+              style: TextStyle(color: pnSub, fontSize: 12)),
+        ]),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+              value: (p.xp % 100) / 100,
+              minHeight: 8,
+              backgroundColor: pnBg,
+              color: pnPurple),
+        ),
+        const SizedBox(height: 8),
+        Text('獲得ポイント　${p.xp} ポイント',
+            style: const TextStyle(color: pnSub, fontSize: 12)),
+        const SizedBox(height: 12),
+        Container(height: 1, color: pnLine),
+        const SizedBox(height: 10),
+        const Text('きせかえ',
+            style: TextStyle(
+                color: pnSub, fontSize: 11, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          for (final (i, o) in kOutfits.indexed)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Tooltip(
+                message: o.$1,
+                child: GestureDetector(
+                  onTap: () => ref.read(outfitProvider.notifier).select(i),
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: o.$4,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: i == outfit ? pnInk : pnLine,
+                          width: i == outfit ? 2 : 1.5),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                            color: o.$2, shape: BoxShape.circle),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ]),
+        const SizedBox(height: 4),
+        const Text('タップして服の色を変えられるよ',
+            style: TextStyle(color: pnSub, fontSize: 10)),
+      ]),
+    );
+  }
+
+  /// EXP + 6スキルバーの一枚カード。
+  Widget _skillsCard(UserProgress p, double Function(int) skillValue) {
+    return PnPanel(
+      padding: const EdgeInsets.all(16),
+      child: Column(children: [
+        Row(children: [
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: pnBg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: pnLine),
+            ),
+            child: Text('Lv.${p.level}',
+                style: const TextStyle(
+                    color: pnInk,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Text('EXP',
+                        style: TextStyle(
+                            color: pnSub,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    Text('${p.xp} / 100',
+                        style: const TextStyle(
+                            color: pnInk,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800)),
+                  ]),
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                        value: (p.xp % 100) / 100,
+                        minHeight: 7,
+                        backgroundColor: pnBg,
+                        color: const Color(0xFFE98FA9)),
+                  ),
+                ]),
+          ),
+        ]),
+        const SizedBox(height: 18),
+        for (final (i, cat) in _categories.indexed) ...[
+          if (i > 0) const SizedBox(height: 14),
+          Row(children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: cat.$3,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(cat.$2, color: pnInk, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Text(cat.$1,
+                          style: const TextStyle(
+                              color: pnInk,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800)),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: pnBg,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Text('Lv.1',
+                            style: TextStyle(
+                                color: pnSub,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800)),
+                      ),
+                    ]),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                          value: skillValue(i),
+                          minHeight: 7,
+                          backgroundColor: pnBg,
+                          color: cat.$3),
+                    ),
+                  ]),
+            ),
+          ]),
+        ],
+      ]),
     );
   }
 }
