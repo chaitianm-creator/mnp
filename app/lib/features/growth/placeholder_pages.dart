@@ -352,22 +352,279 @@ class SkillsPage extends ConsumerWidget {
   }
 }
 
-/// スキルバー(プロフィールで使用): 角丸2トーンの進捗バー。
-class _SkillBar extends StatelessWidget {
-  const _SkillBar({required this.value, required this.color});
-  final double value; // 0.0-1.0
-  final Color color;
+/// SC-50 わたし(ギルドカード) = PRO NAVI ワイヤーフレーム4a/4b準拠。
+/// 共通シェル(右レールなし)にプロフィール/ぼうけんの記録/じっせきバッジ/
+/// みぽりん先生からのメッセージを差し込む。
+class ProfilePage extends ConsumerWidget {
+  const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: LinearProgressIndicator(
-          value: value.clamp(0.0, 1.0),
-          minHeight: 8,
-          backgroundColor: const Color(0xFFF7F5EF),
-          color: color),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = ref.watch(userProgressProvider);
+    final account = ref.watch(accountProvider);
+    final outfit = ref.watch(outfitProvider);
+    final delivered = p.deliveredQuestIds.length;
+
+    // 実績バッジ(DEMO: 進捗から判定。本番は achievements コレクション)
+    final badges = [
+      ('はじめての納品', Icons.emoji_events_rounded, const Color(0xFFF2DFA7),
+          delivered >= 1),
+      ('おかわり達人', Icons.replay_rounded, const Color(0xFFF4B8C8),
+          delivered >= 2),
+      ('よやく上手', Icons.mail_rounded, const Color(0xFFB8D4EE),
+          p.reservedQuestId != null),
+      ('3日れんぞく', Icons.favorite_rounded, const Color(0xFFF0C9D6),
+          p.streak >= 3),
+      ('エリア①クリア', Icons.flag_rounded, const Color(0xFFC4E0B2),
+          (p.areaDelivered['area_01_hajimari'] ?? 0) >= 12),
+      ('王国認定', Icons.workspace_premium_rounded,
+          const Color(0xFFE3C57C), false), // v1.1
+    ];
+
+    return PnShell(
+      current: 'わたし',
+      spTitle: 'わたし',
+      showRail: false,
+      mainBuilder: (context, wide) => [
+        // ── 上部バー(タイトル + Lv + 設定) ──
+        Row(children: [
+          const Text('わたし',
+              style: TextStyle(
+                  color: pnInk, fontSize: 18, fontWeight: FontWeight.w900)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: pnYellow.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text('Lv.${p.level}',
+                style: const TextStyle(
+                    color: pnInk,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900)),
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            icon: const Icon(Icons.settings_rounded, size: 20, color: pnSub),
+            onPressed: () => context.push('/settings'),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        // ── プロフィールカード ──
+        PnPanel(
+          padding: const EdgeInsets.all(18),
+          child: Column(children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: pnPink,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: PixelSprite(
+                  rows: heroineFrontRows,
+                  palette: heroinePaletteFor(outfit),
+                  width: 96),
+            ),
+            const SizedBox(height: 10),
+            Text(account?.nickname ?? 'デザイン見習い',
+                style: const TextStyle(
+                    color: pnInk, fontSize: 17, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 2),
+            const Text('〜 王国認定デザイナーを目指して 〜',
+                style: TextStyle(color: pnSub, fontSize: 11.5)),
+            const SizedBox(height: 14),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: pnBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: pnLine),
+                ),
+                child: Text('Lv.${p.level}',
+                    style: const TextStyle(
+                        color: pnInk,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        const Text('EXP',
+                            style: TextStyle(
+                                color: pnSub,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700)),
+                        const Spacer(),
+                        Text('${p.xp} / 100',
+                            style: const TextStyle(
+                                color: pnInk,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800)),
+                      ]),
+                      const SizedBox(height: 5),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                            value: (p.xp % 100) / 100,
+                            minHeight: 7,
+                            backgroundColor: pnBg,
+                            color: const Color(0xFFE98FA9)),
+                      ),
+                    ]),
+              ),
+            ]),
+          ]),
+        ),
+        const SizedBox(height: 20),
+        _chipHeader('ぼうけんの記録'),
+        const SizedBox(height: 12),
+        PnPanel(
+          child: Column(children: [
+            _statRow(const Color(0xFFF2DFA7), Icons.auto_awesome_rounded,
+                'けいけんち', '${p.xp}'),
+            _divider(),
+            _statRow(const Color(0xFFF4CBA8),
+                Icons.monetization_on_rounded, 'コイン', '${p.coins}'),
+            _divider(),
+            _statRow(const Color(0xFFF4B8C8), Icons.favorite_rounded,
+                'れんぞく日数', '${p.streak}日'),
+            _divider(),
+            _statRow(const Color(0xFFB8D4EE), Icons.vpn_key_rounded,
+                '宝箱のカギ', '${p.keys}'),
+            _divider(),
+            _statRow(const Color(0xFFC4E0B2), Icons.inventory_2_rounded,
+                '納品したお仕事', '$delivered件'),
+          ]),
+        ),
+        const SizedBox(height: 20),
+        _chipHeader('じっせきバッジ'),
+        const SizedBox(height: 12),
+        PnPanel(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 14,
+            runSpacing: 14,
+            children: [
+              for (final (name, icon, color, earned) in badges)
+                SizedBox(
+                  width: 92,
+                  child: Column(children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: earned ? color : pnBg,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: earned
+                                ? Color.lerp(color, pnInk, 0.25)!
+                                : pnLine,
+                            width: 1.5),
+                      ),
+                      child: Icon(earned ? icon : Icons.lock_rounded,
+                          size: 24, color: earned ? pnInk : pnSub),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(earned ? name : '？？？',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: earned ? pnInk : pnSub,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        _chipHeader('みぽりん先生からのメッセージ'),
+        const SizedBox(height: 12),
+        PnPanel(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(
+                  color: pnPink, shape: BoxShape.circle),
+              child: PixelSprite(
+                  rows: miporinRows(0),
+                  palette: miporinPalette,
+                  width: 40),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                  delivered == 0
+                      ? 'ようこそ、実践デザイナー島へ！\nさいしょの一歩を、いっしょに踏み出そうね♪'
+                      : 'ここまで $delivered件も納品できたね！\nあなたの努力は、ちゃんと未来につながっているよ♡',
+                  style: const TextStyle(
+                      color: pnInk, fontSize: 13.5, height: 1.7)),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        // ── ピンクの帯 ──
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0C9D6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Center(
+            child: Text('✦ きょうのがんばりも、ちゃんと未来につながってるよ♪ ✦',
+                style: TextStyle(
+                    color: Color(0xFF9E5570),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800)),
+          ),
+        ),
+      ],
     );
+  }
+
+  Widget _chipHeader(String label) => Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0C9D6),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(label,
+              style: const TextStyle(
+                  color: Color(0xFF9E5570),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900)),
+        ),
+      );
+
+  Widget _divider() => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Container(height: 1, color: pnLine),
+      );
+
+  Widget _statRow(Color color, IconData icon, String label, String value) {
+    return Row(children: [
+      Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+            color: color, borderRadius: BorderRadius.circular(9)),
+        child: Icon(icon, size: 16, color: pnInk),
+      ),
+      const SizedBox(width: 10),
+      Text(label, style: const TextStyle(color: pnInk, fontSize: 13.5)),
+      const Spacer(),
+      Text(value,
+          style: const TextStyle(
+              color: Color(0xFFD16E8E),
+              fontSize: 14,
+              fontWeight: FontWeight.w900)),
+    ]);
   }
 }
 
@@ -407,8 +664,7 @@ class _ItemCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(owned ? icon : Icons.lock_rounded,
-              size: 22,
-              color: owned ? const Color(0xFFD16E8E) : pnSub),
+              size: 22, color: owned ? const Color(0xFFD16E8E) : pnSub),
         ),
         const SizedBox(height: 7),
         Text(owned ? name : '？？？',
@@ -433,223 +689,5 @@ class _ItemCard extends StatelessWidget {
         ),
       ]),
     );
-  }
-}
-
-/// SC-50 プロフィール = 冒険者カード。
-/// キャラクターカード + ステータス + 実績バッジ + みぽりん先生からのメッセージ。
-class ProfilePage extends ConsumerWidget {
-  const ProfilePage({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = ref.watch(userProgressProvider);
-    final delivered = p.deliveredQuestIds.length;
-
-    // 実績バッジ(DEMO: 進捗から判定。本番は achievements コレクション)
-    final badges = [
-      ('はじめての納品', Icons.emoji_events, KdColors.gold500, delivered >= 1),
-      ('おかわり達人', Icons.replay, KdColors.pink500, delivered >= 2),
-      ('よやく上手', Icons.mail, KdColors.ocean500, p.reservedQuestId != null),
-      ('3日れんぞく', Icons.favorite, KdColors.pink700, p.streak >= 3),
-      ('エリア①クリア', Icons.flag, KdColors.grass500,
-          (p.areaDelivered['area_01_hajimari'] ?? 0) >= 12),
-      ('王国認定', Icons.workspace_premium, KdColors.gold500, false), // v1.1
-    ];
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('わたし'), actions: [
-        IconButton(
-          icon: const Icon(Icons.settings),
-          onPressed: () => context.push('/settings'), // SC-53
-        ),
-      ]),
-      body: SafeArea(
-        child: ListView(padding: const EdgeInsets.all(20), children: [
-          // ── 冒険者カード ──
-          KdParchmentCard(
-            child: Column(children: [
-              // アバター(額入り)
-              Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  color: KdColors.pink100,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: KdColors.pink500, width: 3),
-                  boxShadow: const [
-                    BoxShadow(color: KdColors.pink700, offset: Offset(0, 3)),
-                  ],
-                ),
-                child:
-                    const Icon(Icons.person, size: 48, color: KdColors.pink700),
-              ),
-              const SizedBox(height: 10),
-              Text('デザイン見習い',
-                  style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 2),
-              Text('〜 王国認定デザイナーを目指して 〜',
-                  style: KdTheme.dot(size: 11, color: KdColors.ink900)),
-              const SizedBox(height: 12),
-              Row(children: [
-                // レベル枠(木製プレート様式)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: KdColors.wood900,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: KdColors.gold500, width: 2),
-                  ),
-                  child: Text('Lv.${p.level}',
-                      style: KdTheme.dot(size: 18, color: Colors.white)
-                          .copyWith(fontWeight: FontWeight.w700)),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          Text('EXP',
-                              style: KdTheme.dot(
-                                      size: 12, color: KdColors.ink900)
-                                  .copyWith(fontWeight: FontWeight.w700)),
-                          const Spacer(),
-                          Text('${p.xp} / 100',
-                              style: KdTheme.dot(
-                                  size: 12, color: KdColors.ink900)),
-                        ]),
-                        const SizedBox(height: 4),
-                        _SkillBar(
-                            value: (p.xp % 100) / 100,
-                            color: KdColors.grass500),
-                      ]),
-                ),
-              ]),
-            ]),
-          ),
-          const SizedBox(height: 20),
-          // ── ぼうけんの記録(ステータス) ──
-          Center(child: KdRibbonBanner('ぼうけんの記録', fontSize: 14)),
-          const SizedBox(height: 12),
-          KdParchmentCard(
-            child: Column(children: [
-              _statRow(context, Icons.auto_awesome, KdColors.gold500,
-                  'けいけんち', '${p.xp}'),
-              const Divider(height: 14),
-              _statRow(context, Icons.monetization_on, KdColors.gold500,
-                  'コイン', '${p.coins}'),
-              const Divider(height: 14),
-              _statRow(context, Icons.favorite, KdColors.pink500,
-                  'れんぞく日数', '${p.streak}日'),
-              const Divider(height: 14),
-              _statRow(context, Icons.vpn_key, KdColors.gold500,
-                  '宝箱のカギ', '${p.keys}'),
-              const Divider(height: 14),
-              _statRow(context, Icons.inventory, KdColors.wood700,
-                  '納品したお仕事', '$delivered件'),
-            ]),
-          ),
-          const SizedBox(height: 20),
-          // ── じっせきバッジ ──
-          Center(child: KdRibbonBanner('じっせきバッジ', fontSize: 14)),
-          const SizedBox(height: 12),
-          KdParchmentCard(
-            child: Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 14,
-              runSpacing: 14,
-              children: [
-                for (final (name, icon, color, earned) in badges)
-                  SizedBox(
-                    width: 92,
-                    child: Column(children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: earned
-                              ? color
-                              : KdColors.border.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                              color: earned
-                                  ? KdColors.wood900
-                                  : KdColors.border,
-                              width: 2),
-                          boxShadow: earned
-                              ? [
-                                  BoxShadow(
-                                      color: Color.lerp(
-                                          color, KdColors.wood900, 0.35)!,
-                                      offset: const Offset(0, 3)),
-                                ]
-                              : null,
-                        ),
-                        child: Icon(earned ? icon : Icons.lock,
-                            size: 26,
-                            color: earned
-                                ? Colors.white
-                                : KdColors.textSecondary),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(earned ? name : '？？？',
-                          textAlign: TextAlign.center,
-                          style: KdTheme.dot(
-                              size: 11,
-                              color: earned
-                                  ? KdColors.ink900
-                                  : KdColors.textSecondary)),
-                    ]),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          // ── みぽりん先生からのメッセージ ──
-          Center(child: KdRibbonBanner('みぽりん先生からのメッセージ', fontSize: 14)),
-          const SizedBox(height: 12),
-          KdParchmentCard(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: KdColors.pink100,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: KdColors.pink500, width: 2),
-                ),
-                child: const Icon(Icons.favorite,
-                    color: KdColors.pink500, size: 26),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                    delivered == 0
-                        ? 'ようこそ、デザイン王国へ！\nさいしょの一歩を、いっしょに\n踏み出そうね♪'
-                        : 'ここまで $delivered件も納品できたね！\nあなたの努力は、ちゃんと\n未来につながっているよ♡',
-                    style: Theme.of(context).textTheme.bodyLarge),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 16),
-          const KdBandMessage('きょうのがんばりも、ちゃんと未来につながってるよ♪'),
-        ]),
-      ),
-    );
-  }
-
-  Widget _statRow(BuildContext context, IconData icon, Color color,
-      String label, String value) {
-    return Row(children: [
-      Icon(icon, size: 20, color: color),
-      const SizedBox(width: 10),
-      Text(label, style: Theme.of(context).textTheme.bodyLarge),
-      const Spacer(),
-      Text(value,
-          style: KdTheme.dot(size: 15, color: KdColors.heading)
-              .copyWith(fontWeight: FontWeight.w700)),
-    ]);
   }
 }

@@ -79,11 +79,13 @@ class PnShell extends ConsumerStatefulWidget {
     required this.current, // サイドメニューのハイライト('ホーム'/'冒険マップ' 等)
     required this.mainBuilder, // メインカラムの中身(wide: PC3カラムかどうか)
     this.spTitle = 'MIPORIN', // SPヘッダーのタイトル
+    this.showRail = true, // PCの右レール(主人公/記録)を出すか
   });
 
   final String current;
   final List<Widget> Function(BuildContext context, bool wide) mainBuilder;
   final String spTitle;
+  final bool showRail;
 
   @override
   ConsumerState<PnShell> createState() => _PnShellState();
@@ -170,10 +172,12 @@ class _PnShellState extends ConsumerState<PnShell> {
       children: [
         ...widget.mainBuilder(context, false),
         const SizedBox(height: 18),
-        _heroineCard(),
-        const SizedBox(height: 10),
-        _recordCard(),
-        const SizedBox(height: 10),
+        if (widget.showRail) ...[
+          _heroineCard(),
+          const SizedBox(height: 10),
+          _recordCard(),
+          const SizedBox(height: 10),
+        ],
         _timerCard(),
         const SizedBox(height: 10),
         _zoomCard(),
@@ -199,15 +203,17 @@ class _PnShellState extends ConsumerState<PnShell> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: widget.mainBuilder(context, true)),
                 ),
-                const SizedBox(width: 18),
-                SizedBox(
-                  width: 300,
-                  child: Column(children: [
-                    _heroineCard(),
-                    const SizedBox(height: 12),
-                    _recordCard(),
-                  ]),
-                ),
+                if (widget.showRail) ...[
+                  const SizedBox(width: 18),
+                  SizedBox(
+                    width: 300,
+                    child: Column(children: [
+                      _heroineCard(),
+                      const SizedBox(height: 12),
+                      _recordCard(),
+                    ]),
+                  ),
+                ],
               ]),
               const SizedBox(height: 26),
               _footer(),
@@ -222,11 +228,12 @@ class _PnShellState extends ConsumerState<PnShell> {
   Widget _sideMenu({bool embedded = false}) {
     final items = [
       ('ホーム', Icons.home_rounded, '/home'),
-      ('冒険日誌', Icons.menu_book_rounded, '/skills'),
+      ('冒険日誌', Icons.menu_book_rounded, null),
       ('冒険マップ', Icons.map_rounded, '/map'),
       ('もくもく学習室', Icons.edit_note_rounded, '/workshop'),
+      ('スキル', Icons.auto_awesome_rounded, '/skills'),
       ('お役立ちショップ', Icons.storefront_rounded, null),
-      ('ギルドカード', Icons.badge_rounded, null),
+      ('わたし', Icons.person_rounded, '/profile'),
     ];
     final menu = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -501,8 +508,8 @@ class _PnShellState extends ConsumerState<PnShell> {
 
   Widget _footer() {
     const links = [
-      'ホーム', '冒険日誌', '冒険マップ', 'もくもく学習室',
-      'お役立ちショップ', 'ギルドカード', 'よくある質問', 'お問い合わせ',
+      'ホーム', '冒険日誌', '冒険マップ', 'もくもく学習室', 'スキル',
+      'お役立ちショップ', 'わたし', 'よくある質問', 'お問い合わせ',
       '利用規約', 'プライバシーポリシー',
     ];
     return Container(
@@ -527,6 +534,10 @@ class _PnShellState extends ConsumerState<PnShell> {
                       context.go('/map');
                     case 'もくもく学習室':
                       context.push('/workshop');
+                    case 'スキル':
+                      context.go('/skills');
+                    case 'わたし':
+                      context.go('/profile');
                     default:
                       _comingSoon(l);
                   }
