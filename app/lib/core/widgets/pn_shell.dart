@@ -77,10 +77,12 @@ class PnShell extends ConsumerStatefulWidget {
     super.key,
     required this.current, // サイドメニューのハイライト('ホーム'/'冒険マップ' 等)
     required this.mainBuilder, // メインカラムの中身(wide: PC3カラムかどうか)
+    this.spTitle = 'MIPORIN', // SPヘッダーのタイトル
   });
 
   final String current;
   final List<Widget> Function(BuildContext context, bool wide) mainBuilder;
+  final String spTitle;
 
   @override
   ConsumerState<PnShell> createState() => _PnShellState();
@@ -135,8 +137,8 @@ class _PnShellState extends ConsumerState<PnShell> {
               backgroundColor: pnBg,
               foregroundColor: pnInk,
               elevation: 0,
-              title: const Text('MIPORIN',
-                  style: TextStyle(
+              title: Text(widget.spTitle,
+                  style: const TextStyle(
                       fontWeight: FontWeight.w900, letterSpacing: 2)),
               actions: [
                 if (nickname != null)

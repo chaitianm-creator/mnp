@@ -57,7 +57,9 @@ void main() {
     expect(find.text('ミッション発生！'), findsOneWidget);
     await tapAndSettle(tester, find.text('ゲーム開始'));
 
-    // 実践デザイナー島(マップ)へ遷移
+    // 実践デザイナー島(ワールドマップ)へ遷移(現在地カードまでスクロール)
+    await tester.scrollUntilVisible(find.text('はじまりの街（みぽりん村）'), 300,
+        scrollable: find.byType(Scrollable).first);
     expect(find.text('はじまりの街（みぽりん村）'), findsOneWidget);
   });
 
