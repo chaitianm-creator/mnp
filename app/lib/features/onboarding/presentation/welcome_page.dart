@@ -18,8 +18,10 @@ class WelcomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: pnBg,
       body: Stack(children: [
-        // ── 背景イラスト(村の道・家々) ──
-        buildStoryScene('village_path_plain'),
+        // ── 背景(なめらかなクリーンイラスト。キャラのみドットのまま) ──
+        const Positioned.fill(
+          child: CustomPaint(painter: _WelcomeBackdropPainter()),
+        ),
         // ── キャラクター(みぽりん先生 & 主人公) ──
         Positioned(
           left: size.width * 0.07,
@@ -172,4 +174,98 @@ class WelcomePage extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// タイトル画面のクリーン背景。ドットのグリッドを使わず、
+/// なめらかなグラデーションと丸いシルエットで島の風景を描く。
+class _WelcomeBackdropPainter extends CustomPainter {
+  const _WelcomeBackdropPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+
+    // 空(上から下へやわらかいグラデーション)
+    final sky = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFAECBEB), Color(0xFFD7E7F5), Color(0xFFF3F0E4)],
+        stops: [0.0, 0.55, 0.78],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, sky);
+
+    // 太陽(淡い光の輪つき)
+    final sunC = Offset(w * 0.82, h * 0.13);
+    canvas.drawCircle(
+        sunC, w * 0.13, Paint()..color = const Color(0x33FBE8A6));
+    canvas.drawCircle(
+        sunC, w * 0.075, Paint()..color = const Color(0x66FBE8A6));
+    canvas.drawCircle(sunC, w * 0.045, Paint()..color = const Color(0xFFFCE9A8));
+
+    // 雲(ふんわり白)
+    void cloud(double cx, double cy, double s, double opacity) {
+      final p = Paint()..color = Colors.white.withOpacity(opacity);
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(cx, cy), width: 120 * s, height: 34 * s),
+          p);
+      canvas.drawCircle(Offset(cx - 28 * s, cy - 2 * s), 20 * s, p);
+      canvas.drawCircle(Offset(cx + 6 * s, cy - 12 * s), 24 * s, p);
+      canvas.drawCircle(Offset(cx + 34 * s, cy - 3 * s), 17 * s, p);
+    }
+
+    cloud(w * 0.2, h * 0.1, w / 430 * 0.9, 0.95);
+    cloud(w * 0.62, h * 0.2, w / 430 * 0.6, 0.8);
+    cloud(w * 0.1, h * 0.28, w / 430 * 0.5, 0.65);
+
+    // 海(遠景の帯) + 島影
+    final seaTop = h * 0.62;
+    canvas.drawRect(Rect.fromLTWH(0, seaTop, w, h * 0.1),
+        Paint()..color = const Color(0xFFBBD8EE));
+    canvas.drawRect(Rect.fromLTWH(0, seaTop, w, h * 0.012),
+        Paint()..color = const Color(0xFFD8E9F6));
+    // 島影(中央奥に山のある島)
+    final island = Path()
+      ..moveTo(w * 0.30, seaTop + h * 0.02)
+      ..quadraticBezierTo(
+          w * 0.42, seaTop - h * 0.075, w * 0.52, seaTop + h * 0.005)
+      ..quadraticBezierTo(
+          w * 0.62, seaTop - h * 0.035, w * 0.72, seaTop + h * 0.02)
+      ..lineTo(w * 0.72, seaTop + h * 0.03)
+      ..lineTo(w * 0.30, seaTop + h * 0.03)
+      ..close();
+    canvas.drawPath(island, Paint()..color = const Color(0xFF9DBBD4));
+
+    // 手前の丘(2枚重ねのやわらかい緑)
+    final hillBack = Path()
+      ..moveTo(0, h * 0.76)
+      ..quadraticBezierTo(w * 0.28, h * 0.665, w * 0.58, h * 0.735)
+      ..quadraticBezierTo(w * 0.82, h * 0.79, w, h * 0.72)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+    canvas.drawPath(hillBack, Paint()..color = const Color(0xFFCFE6BA));
+    final hillFront = Path()
+      ..moveTo(0, h * 0.85)
+      ..quadraticBezierTo(w * 0.32, h * 0.775, w * 0.62, h * 0.845)
+      ..quadraticBezierTo(w * 0.85, h * 0.895, w, h * 0.83)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+    canvas.drawPath(hillFront, Paint()..color = const Color(0xFFA8D18F));
+
+    // 丘の上の小さな草(丸ドット風のアクセント・なめらか描画)
+    final grass = Paint()..color = const Color(0x593E5C33);
+    for (final (fx, fy) in [
+      (0.12, 0.9), (0.24, 0.87), (0.4, 0.885), (0.58, 0.9),
+      (0.72, 0.915), (0.86, 0.885), (0.94, 0.93), (0.06, 0.95),
+    ]) {
+      canvas.drawCircle(Offset(w * fx, h * fy), 3.2, grass);
+      canvas.drawCircle(Offset(w * fx + 7, h * fy + 3), 2.2, grass);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
