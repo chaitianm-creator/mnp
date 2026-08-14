@@ -96,17 +96,41 @@ void _cloud(Canvas canvas, double cx, double cy, double s, double opacity) {
 }
 
 void _tree(Canvas canvas, double cx, double groundY, double s) {
+  // 落ち影(どうぶつの森風のやわらかい楕円)
+  canvas.drawOval(
+      Rect.fromCenter(
+          center: Offset(cx, groundY), width: 34 * s, height: 9 * s),
+      Paint()..color = const Color(0x22304018));
   canvas.drawRRect(
       RRect.fromRectAndRadius(
           Rect.fromLTWH(cx - 3 * s, groundY - 22 * s, 6 * s, 22 * s),
           Radius.circular(3 * s)),
       Paint()..color = const Color(0xFF9A6B45));
+  // もこもこの樹冠(3層)
+  final leafDark = Paint()..color = const Color(0xFF6FAF5C);
+  canvas.drawCircle(Offset(cx - 9 * s, groundY - 21 * s), 10 * s, leafDark);
+  canvas.drawCircle(Offset(cx + 9 * s, groundY - 21 * s), 10 * s, leafDark);
   final leaf = Paint()..color = const Color(0xFF8CC178);
   canvas.drawCircle(Offset(cx, groundY - 30 * s), 14 * s, leaf);
-  canvas.drawCircle(Offset(cx - 10 * s, groundY - 24 * s), 10 * s, leaf);
-  canvas.drawCircle(Offset(cx + 10 * s, groundY - 24 * s), 10 * s, leaf);
-  canvas.drawCircle(Offset(cx - 3 * s, groundY - 34 * s), 8 * s,
+  canvas.drawCircle(Offset(cx - 10 * s, groundY - 25 * s), 10 * s, leaf);
+  canvas.drawCircle(Offset(cx + 10 * s, groundY - 25 * s), 10 * s, leaf);
+  canvas.drawCircle(Offset(cx - 4 * s, groundY - 35 * s), 8 * s,
       Paint()..color = const Color(0xFFA9D494));
+  canvas.drawCircle(Offset(cx + 6 * s, groundY - 33 * s), 5 * s,
+      Paint()..color = const Color(0xFFA9D494));
+}
+
+/// 草の房(どうぶつの森風の小さな3本草)。
+void _tuft(Canvas canvas, double x, double y, double s,
+    [Color color = const Color(0x4D3E7A2E)]) {
+  final p = Paint()
+    ..color = color
+    ..strokeWidth = 1.8 * s
+    ..strokeCap = StrokeCap.round
+    ..style = PaintingStyle.stroke;
+  canvas.drawLine(Offset(x, y), Offset(x - 2.4 * s, y - 4 * s), p);
+  canvas.drawLine(Offset(x, y), Offset(x + 0.4 * s, y - 5 * s), p);
+  canvas.drawLine(Offset(x, y), Offset(x + 2.8 * s, y - 3.6 * s), p);
 }
 
 void _flower(Canvas canvas, double cx, double cy, Color color) {
@@ -785,8 +809,14 @@ class _CleanIslandPainter extends CustomPainter {
             h * (0.67 + rng.nextDouble() * 0.035),
             [Colors.white, const Color(0xFFF2A5C0), const Color(0xFFF6D96B)][i % 3]);
       }
-      // 主人公(後ろ姿・ドットのまま)
+      // 主人公(後ろ姿・ドットのまま + 足元の影)
       final unit = math.max(1.6, 160 / 84) * (w / 160);
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(w * 0.08 + 8 * unit, h * 0.56 + 20.4 * unit),
+              width: 13 * unit,
+              height: 3 * unit),
+          Paint()..color = const Color(0x26304018));
       drawPixelSprite(
           canvas, heroineBackRows, heroinePalette, w * 0.08, h * 0.56, unit);
     }
@@ -861,6 +891,19 @@ class _CleanSignboardPainter extends CustomPainter {
 
     palm(w * 0.09, h * 0.62, w / 430 * 1.1);
     palm(w * 0.91, h * 0.66, w / 430 * 1.3);
+    // 足元の影と草の房
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(w * 0.09, h * 0.62), width: w * 0.1, height: h * 0.014),
+        Paint()..color = const Color(0x26203818));
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(w * 0.91, h * 0.66), width: w * 0.12, height: h * 0.016),
+        Paint()..color = const Color(0x26203818));
+    for (var i = 0; i < 18; i++) {
+      _tuft(canvas, rng.nextDouble() * w, h * (0.45 + rng.nextDouble() * 0.5),
+          w / 430, const Color(0x40234F1A));
+    }
 
     // 大看板(丸角の木板 + 支柱 + つた + 花)
     final bx = w * 0.17, by = h * 0.27, bw = w * 0.66, bh = h * 0.3;
@@ -930,7 +973,7 @@ class _CleanVillagePathPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
     _skyGradient(canvas, size,
-        const [Color(0xFFAECBEB), Color(0xFFDDE9F5)], heightFactor: 0.36);
+        const [Color(0xFFAECBEB), Color(0xFFDDE9F5)], heightFactor: 0.4);
     _cloud(canvas, w * 0.22, h * 0.08, w / 900, 0.95);
     _cloud(canvas, w * 0.7, h * 0.13, w / 1100, 0.85);
     // 遠山
@@ -946,10 +989,16 @@ class _CleanVillagePathPainter extends CustomPainter {
             height: h * 0.11),
         farHill);
 
-    // 草地
-    final grassRect = Rect.fromLTWH(0, h * 0.36, w, h * 0.64);
-    canvas.drawRect(
-        grassRect,
+    // 草地(まるい丘の稜線 — どうぶつの森風)
+    final grassRect = Rect.fromLTWH(0, h * 0.33, w, h * 0.67);
+    final grassPath = Path()
+      ..moveTo(0, h * 0.385)
+      ..quadraticBezierTo(w * 0.5, h * 0.335, w, h * 0.38)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+    canvas.drawPath(
+        grassPath,
         Paint()
           ..shader = const LinearGradient(
             begin: Alignment.topCenter,
@@ -999,9 +1048,15 @@ class _CleanVillagePathPainter extends CustomPainter {
       }
     }
 
-    // 家(クリーンな洋風ハウス)
+    // 家(クリーンな洋風ハウス + やわらかい落ち影)
     void house(double hx, double hy, double s, Color roof) {
       final bw = w * 0.21 * s, bh = bw * 0.62;
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(hx + bw / 2, hy + bh),
+              width: bw * 1.15,
+              height: bh * 0.16),
+          Paint()..color = const Color(0x22304018));
       canvas.drawRRect(
           RRect.fromRectAndRadius(
               Rect.fromLTWH(hx, hy, bw, bh), Radius.circular(bw * 0.05)),
@@ -1042,17 +1097,32 @@ class _CleanVillagePathPainter extends CustomPainter {
     house(w * 0.17, h * 0.365, 0.8, const Color(0xFFE0B268));
     house(w * 0.63, h * 0.365, 0.75, const Color(0xFF8CC178));
 
-    // 花・草
+    // 街路樹(左右)
+    _tree(canvas, w * 0.06, h * 0.55, w / 480);
+    _tree(canvas, w * 0.94, h * 0.585, w / 430);
+
+    // 花・草の房
     for (var i = 0; i < 20; i++) {
       final fx = rng.nextDouble() * w;
       if (fx > w * 0.32 && fx < w * 0.68) continue;
       _flower(canvas, fx, h * (0.5 + rng.nextDouble() * 0.46),
           [Colors.white, const Color(0xFFF2A5C0), const Color(0xFFF6D96B)][i % 3]);
     }
+    for (var i = 0; i < 26; i++) {
+      final fx = rng.nextDouble() * w;
+      if (fx > w * 0.34 && fx < w * 0.66) continue;
+      _tuft(canvas, fx, h * (0.44 + rng.nextDouble() * 0.52), w / 430);
+    }
 
-    // 主人公(後ろ姿・ドットのまま)
+    // 主人公(後ろ姿・ドットのまま + 足元の影)
     if (withHeroine) {
       final unit = 1.5 * (w / 160);
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(w / 2, h * 0.68 + 20.4 * unit),
+              width: 13 * unit,
+              height: 3 * unit),
+          Paint()..color = const Color(0x26304018));
       drawPixelSprite(canvas, heroineBackRows, heroinePalette,
           w / 2 - 8 * unit, h * 0.68, unit);
     }
@@ -1096,6 +1166,11 @@ class _CleanBakeryPainter extends CustomPainter {
         Rect.fromCenter(
             center: Offset(w * 0.85, h * 0.34), width: w * 0.18, height: h * 0.1),
         Paint()..color = const Color(0xFF5CA649));
+    // 生け垣の草の房
+    for (var i = 0; i < 10; i++) {
+      _tuft(canvas, rng.nextDouble() * w, h * (0.34 + rng.nextDouble() * 0.12),
+          w / 500, const Color(0x40295C1E));
+    }
 
     // 地面(土)
     final groundRect = Rect.fromLTWH(0, h * 0.46, w, h * 0.54);
@@ -1123,6 +1198,13 @@ class _CleanBakeryPainter extends CustomPainter {
     final u = w / 160;
     final sx = -6 * u, sy = h * 0.14, sw = w * (land ? 0.45 : 0.72),
         sh = h * 0.36;
+    // 店の落ち影
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(sx + sw / 2, sy + sh + 4),
+            width: sw * 1.06,
+            height: h * 0.03),
+        Paint()..color = const Color(0x1F30301A));
     // 壁
     canvas.drawRRect(
         RRect.fromRectAndCorners(Rect.fromLTWH(sx, sy, sw, sh),
@@ -1269,6 +1351,20 @@ class _CleanCharacterScene extends StatelessWidget {
           const Positioned.fill(
             child:
                 CustomPaint(painter: _CleanIslandPainter(withHeroine: false)),
+          ),
+          // 足元のやわらかい影
+          Positioned(
+            right: pose == 2 ? null : c.maxWidth * 0.03 + spriteW * 0.1,
+            left: pose == 2 ? c.maxWidth * 0.05 + spriteW * 0.1 : null,
+            bottom: (pose == 2 ? 0 : c.maxHeight * 0.155) - 5,
+            child: Container(
+              width: spriteW * 0.8,
+              height: (spriteW * 0.13).clamp(8.0, 18.0),
+              decoration: BoxDecoration(
+                color: const Color(0x26304018),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
           ),
           Positioned(
             right: pose == 2 ? null : c.maxWidth * 0.03,

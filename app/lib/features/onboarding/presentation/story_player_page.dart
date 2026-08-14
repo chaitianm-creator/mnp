@@ -187,6 +187,16 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
       // ── パン屋・主人公のスプライト(会話シーン) ──
       if (page.scene == 'bakery') ...[
         // PC(WF17a)では店の右横に2人を並べる。SPは店の前(左右)に立たせる。
+        // 足元にはどうぶつの森風のやわらかい落ち影。
+        Positioned(
+          left: size.width * (wide ? 0.55 : 0.1) +
+              (wide ? size.height * 0.026 : size.width * 0.03),
+          bottom: size.height * (wide ? 0.30 : 0.24) - 5,
+          child: IgnorePointer(
+            child: _SpriteShadow(
+                width: (wide ? size.height * 0.26 : size.width * 0.3) * 0.8),
+          ),
+        ),
         Positioned(
           left: size.width * (wide ? 0.55 : 0.1),
           bottom: size.height * (wide ? 0.30 : 0.24),
@@ -195,6 +205,15 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
                 rows: bakerRows,
                 palette: bakerPalette,
                 width: wide ? size.height * 0.26 : size.width * 0.3),
+          ),
+        ),
+        Positioned(
+          right: size.width * (wide ? 0.14 : 0.06) +
+              (wide ? size.height * 0.022 : size.width * 0.026),
+          bottom: size.height * (wide ? 0.28 : 0.24) - 5,
+          child: IgnorePointer(
+            child: _SpriteShadow(
+                width: (wide ? size.height * 0.22 : size.width * 0.26) * 0.8),
           ),
         ),
         Positioned(
@@ -704,6 +723,22 @@ class _MissionCard extends StatelessWidget {
                   fontSize: 14.5,
                   fontWeight: FontWeight.w900)),
         ]),
+      );
+}
+
+/// キャラの足元のやわらかい落ち影(どうぶつの森風)。
+class _SpriteShadow extends StatelessWidget {
+  const _SpriteShadow({required this.width});
+  final double width;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: width,
+        height: (width * 0.16).clamp(8.0, 16.0),
+        decoration: BoxDecoration(
+          color: const Color(0x26304018),
+          borderRadius: BorderRadius.circular(999),
+        ),
       );
 }
 
