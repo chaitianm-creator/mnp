@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
+import 'package:design_kingdom/features/onboarding/presentation/story_scenes_clean.dart';
 import 'package:design_kingdom/features/quest/presentation/view_models/quest_play_view_model.dart';
 
 /// みぽりん村の村内マップ(SC-31 町ビューの核心)。
@@ -240,9 +241,8 @@ class _VillagePainter extends CustomPainter {
 
   static const _grass = Color(0xFF77B94C);
   static const _grassLight = Color(0xFF85C55C);
-  static const _grassDark = Color(0xFF69AC41);
-  static const _river = Color(0xFF3D8FE0);
-  static const _riverLight = Color(0xFF7FB9F0);
+  static const _river = Color(0xFF85C4E8);
+  static const _riverLight = Colors.white;
   static const _stone = Color(0xFFE3C99A);
   static const _stoneEdge = Color(0xFFC2A26B);
 
@@ -253,45 +253,60 @@ class _VillagePainter extends CustomPainter {
     final rng = math.Random(5);
     final p = Paint();
 
-    // ── 草地 ──
+    // ── 草地(どうぶつの森風の紙吹雪パターン) ──
     p.color = _grass;
     canvas.drawRect(Offset.zero & size, p);
-    for (var i = 0; i < (size.width * size.height) / 1100; i++) {
-      final x = rng.nextDouble() * size.width;
-      final y = rng.nextDouble() * size.height;
-      p.color = rng.nextBool() ? _grassDark : _grassLight;
-      canvas.drawRect(
-          Rect.fromLTWH(x.floorToDouble(), y.floorToDouble(), 6, 6), p);
+    acGrassSpeckle(canvas, Offset.zero & size, math.Random(75),
+        step: (size.width / 24).clamp(30.0, 64.0),
+        color: const Color(0x161E5216));
+    // 草の房
+    for (var i = 0; i < 24; i++) {
+      acTuft(canvas, rng.nextDouble() * size.width,
+          rng.nextDouble() * size.height, 1.2, const Color(0x40295C1E));
     }
 
-    // ── 村を囲む川(左下と右の縁) ──
+    // ── 村を囲む川(左下と右の縁・どうぶつの森風の明るい水色) ──
+    final left = Path()
+      ..moveTo(-10, size.height * 0.55)
+      ..quadraticBezierTo(size.width * 0.18, size.height * 0.66,
+          size.width * 0.06, size.height * 0.98);
+    final right = Path()
+      ..moveTo(size.width + 10, size.height * 0.30)
+      ..quadraticBezierTo(size.width * 0.86, size.height * 0.58,
+          size.width + 10, size.height * 0.88);
+    final foam = Paint()
+      ..color = const Color(0x66FFFFFF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 38
+      ..strokeCap = StrokeCap.round;
     final river = Paint()
       ..color = _river
       ..style = PaintingStyle.stroke
       ..strokeWidth = 30
       ..strokeCap = StrokeCap.round;
-    final left = Path()
-      ..moveTo(-10, size.height * 0.55)
-      ..quadraticBezierTo(size.width * 0.18, size.height * 0.66,
-          size.width * 0.06, size.height * 0.98);
+    canvas.drawPath(left, foam);
+    canvas.drawPath(right, foam);
     canvas.drawPath(left, river);
-    final right = Path()
-      ..moveTo(size.width + 10, size.height * 0.30)
-      ..quadraticBezierTo(size.width * 0.86, size.height * 0.58,
-          size.width + 10, size.height * 0.88);
     canvas.drawPath(right, river);
-    // 川面のきらめき
-    p.color = _riverLight;
-    for (var i = 0; i < 10; i++) {
-      final t = rng.nextDouble();
-      canvas.drawRect(
-          Rect.fromLTWH(size.width * (0.02 + 0.14 * t),
-              size.height * (0.60 + 0.34 * t), 10, 3),
-          p);
-      canvas.drawRect(
-          Rect.fromLTWH(size.width * (0.97 - 0.10 * t),
-              size.height * (0.34 + 0.5 * t), 10, 3),
-          p);
+    // 「^」の波マーク
+    final wave = Paint()
+      ..color = const Color(0xAAFFFFFF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 8; i++) {
+      final t = 0.1 + 0.8 * (i / 8);
+      for (final c in [
+        Offset(size.width * (0.035 + 0.11 * t), size.height * (0.58 + 0.37 * t)),
+        Offset(size.width * (0.965 - 0.095 * t), size.height * (0.33 + 0.5 * t)),
+      ]) {
+        canvas.drawPath(
+            Path()
+              ..moveTo(c.dx - 5, c.dy + 3.5)
+              ..lineTo(c.dx, c.dy)
+              ..lineTo(c.dx + 5, c.dy + 3.5),
+            wave);
+      }
     }
 
     // ── 石畳の道(広場から各施設へ) + 中央広場 ──
@@ -366,7 +381,13 @@ class _VillagePainter extends CustomPainter {
       final ok = (Offset(x, y) - plazaC).distance > 95 &&
           facilities.values
               .every((f) => (Offset(x, y) - _p(size, f)).distance > 80);
-      if (ok) _tree(canvas, Offset(x, y));
+      if (ok) {
+        if (i % 3 == 0) {
+          acConifer(canvas, x, y, 0.8);
+        } else {
+          _tree(canvas, Offset(x, y));
+        }
+      }
     }
     for (var i = 0; i < 30; i++) {
       _flower(
@@ -566,22 +587,8 @@ class _VillagePainter extends CustomPainter {
     canvas.drawLine(Offset(c.dx, c.dy - 30), Offset(c.dx, c.dy - 12), outline);
   }
 
-  void _tree(Canvas canvas, Offset base) {
-    canvas.drawRect(
-        Rect.fromCenter(center: base.translate(0, 16), width: 7, height: 10),
-        Paint()..color = const Color(0xFF6D4C2F));
-    final leaf = Paint()..color = const Color(0xFF2E7D32);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromCenter(center: base.translate(0, 4), width: 28, height: 16),
-            const Radius.circular(5)),
-        leaf);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromCenter(center: base.translate(0, -7), width: 20, height: 15),
-            const Radius.circular(5)),
-        leaf);
-  }
+  void _tree(Canvas canvas, Offset base) =>
+      acTree(canvas, base.dx, base.dy + 21, 0.85);
 
   void _lamp(Canvas canvas, Offset base) {
     canvas.drawLine(base, base.translate(0, 26),
@@ -599,18 +606,8 @@ class _VillagePainter extends CustomPainter {
           ..strokeWidth = 2);
   }
 
-  void _flower(Canvas canvas, Offset c, Color color) {
-    final p = Paint()..color = color;
-    canvas.drawRect(Rect.fromCenter(center: c, width: 3, height: 3), p);
-    canvas.drawRect(
-        Rect.fromCenter(center: c.translate(-3, 0), width: 3, height: 3), p);
-    canvas.drawRect(
-        Rect.fromCenter(center: c.translate(3, 0), width: 3, height: 3), p);
-    canvas.drawRect(
-        Rect.fromCenter(center: c.translate(0, -3), width: 3, height: 3), p);
-    canvas.drawRect(
-        Rect.fromCenter(center: c.translate(0, 3), width: 3, height: 3), p);
-  }
+  void _flower(Canvas canvas, Offset c, Color color) =>
+      acFlower(canvas, c.dx, c.dy, color);
 
   @override
   bool shouldRepaint(covariant _VillagePainter old) => false;
