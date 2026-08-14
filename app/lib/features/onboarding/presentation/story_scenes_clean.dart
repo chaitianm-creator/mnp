@@ -86,13 +86,110 @@ void _skyGradient(Canvas canvas, Size size, List<Color> colors,
 }
 
 void _cloud(Canvas canvas, double cx, double cy, double s, double opacity) {
+  // どうぶつの森風: 底が平らなもこもこ雲
   final p = Paint()..color = Colors.white.withOpacity(opacity);
-  canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy), width: 120 * s, height: 34 * s),
+  canvas.drawRRect(
+      RRect.fromRectAndRadius(
+          Rect.fromCenter(
+              center: Offset(cx, cy + 4 * s), width: 110 * s, height: 22 * s),
+          Radius.circular(11 * s)),
       p);
-  canvas.drawCircle(Offset(cx - 28 * s, cy - 2 * s), 20 * s, p);
-  canvas.drawCircle(Offset(cx + 6 * s, cy - 12 * s), 24 * s, p);
-  canvas.drawCircle(Offset(cx + 34 * s, cy - 3 * s), 17 * s, p);
+  canvas.drawCircle(Offset(cx - 24 * s, cy - 4 * s), 15 * s, p);
+  canvas.drawCircle(Offset(cx + 2 * s, cy - 12 * s), 20 * s, p);
+  canvas.drawCircle(Offset(cx + 28 * s, cy - 4 * s), 13 * s, p);
+}
+
+/// 芝生の紙吹雪パターン(小さな三角と点をゆるいグリッドで散らす)。
+void _grassSpeckle(Canvas canvas, Rect area, math.Random rng,
+    {Color color = const Color(0x14204D18), double step = 30}) {
+  final p = Paint()..color = color;
+  for (var y = area.top; y < area.bottom; y += step) {
+    for (var x = area.left + ((y / step).floor().isEven ? 0 : step / 2);
+        x < area.right;
+        x += step) {
+      final jx = x + (rng.nextDouble() - 0.5) * step * 0.5;
+      final jy = y + (rng.nextDouble() - 0.5) * step * 0.5;
+      if (rng.nextBool()) {
+        final a = rng.nextDouble() * math.pi * 2;
+        final path = Path();
+        for (var i = 0; i < 3; i++) {
+          final t = a + i / 3 * math.pi * 2;
+          final px = jx + math.cos(t) * 3.4, py = jy + math.sin(t) * 3.4;
+          i == 0 ? path.moveTo(px, py) : path.lineTo(px, py);
+        }
+        canvas.drawPath(path..close(), p);
+      } else {
+        canvas.drawCircle(Offset(jx, jy), 1.6, p);
+      }
+    }
+  }
+}
+
+/// もみの木(3段の針葉樹 + 落ち影)。
+void _conifer(Canvas canvas, double cx, double groundY, double s) {
+  canvas.drawOval(
+      Rect.fromCenter(
+          center: Offset(cx, groundY), width: 26 * s, height: 7 * s),
+      Paint()..color = const Color(0x22304018));
+  canvas.drawRRect(
+      RRect.fromRectAndRadius(
+          Rect.fromLTWH(cx - 2.5 * s, groundY - 8 * s, 5 * s, 8 * s),
+          Radius.circular(2 * s)),
+      Paint()..color = const Color(0xFF8A5A38));
+  final dark = Paint()..color = const Color(0xFF3E7D53);
+  final light = Paint()..color = const Color(0xFF4E9463);
+  for (var i = 0; i < 3; i++) {
+    final tw = (16 - i * 4) * s;
+    final ty = groundY - 6 * s - i * 11 * s;
+    final tier = Path()
+      ..moveTo(cx - tw, ty)
+      ..quadraticBezierTo(cx - tw * 0.5, ty + 2 * s, cx, ty + 1 * s)
+      ..quadraticBezierTo(cx + tw * 0.5, ty + 2 * s, cx + tw, ty)
+      ..lineTo(cx, ty - 13 * s)
+      ..close();
+    canvas.drawPath(tier, i == 2 ? light : dark);
+  }
+}
+
+/// 遠景の雪山と針葉樹の帯(どうぶつの森風の地平線)。
+void _mountainRange(Canvas canvas, Size size, double baseY) {
+  final w = size.width;
+  void peak(double cx, double pw, double ph, Color body) {
+    final mtn = Path()
+      ..moveTo(cx - pw, baseY)
+      ..lineTo(cx, baseY - ph)
+      ..lineTo(cx + pw, baseY)
+      ..close();
+    canvas.drawPath(mtn, Paint()..color = body);
+    // 雪の帽子(裾を波に)
+    final st = 0.42; // 雪の割合
+    final snow = Path()
+      ..moveTo(cx - pw * st, baseY - ph * (1 - st))
+      ..lineTo(cx, baseY - ph)
+      ..lineTo(cx + pw * st, baseY - ph * (1 - st))
+      ..quadraticBezierTo(cx + pw * st * 0.5, baseY - ph * (1 - st) + 6,
+          cx, baseY - ph * (1 - st))
+      ..quadraticBezierTo(cx - pw * st * 0.5, baseY - ph * (1 - st) + 6,
+          cx - pw * st, baseY - ph * (1 - st))
+      ..close();
+    canvas.drawPath(snow, Paint()..color = Colors.white);
+  }
+
+  peak(w * 0.1, w * 0.09, size.height * 0.075, const Color(0xFF9DB3A4));
+  peak(w * 0.3, w * 0.11, size.height * 0.095, const Color(0xFF8AA697));
+  peak(w * 0.58, w * 0.1, size.height * 0.08, const Color(0xFF9DB3A4));
+  peak(w * 0.82, w * 0.12, size.height * 0.1, const Color(0xFF8AA697));
+  // 針葉樹の帯(丸い峰の連なり)
+  final forest = Path()..moveTo(0, baseY);
+  for (var x = 0.0; x < w; x += w * 0.06) {
+    forest.quadraticBezierTo(x + w * 0.03, baseY - size.height * 0.028,
+        x + w * 0.06, baseY);
+  }
+  forest
+    ..lineTo(w, baseY + 10)
+    ..lineTo(0, baseY + 10)
+    ..close();
+  canvas.drawPath(forest, Paint()..color = const Color(0xFF3E7D67));
 }
 
 void _tree(Canvas canvas, double cx, double groundY, double s) {
@@ -666,7 +763,7 @@ class _CleanIslandPainter extends CustomPainter {
         Rect.fromCenter(
             center: Offset(icx, icy), width: w * 0.72, height: h * 0.456),
         Paint()..color = const Color(0xFF74B858));
-    // 緑の濃淡
+    // 緑の濃淡 + 芝生の紙吹雪パターン
     final grassShade = Paint()..color = const Color(0x2E2E7D32);
     for (var i = 0; i < 14; i++) {
       canvas.drawOval(
@@ -677,6 +774,13 @@ class _CleanIslandPainter extends CustomPainter {
               height: h * (0.02 + rng.nextDouble() * 0.03)),
           grassShade);
     }
+    final islandOval = Rect.fromCenter(
+        center: Offset(icx, icy), width: w * 0.72, height: h * 0.456);
+    canvas.save();
+    canvas.clipPath(Path()..addOval(islandOval));
+    _grassSpeckle(canvas, islandOval, math.Random(31),
+        step: w / 18, color: const Color(0x12204D18));
+    canvas.restore();
     // 道(なめらかなカーブ)
     final road = Path()
       ..moveTo(icx, icy + h * 0.2)
@@ -739,11 +843,15 @@ class _CleanIslandPainter extends CustomPainter {
     house(w * 0.44, h * 0.60, const Color(0xFFA98BC6));
     house(w * 0.30, h * 0.56, const Color(0xFFE0B268));
     house(w * 0.52, h * 0.44, const Color(0xFFE8A0A8));
-    // 木
+    // 木(広葉樹ともみの木を混ぜる)
     for (var i = 0; i < 16; i++) {
       final tx = w * (0.24 + rng.nextDouble() * 0.58);
       final ty = h * (0.34 + rng.nextDouble() * 0.36);
-      _tree(canvas, tx, ty, w / 1500);
+      if (i % 3 == 0) {
+        _conifer(canvas, tx, ty, w / 2100);
+      } else {
+        _tree(canvas, tx, ty, w / 1500);
+      }
     }
 
     // 灯台
@@ -859,6 +967,10 @@ class _CleanSignboardPainter extends CustomPainter {
           w * (0.02 + rng.nextDouble() * 0.03),
           bushShade);
     }
+    _grassSpeckle(canvas, bushRect, math.Random(41),
+        step: w / 13, color: const Color(0x14173D10));
+    _conifer(canvas, w * 0.14, h * 0.47, w / 560);
+    _conifer(canvas, w * 0.86, h * 0.45, w / 620);
     // 道
     final road = Path()
       ..moveTo(w * 0.42, h)
@@ -976,18 +1088,8 @@ class _CleanVillagePathPainter extends CustomPainter {
         const [Color(0xFFAECBEB), Color(0xFFDDE9F5)], heightFactor: 0.4);
     _cloud(canvas, w * 0.22, h * 0.08, w / 900, 0.95);
     _cloud(canvas, w * 0.7, h * 0.13, w / 1100, 0.85);
-    // 遠山
-    final farHill = Paint()..color = const Color(0x668FB4D2);
-    canvas.drawOval(
-        Rect.fromCenter(
-            center: Offset(w * 0.14, h * 0.35), width: w * 0.5, height: h * 0.13),
-        farHill);
-    canvas.drawOval(
-        Rect.fromCenter(
-            center: Offset(w * 0.84, h * 0.355),
-            width: w * 0.55,
-            height: h * 0.11),
-        farHill);
+    // 遠景の雪山 + 針葉樹の帯(どうぶつの森風)
+    _mountainRange(canvas, size, h * 0.395);
 
     // 草地(まるい丘の稜線 — どうぶつの森風)
     final grassRect = Rect.fromLTWH(0, h * 0.33, w, h * 0.67);
@@ -1005,6 +1107,12 @@ class _CleanVillagePathPainter extends CustomPainter {
             end: Alignment.bottomCenter,
             colors: [Color(0xFF7EC55E), Color(0xFF5FA843)],
           ).createShader(grassRect));
+    // 芝生の紙吹雪パターン
+    canvas.save();
+    canvas.clipPath(grassPath);
+    _grassSpeckle(canvas, Rect.fromLTWH(0, h * 0.33, w, h * 0.67),
+        math.Random(21), step: w / 14);
+    canvas.restore();
 
     // 奥へ続く道(なめらかな台形)
     final road = Path()
@@ -1097,9 +1205,10 @@ class _CleanVillagePathPainter extends CustomPainter {
     house(w * 0.17, h * 0.365, 0.8, const Color(0xFFE0B268));
     house(w * 0.63, h * 0.365, 0.75, const Color(0xFF8CC178));
 
-    // 街路樹(左右)
-    _tree(canvas, w * 0.06, h * 0.55, w / 480);
+    // 街路樹(左はもみの木、右は広葉樹)
+    _conifer(canvas, w * 0.06, h * 0.55, w / 430);
     _tree(canvas, w * 0.94, h * 0.585, w / 430);
+    _conifer(canvas, w * 0.3, h * 0.425, w / 700);
 
     // 花・草の房
     for (var i = 0; i < 20; i++) {
@@ -1166,11 +1275,13 @@ class _CleanBakeryPainter extends CustomPainter {
         Rect.fromCenter(
             center: Offset(w * 0.85, h * 0.34), width: w * 0.18, height: h * 0.1),
         Paint()..color = const Color(0xFF5CA649));
-    // 生け垣の草の房
+    // 生け垣の草の房 + 紙吹雪パターン
     for (var i = 0; i < 10; i++) {
       _tuft(canvas, rng.nextDouble() * w, h * (0.34 + rng.nextDouble() * 0.12),
           w / 500, const Color(0x40295C1E));
     }
+    _grassSpeckle(canvas, Rect.fromLTWH(0, h * 0.28, w, h * 0.2),
+        math.Random(51), step: w / 14, color: const Color(0x14173D10));
 
     // 地面(土)
     final groundRect = Rect.fromLTWH(0, h * 0.46, w, h * 0.54);
