@@ -9,6 +9,7 @@ import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
 import 'package:design_kingdom/core/widgets/kd_widgets.dart';
 import 'package:design_kingdom/core/widgets/pn_shell.dart';
+import 'package:design_kingdom/features/onboarding/presentation/story_scenes_clean.dart';
 
 /// エリア定義(Phase 8 §1.2 の確定マッピング)。
 /// 本番は areas コレクション(Phase 5 §2.1)から取得 — DEMO は静的定義。
@@ -642,30 +643,46 @@ class _MiniMapPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final p = Paint()..isAntiAlias = true;
     final rng = math.Random(5);
-    // 海
-    p.color = const Color(0xFFC7E1EE);
+    // 海(どうぶつの森風の明るい水色 + 「^」の波マーク)
+    p.color = const Color(0xFFA9D7EC);
     canvas.drawRect(Offset.zero & size, p);
-    // 波(短いダッシュ)
-    p.color = const Color(0xFFAFD2E4);
-    for (var i = 0; i < 26; i++) {
+    final wave = Paint()
+      ..color = const Color(0xFF8FC4E0)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 30; i++) {
       final x = rng.nextDouble() * size.width;
       final y = rng.nextDouble() * size.height;
-      canvas.drawRRect(
-          RRect.fromRectAndRadius(
-              Rect.fromLTWH(x, y, 14, 2.4), const Radius.circular(2)),
-          p);
+      final s = 4.0 + rng.nextDouble() * 3;
+      canvas.drawPath(
+          Path()
+            ..moveTo(x - s, y + s * 0.7)
+            ..lineTo(x, y)
+            ..lineTo(x + s, y + s * 0.7),
+          wave);
     }
-    // 島(砂のふち → 草地)
+    // 島(白い波打ちぎわ → 砂のふち → 草地)
     final island = Rect.fromLTWH(size.width * 0.04, size.height * 0.025,
         size.width * 0.92, size.height * 0.95);
-    p.color = const Color(0xFFEBE0C4);
+    p.color = const Color(0x66FFFFFF);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(island.inflate(7), const Radius.circular(76)),
+        p);
+    p.color = const Color(0xFFEBDFB8);
     canvas.drawRRect(
         RRect.fromRectAndRadius(island, const Radius.circular(70)), p);
-    p.color = const Color(0xFFCFE6BA);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            island.deflate(10), const Radius.circular(60)),
-        p);
+    p.color = const Color(0xFF8AC96A);
+    final grassRRect =
+        RRect.fromRectAndRadius(island.deflate(10), const Radius.circular(60));
+    canvas.drawRRect(grassRRect, p);
+    // 芝生の紙吹雪パターン
+    canvas.save();
+    canvas.clipRRect(grassRRect);
+    acGrassSpeckle(canvas, island.deflate(10), math.Random(71),
+        step: (size.width / 14).clamp(26.0, 60.0),
+        color: const Color(0x161E5216));
+    canvas.restore();
     // 道(順路をつなぐ)
     final road = Path()..moveTo(anchors.first.dx, anchors.first.dy);
     for (var i = 1; i < anchors.length; i++) {
@@ -688,19 +705,31 @@ class _MiniMapPainter extends CustomPainter {
       ..strokeWidth = 11;
     canvas.drawPath(road, p);
     p.style = PaintingStyle.fill;
-    // 木(小さな三角ツリー)
-    for (var i = 0; i < 22; i++) {
+    // 木(もこもこの広葉樹ともみの木を混ぜる) + 花と草の房
+    final ts = (size.width / 900).clamp(0.45, 1.0);
+    for (var i = 0; i < 20; i++) {
       final x = size.width * (0.10 + rng.nextDouble() * 0.80);
       final y = size.height * (0.06 + rng.nextDouble() * 0.88);
-      p.color = const Color(0xFFA9CC8E);
-      final tree = Path()
-        ..moveTo(x, y - 8)
-        ..lineTo(x - 5.5, y + 3)
-        ..lineTo(x + 5.5, y + 3)
-        ..close();
-      canvas.drawPath(tree, p);
-      p.color = const Color(0xFFB98A55);
-      canvas.drawRect(Rect.fromLTWH(x - 1, y + 3, 2, 3.5), p);
+      if (i % 3 == 0) {
+        acConifer(canvas, x, y, ts * 0.8);
+      } else {
+        acTree(canvas, x, y, ts * 0.7);
+      }
+    }
+    for (var i = 0; i < 10; i++) {
+      acFlower(
+          canvas,
+          size.width * (0.1 + rng.nextDouble() * 0.8),
+          size.height * (0.06 + rng.nextDouble() * 0.88),
+          [Colors.white, const Color(0xFFF2A5C0), const Color(0xFFF6D96B)][i % 3]);
+    }
+    for (var i = 0; i < 14; i++) {
+      acTuft(
+          canvas,
+          size.width * (0.09 + rng.nextDouble() * 0.82),
+          size.height * (0.06 + rng.nextDouble() * 0.9),
+          1.2,
+          const Color(0x40295C1E));
     }
     // ランドマーク(エリア色の丸)
     for (var i = 0; i < anchors.length; i++) {
