@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:design_kingdom/core/widgets/pn_shell.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
+import 'package:design_kingdom/features/onboarding/presentation/story_scenes_clean.dart';
 
 /// SC-02 タイトル/オープニング(PRO NAVI ワイヤーフレーム5a/5b準拠)。
 /// 全画面イラスト(島・お店・キャラクター=コード描画のドット絵)の上に、
@@ -22,7 +25,21 @@ class WelcomePage extends StatelessWidget {
         const Positioned.fill(
           child: CustomPaint(painter: _WelcomeBackdropPainter()),
         ),
-        // ── キャラクター(みぽりん先生 & 主人公) ──
+        // ── キャラクター(みぽりん先生 & 主人公 + 足元の影) ──
+        Positioned(
+          left: size.width * 0.07 + spriteW * 0.1,
+          bottom: size.height * 0.20 - 5,
+          child: IgnorePointer(
+            child: Container(
+              width: spriteW * 0.8,
+              height: 10,
+              decoration: BoxDecoration(
+                color: const Color(0x26304018),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+        ),
         Positioned(
           left: size.width * 0.07,
           bottom: size.height * 0.20,
@@ -31,6 +48,20 @@ class WelcomePage extends StatelessWidget {
                 rows: miporinRows(0),
                 palette: miporinPalette,
                 width: spriteW),
+          ),
+        ),
+        Positioned(
+          right: size.width * 0.07 + spriteW * 0.09,
+          bottom: size.height * 0.19 - 5,
+          child: IgnorePointer(
+            child: Container(
+              width: spriteW * 0.74,
+              height: 10,
+              decoration: BoxDecoration(
+                color: const Color(0x26304018),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
           ),
         ),
         Positioned(
@@ -203,21 +234,10 @@ class _WelcomeBackdropPainter extends CustomPainter {
         sunC, w * 0.075, Paint()..color = const Color(0x66FBE8A6));
     canvas.drawCircle(sunC, w * 0.045, Paint()..color = const Color(0xFFFCE9A8));
 
-    // 雲(ふんわり白)
-    void cloud(double cx, double cy, double s, double opacity) {
-      final p = Paint()..color = Colors.white.withOpacity(opacity);
-      canvas.drawOval(
-          Rect.fromCenter(
-              center: Offset(cx, cy), width: 120 * s, height: 34 * s),
-          p);
-      canvas.drawCircle(Offset(cx - 28 * s, cy - 2 * s), 20 * s, p);
-      canvas.drawCircle(Offset(cx + 6 * s, cy - 12 * s), 24 * s, p);
-      canvas.drawCircle(Offset(cx + 34 * s, cy - 3 * s), 17 * s, p);
-    }
-
-    cloud(w * 0.2, h * 0.1, w / 430 * 0.9, 0.95);
-    cloud(w * 0.62, h * 0.2, w / 430 * 0.6, 0.8);
-    cloud(w * 0.1, h * 0.28, w / 430 * 0.5, 0.65);
+    // 雲(底が平らなもこもこ雲・どうぶつの森風)
+    acCloud(canvas, w * 0.2, h * 0.1, w / 430 * 0.9, 0.95);
+    acCloud(canvas, w * 0.62, h * 0.2, w / 430 * 0.6, 0.8);
+    acCloud(canvas, w * 0.1, h * 0.28, w / 430 * 0.5, 0.65);
 
     // 奥の丘(街の背景にうっすら)
     final groundY = h * 0.72;
@@ -229,6 +249,8 @@ class _WelcomeBackdropPainter extends CustomPainter {
       ..lineTo(0, groundY + 4)
       ..close();
     canvas.drawPath(hillBack, Paint()..color = const Color(0xFFDFEBD2));
+    // 遠景の雪山 + 針葉樹の帯(建物のすき間から見える)
+    acMountainRange(canvas, size, groundY + 2);
 
     // ── 街並み ──
     final bw = (w * 0.24).clamp(96.0, 200.0); // 建物の基準幅
@@ -326,23 +348,13 @@ class _WelcomeBackdropPainter extends CustomPainter {
       }
     }
 
-    void tree(double cx, double s) {
-      canvas.drawRRect(
-          RRect.fromRectAndRadius(
-              Rect.fromLTWH(cx - 3 * s, groundY - 22 * s, 6 * s, 22 * s),
-              Radius.circular(3 * s)),
-          Paint()..color = const Color(0xFF9A6B45));
-      final leaf = Paint()..color = const Color(0xFFA8D18F);
-      canvas.drawCircle(Offset(cx, groundY - 30 * s), 14 * s, leaf);
-      canvas.drawCircle(Offset(cx - 10 * s, groundY - 24 * s), 10 * s, leaf);
-      canvas.drawCircle(Offset(cx + 10 * s, groundY - 24 * s), 10 * s, leaf);
-      canvas.drawCircle(Offset(cx - 3 * s, groundY - 34 * s), 8 * s,
-          Paint()..color = const Color(0xFFBCDCA4));
-    }
+    void tree(double cx, double s) => acTree(canvas, cx, groundY, s);
+    void conifer(double cx, double s) => acConifer(canvas, cx, groundY, s);
 
     // 建物の配置(SPは3軒、PCは5軒 + 木)
     final wideTown = w >= 900;
     if (wideTown) {
+      conifer(w * 0.015, w / 1280 * 2.2);
       shop(
           cx: w * 0.09,
           scale: 0.9,
@@ -369,6 +381,7 @@ class _WelcomeBackdropPainter extends CustomPainter {
           scale: 0.9,
           wall: const Color(0xFFF3E6C4),
           roof: const Color(0xFFA8D18F));
+      conifer(w * 0.995, w / 1280 * 2.0);
     } else {
       shop(
           cx: w * 0.14,
@@ -388,27 +401,31 @@ class _WelcomeBackdropPainter extends CustomPainter {
           wall: const Color(0xFFDCE9F4),
           roof: const Color(0xFF9DBBD4));
       tree(w * 0.985, w / 430 * 0.9);
+      conifer(w * 0.015, w / 430 * 0.85);
     }
 
-    // 通り(石畳風の地面)
-    canvas.drawRect(Rect.fromLTWH(0, groundY, w, h - groundY),
-        Paint()..color = const Color(0xFFEDE2C4));
+    // 芝生の広場(どうぶつの森風: 紙吹雪パターン + 草の房 + 花)
+    final lawnRect = Rect.fromLTWH(0, groundY, w, h - groundY);
+    canvas.drawRect(
+        lawnRect,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF7EC55E), Color(0xFF61AB46)],
+          ).createShader(lawnRect));
     canvas.drawRect(Rect.fromLTWH(0, groundY, w, 5),
-        Paint()..color = const Color(0xFFDCCFA9));
-    final stone = Paint()..color = const Color(0x33A08662);
-    for (final (fx, fy, s) in [
-      (0.08, 0.80, 1.0), (0.2, 0.9, 1.3), (0.34, 0.83, 0.9),
-      (0.46, 0.94, 1.2), (0.6, 0.8, 1.0), (0.7, 0.9, 1.4),
-      (0.84, 0.84, 0.9), (0.94, 0.95, 1.1), (0.12, 0.97, 1.2),
-      (0.55, 0.88, 0.8), (0.9, 0.78, 0.8), (0.3, 0.96, 1.0),
+        Paint()..color = const Color(0xFF6DB84E));
+    acGrassSpeckle(canvas, lawnRect, math.Random(61), step: w / 14);
+    for (final (fx, fy) in [
+      (0.08, 0.80), (0.2, 0.9), (0.34, 0.83), (0.6, 0.8), (0.7, 0.9),
+      (0.84, 0.84), (0.94, 0.95), (0.12, 0.97), (0.55, 0.88), (0.3, 0.96),
     ]) {
-      canvas.drawOval(
-          Rect.fromCenter(
-              center: Offset(w * fx, h * fy),
-              width: 26 * s,
-              height: 10 * s),
-          stone);
+      acTuft(canvas, w * fx, h * fy, w / 430);
     }
+    acFlower(canvas, w * 0.05, h * 0.86, const Color(0xFFF2A5C0));
+    acFlower(canvas, w * 0.47, h * 0.955, Colors.white);
+    acFlower(canvas, w * 0.9, h * 0.9, const Color(0xFFF6D96B));
   }
 
   @override
