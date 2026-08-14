@@ -219,50 +219,195 @@ class _WelcomeBackdropPainter extends CustomPainter {
     cloud(w * 0.62, h * 0.2, w / 430 * 0.6, 0.8);
     cloud(w * 0.1, h * 0.28, w / 430 * 0.5, 0.65);
 
-    // 海(遠景の帯) + 島影
-    final seaTop = h * 0.62;
-    canvas.drawRect(Rect.fromLTWH(0, seaTop, w, h * 0.1),
-        Paint()..color = const Color(0xFFBBD8EE));
-    canvas.drawRect(Rect.fromLTWH(0, seaTop, w, h * 0.012),
-        Paint()..color = const Color(0xFFD8E9F6));
-    // 島影(中央奥に山のある島)
-    final island = Path()
-      ..moveTo(w * 0.30, seaTop + h * 0.02)
-      ..quadraticBezierTo(
-          w * 0.42, seaTop - h * 0.075, w * 0.52, seaTop + h * 0.005)
-      ..quadraticBezierTo(
-          w * 0.62, seaTop - h * 0.035, w * 0.72, seaTop + h * 0.02)
-      ..lineTo(w * 0.72, seaTop + h * 0.03)
-      ..lineTo(w * 0.30, seaTop + h * 0.03)
-      ..close();
-    canvas.drawPath(island, Paint()..color = const Color(0xFF9DBBD4));
-
-    // 手前の丘(2枚重ねのやわらかい緑)
+    // 奥の丘(街の背景にうっすら)
+    final groundY = h * 0.72;
     final hillBack = Path()
-      ..moveTo(0, h * 0.76)
-      ..quadraticBezierTo(w * 0.28, h * 0.665, w * 0.58, h * 0.735)
-      ..quadraticBezierTo(w * 0.82, h * 0.79, w, h * 0.72)
-      ..lineTo(w, h)
-      ..lineTo(0, h)
+      ..moveTo(0, groundY)
+      ..quadraticBezierTo(w * 0.25, groundY - h * 0.10, w * 0.5, groundY)
+      ..quadraticBezierTo(w * 0.75, groundY - h * 0.09, w, groundY - h * 0.02)
+      ..lineTo(w, groundY + 4)
+      ..lineTo(0, groundY + 4)
       ..close();
-    canvas.drawPath(hillBack, Paint()..color = const Color(0xFFCFE6BA));
-    final hillFront = Path()
-      ..moveTo(0, h * 0.85)
-      ..quadraticBezierTo(w * 0.32, h * 0.775, w * 0.62, h * 0.845)
-      ..quadraticBezierTo(w * 0.85, h * 0.895, w, h * 0.83)
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-    canvas.drawPath(hillFront, Paint()..color = const Color(0xFFA8D18F));
+    canvas.drawPath(hillBack, Paint()..color = const Color(0xFFDFEBD2));
 
-    // 丘の上の小さな草(丸ドット風のアクセント・なめらか描画)
-    final grass = Paint()..color = const Color(0x593E5C33);
-    for (final (fx, fy) in [
-      (0.12, 0.9), (0.24, 0.87), (0.4, 0.885), (0.58, 0.9),
-      (0.72, 0.915), (0.86, 0.885), (0.94, 0.93), (0.06, 0.95),
+    // ── 街並み ──
+    final bw = (w * 0.24).clamp(96.0, 200.0); // 建物の基準幅
+
+    void windowBox(double cx, double cy, double s) {
+      final r = Rect.fromCenter(
+          center: Offset(cx, cy), width: 15 * s, height: 15 * s);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(r.inflate(2 * s), Radius.circular(4 * s)),
+          Paint()..color = Colors.white);
+      canvas.drawRRect(RRect.fromRectAndRadius(r, Radius.circular(3 * s)),
+          Paint()..color = const Color(0xFFBDDCF2));
+      canvas.drawRect(
+          Rect.fromCenter(
+              center: Offset(cx, cy), width: 1.6 * s, height: 15 * s),
+          Paint()..color = Colors.white);
+    }
+
+    void shop({
+      required double cx,
+      required double scale,
+      required Color wall,
+      required Color roof,
+      List<Color>? awning,
+      String? sign,
+    }) {
+      final bwx = bw * scale, bh = bwx * 0.78;
+      final left = cx - bwx / 2, top = groundY - bh;
+      // 壁
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(left, top, bwx, bh), const Radius.circular(8)),
+          Paint()..color = wall);
+      // 屋根(台形)
+      final roofPath = Path()
+        ..moveTo(left - bwx * 0.08, top + 2)
+        ..lineTo(left + bwx * 0.18, top - bh * 0.34)
+        ..lineTo(left + bwx * 0.82, top - bh * 0.34)
+        ..lineTo(left + bwx * 1.08, top + 2)
+        ..close();
+      canvas.drawPath(roofPath, Paint()..color = roof);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(left - bwx * 0.1, top - 2, bwx * 1.2, 6),
+              const Radius.circular(3)),
+          Paint()..color = Color.lerp(roof, Colors.black, 0.18)!);
+      // ひさし(スカラップ)
+      if (awning != null) {
+        final ay = top + bh * 0.30;
+        const n = 6;
+        for (var i = 0; i < n; i++) {
+          final sx = left + bwx * 0.06 + i * (bwx * 0.88) / n;
+          final sw = (bwx * 0.88) / n;
+          final c = awning[i % awning.length];
+          canvas.drawRect(
+              Rect.fromLTWH(sx, ay, sw, bh * 0.12), Paint()..color = c);
+          canvas.drawArc(Rect.fromLTWH(sx, ay + bh * 0.12 - sw * 0.3, sw, sw * 0.6),
+              0, 3.1416, true, Paint()..color = c);
+        }
+      }
+      // 窓と扉
+      windowBox(left + bwx * 0.26, top + bh * 0.62, bwx / 100);
+      windowBox(left + bwx * 0.74, top + bh * 0.62, bwx / 100);
+      final doorW = bwx * 0.2, doorH = bh * 0.34;
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(cx - doorW / 2, groundY - doorH, doorW, doorH),
+              Radius.circular(doorW * 0.4)),
+          Paint()..color = const Color(0xFF9A6B45));
+      // 看板
+      if (sign != null) {
+        final tp = TextPainter(
+          text: TextSpan(
+              text: sign,
+              style: TextStyle(
+                  color: const Color(0xFF6E4A22),
+                  fontSize: bwx * 0.13,
+                  fontWeight: FontWeight.w800)),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        final signW = tp.width + bwx * 0.14, signH = tp.height + 6;
+        final signRect = Rect.fromCenter(
+            center: Offset(cx, top + bh * 0.15), width: signW, height: signH);
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(signRect, const Radius.circular(6)),
+            Paint()..color = const Color(0xFFFBF4E2));
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(signRect, const Radius.circular(6)),
+            Paint()
+              ..color = const Color(0xFFD9C48F)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.4);
+        tp.paint(canvas,
+            signRect.center - Offset(tp.width / 2, tp.height / 2));
+      }
+    }
+
+    void tree(double cx, double s) {
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(cx - 3 * s, groundY - 22 * s, 6 * s, 22 * s),
+              Radius.circular(3 * s)),
+          Paint()..color = const Color(0xFF9A6B45));
+      final leaf = Paint()..color = const Color(0xFFA8D18F);
+      canvas.drawCircle(Offset(cx, groundY - 30 * s), 14 * s, leaf);
+      canvas.drawCircle(Offset(cx - 10 * s, groundY - 24 * s), 10 * s, leaf);
+      canvas.drawCircle(Offset(cx + 10 * s, groundY - 24 * s), 10 * s, leaf);
+      canvas.drawCircle(Offset(cx - 3 * s, groundY - 34 * s), 8 * s,
+          Paint()..color = const Color(0xFFBCDCA4));
+    }
+
+    // 建物の配置(SPは3軒、PCは5軒 + 木)
+    final wideTown = w >= 900;
+    if (wideTown) {
+      shop(
+          cx: w * 0.09,
+          scale: 0.9,
+          wall: const Color(0xFFDCE9F4),
+          roof: const Color(0xFF9DBBD4));
+      tree(w * 0.21, w / 1280 * 1.6);
+      shop(
+          cx: w * 0.32,
+          scale: 1.1,
+          wall: const Color(0xFFF6EBD3),
+          roof: const Color(0xFFC98A6B),
+          awning: const [Color(0xFFE8A0A8), Colors.white],
+          sign: 'パン屋');
+      shop(
+          cx: w * 0.68,
+          scale: 1.05,
+          wall: const Color(0xFFF4D9DE),
+          roof: const Color(0xFFE8A0A8),
+          awning: const [Color(0xFFA8D18F), Colors.white],
+          sign: 'カフェ');
+      tree(w * 0.82, w / 1280 * 1.8);
+      shop(
+          cx: w * 0.93,
+          scale: 0.9,
+          wall: const Color(0xFFF3E6C4),
+          roof: const Color(0xFFA8D18F));
+    } else {
+      shop(
+          cx: w * 0.14,
+          scale: 0.82,
+          wall: const Color(0xFFF4D9DE),
+          roof: const Color(0xFFE8A0A8));
+      shop(
+          cx: w * 0.5,
+          scale: 1.0,
+          wall: const Color(0xFFF6EBD3),
+          roof: const Color(0xFFC98A6B),
+          awning: const [Color(0xFFE8A0A8), Colors.white],
+          sign: 'パン屋');
+      shop(
+          cx: w * 0.86,
+          scale: 0.82,
+          wall: const Color(0xFFDCE9F4),
+          roof: const Color(0xFF9DBBD4));
+      tree(w * 0.985, w / 430 * 0.9);
+    }
+
+    // 通り(石畳風の地面)
+    canvas.drawRect(Rect.fromLTWH(0, groundY, w, h - groundY),
+        Paint()..color = const Color(0xFFEDE2C4));
+    canvas.drawRect(Rect.fromLTWH(0, groundY, w, 5),
+        Paint()..color = const Color(0xFFDCCFA9));
+    final stone = Paint()..color = const Color(0x33A08662);
+    for (final (fx, fy, s) in [
+      (0.08, 0.80, 1.0), (0.2, 0.9, 1.3), (0.34, 0.83, 0.9),
+      (0.46, 0.94, 1.2), (0.6, 0.8, 1.0), (0.7, 0.9, 1.4),
+      (0.84, 0.84, 0.9), (0.94, 0.95, 1.1), (0.12, 0.97, 1.2),
+      (0.55, 0.88, 0.8), (0.9, 0.78, 0.8), (0.3, 0.96, 1.0),
     ]) {
-      canvas.drawCircle(Offset(w * fx, h * fy), 3.2, grass);
-      canvas.drawCircle(Offset(w * fx + 7, h * fy + 3), 2.2, grass);
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(w * fx, h * fy),
+              width: 26 * s,
+              height: 10 * s),
+          stone);
     }
   }
 
