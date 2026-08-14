@@ -7,6 +7,7 @@ import 'package:design_kingdom/core/theme/kd_colors.dart';
 import 'package:design_kingdom/features/onboarding/data/story_repository.dart';
 import 'package:design_kingdom/features/onboarding/presentation/pixel_ui.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
+import 'package:design_kingdom/features/onboarding/presentation/story_scenes_clean.dart';
 
 /// オンボーディング/ストーリー再生(/story/:ep)。
 /// シーン背景・キャラはドット絵のまま、UI部品(ページ番号/見出し/吹き出し/
@@ -94,17 +95,17 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
     final showButton = (isLast || page.buttonLabel != null) && !hasChoices;
 
     return Stack(children: [
-      // ── シーン(ドット絵のまま) ──
+      // ── シーン(背景はクリーンイラスト、キャラはドット) ──
       if (page.scene == 'phone')
-        const Positioned.fill(child: PixelDeskScene())
+        const Positioned.fill(child: CleanDeskScene())
       else if (page.scene == 'bedroom_sleep')
         const Positioned.fill(
-            child: PixelRoomBackground(mode: RoomMode.sleep))
+            child: CleanRoomBackground(mode: RoomMode.sleep))
       else if (page.scene == 'bedroom_awake')
         const Positioned.fill(
-            child: PixelRoomBackground(mode: RoomMode.awake))
+            child: CleanRoomBackground(mode: RoomMode.awake))
       else if (page.scene != null)
-        buildStoryScene(page.scene!)
+        buildCleanScene(page.scene!)
       else if (page.image != null)
         Positioned.fill(
           child: Image.asset(
@@ -172,7 +173,7 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
       if (page.scene == 'bakery' || page.scene == 'mission')
         Positioned(
           left: size.width * (wide ? 0.045 : 0.12),
-          top: size.height * 0.155,
+          top: size.height * (wide ? 0.12 : 0.155),
           width: size.width * (wide ? 0.2 : 0.32),
           child: const IgnorePointer(
             child: Text('パン屋',
