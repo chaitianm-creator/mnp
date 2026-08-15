@@ -66,7 +66,8 @@ bool _isConnected(String a, String b) {
 class _VillagePageState extends ConsumerState<VillagePage> {
   String _selectedId = 'bakery';
   bool _walking = false;
-  bool _shortcutBubble = false; // 道なき道を歩いたときの「ショートカット♪」
+  bool _flying = false; // 道がないところは飛行機で移動
+  bool _shortcutBubble = false; // 道なき移動(飛行機)のときの「びゅーん♪」
   Timer? _bubbleTimer;
 
   _Spot get _selected => _spots.firstWhere((s) => s.id == _selectedId);
@@ -83,10 +84,16 @@ class _VillagePageState extends ConsumerState<VillagePage> {
     setState(() {
       _selectedId = id;
       _walking = true;
+      _flying = shortcut;
       _shortcutBubble = shortcut;
     });
     Future<void>.delayed(const Duration(milliseconds: 700)).then((_) {
-      if (mounted) setState(() => _walking = false);
+      if (mounted) {
+        setState(() {
+          _walking = false;
+          _flying = false;
+        });
+      }
     });
     _bubbleTimer?.cancel();
     if (shortcut) {
@@ -256,7 +263,7 @@ class _VillagePageState extends ConsumerState<VillagePage> {
             curve: Curves.easeInOut,
             left: sel.pos.dx * w + 36,
             top: sel.pos.dy * h - 22,
-            child: _Avatar(walking: _walking),
+            child: _Avatar(walking: _walking, flying: _flying),
           ),
           // 道がないところを歩いたときの吹き出し
           AnimatedPositioned(
@@ -282,7 +289,7 @@ class _VillagePageState extends ConsumerState<VillagePage> {
                           offset: Offset(0, 2)),
                     ],
                   ),
-                  child: const Text('ショートカット♪',
+                  child: const Text('びゅーん♪',
                       style: TextStyle(
                           color: Color(0xFFD16E8E),
                           fontSize: 11.5,
@@ -473,23 +480,53 @@ class _SpotMarker extends StatelessWidget {
 }
 
 /// プレイヤーのアバター(ドット絵の主人公。きせかえの服も反映)。
+/// flying=true のときは小さな飛行機に乗って移動する。
 class _Avatar extends ConsumerWidget {
-  const _Avatar({required this.walking});
+  const _Avatar({required this.walking, this.flying = false});
   final bool walking;
+  final bool flying;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final outfit = ref.watch(outfitProvider);
+    final sprite = PixelSprite(
+      rows: heroineFrontRows,
+      palette: heroinePaletteFor(outfit),
+      width: 32,
+    );
+    if (flying) {
+      return IgnorePointer(
+        child: SizedBox(
+          width: 60,
+          height: 66,
+          child: Stack(alignment: Alignment.topCenter, children: [
+            Positioned(
+              top: 22,
+              child: CustomPaint(
+                  size: const Size(60, 34), painter: _PlanePainter()),
+            ),
+            Positioned(top: 0, child: sprite),
+            Positioned(
+              bottom: 0,
+              child: Container(
+                width: 30,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: const Color(0x26304018),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ]),
+        ),
+      );
+    }
     return IgnorePointer(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         AnimatedRotation(
           turns: walking ? 0.012 : 0,
           duration: const Duration(milliseconds: 250),
-          child: PixelSprite(
-            rows: heroineFrontRows,
-            palette: heroinePaletteFor(outfit),
-            width: 32,
-          ),
+          child: sprite,
         ),
         const SizedBox(height: 1),
         Container(
@@ -503,6 +540,53 @@ class _Avatar extends ConsumerWidget {
       ]),
     );
   }
+}
+
+/// 主人公が乗る小さな飛行機(正面ビュー)。
+class _PlanePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final cx = w / 2;
+    // 主翼(左右に広がる青い翼)
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(
+                center: Offset(cx, h * 0.42), width: w, height: h * 0.3),
+            const Radius.circular(6)),
+        Paint()..color = const Color(0xFF7FA3CB));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(
+                center: Offset(cx, h * 0.5), width: w, height: h * 0.12),
+            const Radius.circular(4)),
+        Paint()..color = const Color(0xFF5F7FA6));
+    // 胴体(白いカプセル + 赤いライン)
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(
+                center: Offset(cx, h * 0.45), width: w * 0.34, height: h * 0.9),
+            Radius.circular(w * 0.17)),
+        Paint()..color = const Color(0xFFF6F1E4));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(
+                center: Offset(cx, h * 0.58), width: w * 0.34, height: h * 0.12),
+            const Radius.circular(3)),
+        Paint()..color = const Color(0xFFDF6A5E));
+    // 機首のプロペラ
+    canvas.drawCircle(Offset(cx, h * 0.9), 4,
+        Paint()..color = const Color(0xFFDF6A5E));
+    final prop = Paint()
+      ..color = const Color(0xFF5A4E44)
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+        Offset(cx - 9, h * 0.9), Offset(cx + 9, h * 0.9), prop);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// 街の背景(どうぶつの森風: 芝生 + 紙吹雪 + 木 + 港の入り江)。
