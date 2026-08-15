@@ -43,6 +43,10 @@ Widget buildCleanScene(String scene) {
       return const _Fill(_CleanFrontPainter(kind: 'cafe'));
     case 'grocery_front': // カード用: 八百屋さんの店先
       return const _Fill(_CleanFrontPainter(kind: 'grocery'));
+    case 'museum_front': // カード用: 資料館の正面
+      return const _Fill(_CleanFrontPainter(kind: 'museum'));
+    case 'board_front': // カード用: クエスト掲示板
+      return const _Fill(_CleanBoardFrontPainter());
     default:
       return const ColoredBox(color: Color(0xFF1B2440));
   }
@@ -1679,12 +1683,13 @@ class _CleanStudioFrontPainter extends CustomPainter {
 // ─────────────────────────────────────────────────────────────
 class _CleanFrontPainter extends CustomPainter {
   const _CleanFrontPainter({required this.kind});
-  final String kind; // 'cafe' | 'grocery'
+  final String kind; // 'cafe' | 'grocery' | 'museum'
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
     final cafe = kind == 'cafe';
+    final museum = kind == 'museum';
     acSkyGradient(canvas, size,
         const [Color(0xFFAECBEB), Color(0xFFD7E7F5)], heightFactor: 0.3);
     acCloud(canvas, w * 0.78, h * 0.1, w / 1200, 0.95);
@@ -1731,7 +1736,11 @@ class _CleanFrontPainter extends CustomPainter {
         Paint()
           ..color = cafe ? const Color(0xFFF7E9E0) : const Color(0xFFF1EAD8));
     // 屋根の帯
-    final roof = cafe ? const Color(0xFFE8A0A8) : const Color(0xFF8CC178);
+    final roof = cafe
+        ? const Color(0xFFE8A0A8)
+        : museum
+            ? const Color(0xFF7FA3CB)
+            : const Color(0xFF8CC178);
     canvas.drawRRect(
         RRect.fromRectAndRadius(
             Rect.fromLTWH(sx - 8, sy - h * 0.045, sw + 16, h * 0.05),
@@ -1752,7 +1761,11 @@ class _CleanFrontPainter extends CustomPainter {
         Paint()..color = const Color(0xFFEDD9A5));
     final tp = TextPainter(
       text: TextSpan(
-          text: cafe ? 'カフェ' : '八百屋',
+          text: cafe
+              ? 'カフェ'
+              : museum
+                  ? '資料館'
+                  : '八百屋',
           style: TextStyle(
               color: const Color(0xFF5A3A1E),
               fontSize: (6.5 * us).clamp(11.0, 26.0),
@@ -1762,17 +1775,19 @@ class _CleanFrontPainter extends CustomPainter {
     final signRect =
         Rect.fromLTWH(sx + sw * 0.2, sy - 7 * us, sw * 0.46, 11 * us);
     tp.paint(canvas, signRect.center - Offset(tp.width / 2, tp.height / 2));
-    // ひさし(スカラップ)
-    final ay = sy + sh * 0.26, ah = h * 0.05;
-    const n = 8;
-    final awningA = cafe ? const Color(0xFFE8A0A8) : const Color(0xFF8CC178);
-    for (var i = 0; i < n; i++) {
-      final p = Paint()..color = i.isEven ? awningA : Colors.white;
-      final sxx = sx + i * sw / n;
-      canvas.drawRect(Rect.fromLTWH(sxx, ay, sw / n, ah), p);
-      canvas.drawArc(
-          Rect.fromLTWH(sxx, ay + ah - sw / n * 0.3, sw / n, sw / n * 0.6),
-          0, 3.1416, true, p);
+    // ひさし(スカラップ・資料館はなし)
+    if (!museum) {
+      final ay = sy + sh * 0.26, ah = h * 0.05;
+      const n = 8;
+      final awningA = cafe ? const Color(0xFFE8A0A8) : const Color(0xFF8CC178);
+      for (var i = 0; i < n; i++) {
+        final p = Paint()..color = i.isEven ? awningA : Colors.white;
+        final sxx = sx + i * sw / n;
+        canvas.drawRect(Rect.fromLTWH(sxx, ay, sw / n, ah), p);
+        canvas.drawArc(
+            Rect.fromLTWH(sxx, ay + ah - sw / n * 0.3, sw / n, sw / n * 0.6),
+            0, 3.1416, true, p);
+      }
     }
 
     if (cafe) {
@@ -1852,6 +1867,53 @@ class _CleanFrontPainter extends CustomPainter {
           Offset(bx + w * 0.01, by + h * 0.05), chalk);
       canvas.drawCircle(Offset(bx, by + h * 0.075), 4,
           Paint()..color = const Color(0xFFE8A0A8));
+    } else if (museum) {
+      // 資料館: 本棚の見える大きな窓 + 白い柱
+      final wx = sx + sw * 0.08, wy = sy + sh * 0.34, ww = sw * 0.5,
+          wh = sh * 0.5;
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(wx - 4, wy - 4, ww + 8, wh + 8),
+              const Radius.circular(8)),
+          Paint()..color = const Color(0xFF5F7FA6));
+      canvas.drawRect(Rect.fromLTWH(wx, wy, ww, wh),
+          Paint()..color = const Color(0xFFF7EFDC));
+      const spineColors = [
+        Color(0xFFDF5A4E), Color(0xFF7FA3CB), Color(0xFF74B858),
+        Color(0xFFF6D96B), Color(0xFFA98BC6), Color(0xFFF0913C),
+      ];
+      for (var row = 0; row < 2; row++) {
+        final ry = wy + wh * (0.12 + row * 0.46);
+        canvas.drawRect(
+            Rect.fromLTWH(wx + ww * 0.06, ry + wh * 0.32, ww * 0.88, 3),
+            Paint()..color = const Color(0xFF9A6B45));
+        var bx2 = wx + ww * 0.08;
+        var k = row * 4;
+        while (bx2 < wx + ww * 0.88) {
+          final bw2 = ww * (0.06 + (k % 3) * 0.015);
+          canvas.drawRRect(
+              RRect.fromRectAndRadius(
+                  Rect.fromLTWH(bx2, ry + wh * (0.02 + (k % 2) * 0.04),
+                      bw2, wh * 0.3 - (k % 2) * wh * 0.04),
+                  const Radius.circular(2)),
+              Paint()..color = spineColors[k % spineColors.length]);
+          bx2 += bw2 + ww * 0.015;
+          k++;
+        }
+      }
+      // 白い柱(入口の両脇)
+      for (final fx in [0.64, 0.9]) {
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(
+                Rect.fromLTWH(sx + sw * fx - 5, sy + sh * 0.3, 10, sh * 0.7),
+                const Radius.circular(4)),
+            Paint()..color = Colors.white);
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(
+                Rect.fromLTWH(sx + sw * fx - 8, sy + sh * 0.27, 16, 6),
+                const Radius.circular(3)),
+            Paint()..color = const Color(0xFFE8E2D2));
+      }
     } else {
       // 八百屋: 開放的な店先に野菜の陳列台(2段)
       final cx0 = sx + sw * 0.08, cw = sw * 0.56;
@@ -1918,6 +1980,117 @@ class _CleanFrontPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CleanFrontPainter old) => old.kind != kind;
+}
+
+// ─────────────────────────────────────────────────────────────
+// クエスト掲示板(カード用・正面構図)。
+// ─────────────────────────────────────────────────────────────
+class _CleanBoardFrontPainter extends CustomPainter {
+  const _CleanBoardFrontPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    acSkyGradient(canvas, size,
+        const [Color(0xFFAECBEB), Color(0xFFD7E7F5)], heightFactor: 0.34);
+    acCloud(canvas, w * 0.78, h * 0.1, w / 1200, 0.95);
+    acCloud(canvas, w * 0.2, h * 0.14, w / 1600, 0.85);
+    // 芝生
+    final grassRect = Rect.fromLTWH(0, h * 0.32, w, h * 0.68);
+    canvas.drawRect(
+        grassRect,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF7EC55E), Color(0xFF5FA843)],
+          ).createShader(grassRect));
+    acGrassSpeckle(canvas, grassRect, math.Random(29),
+        step: w / 14, color: const Color(0x14204D18));
+    acTree(canvas, w * 0.08, h * 0.6, w / 700);
+    acConifer(canvas, w * 0.93, h * 0.56, w / 780);
+
+    // ── 掲示板(中央・正面) ──
+    final bw = w * 0.56, bh = h * 0.42;
+    final bx = w / 2 - bw / 2, by = h * 0.2;
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(w / 2, by + bh + h * 0.24),
+            width: bw * 0.9,
+            height: h * 0.035),
+        Paint()..color = const Color(0x22304018));
+    // 脚
+    for (final fx in [0.2, 0.8]) {
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(bx + bw * fx - 6, by + bh, 12, h * 0.26),
+              const Radius.circular(6)),
+          Paint()..color = const Color(0xFF9A6B45));
+    }
+    // 屋根つきの板(丸角 + 明るい縁)
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(bx - 10, by - h * 0.05, bw + 20, h * 0.055),
+            const Radius.circular(6)),
+        Paint()..color = const Color(0xFFC98A6B));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(bx, by, bw, bh), const Radius.circular(12)),
+        Paint()..color = const Color(0xFF9A6B45));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(bx + 8, by + 8, bw - 16, bh - 16),
+            const Radius.circular(8)),
+        Paint()..color = const Color(0xFF7C5B36));
+    // 貼り紙(依頼のチラシ + カラフルなピン)
+    final rng = math.Random(31);
+    const pins = [
+      Color(0xFFDF5A4E), Color(0xFF7FA3CB), Color(0xFF74B858),
+      Color(0xFFF6D96B), Color(0xFFE8A0A8),
+    ];
+    for (final (fx, fy, tilt) in [
+      (0.16, 0.18, -0.06), (0.42, 0.14, 0.04), (0.68, 0.2, -0.03),
+      (0.2, 0.55, 0.05), (0.5, 0.52, -0.05), (0.72, 0.58, 0.06),
+    ]) {
+      canvas.save();
+      canvas.translate(bx + bw * fx + bw * 0.09, by + bh * fy + bh * 0.14);
+      canvas.rotate(tilt);
+      final paper = Rect.fromCenter(
+          center: Offset.zero, width: bw * 0.19, height: bh * 0.3);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(paper, const Radius.circular(4)),
+          Paint()..color = const Color(0xFFFFF8EA));
+      final line = Paint()
+        ..color = const Color(0x408A744A)
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+      for (var i = 0; i < 3; i++) {
+        canvas.drawLine(
+            Offset(-paper.width * 0.32, -paper.height * 0.16 + i * paper.height * 0.24),
+            Offset(paper.width * (0.32 - (i == 2 ? 0.2 : 0)),
+                -paper.height * 0.16 + i * paper.height * 0.24),
+            line);
+      }
+      canvas.drawCircle(Offset(0, -paper.height * 0.38), 3.4,
+          Paint()..color = pins[rng.nextInt(pins.length)]);
+      canvas.restore();
+    }
+    // 足元の花
+    for (var i = 0; i < 8; i++) {
+      acFlower(
+          canvas,
+          w * (0.1 + rng.nextDouble() * 0.8),
+          h * (0.82 + rng.nextDouble() * 0.14),
+          [Colors.white, const Color(0xFFF2A5C0), const Color(0xFFF6D96B)][i % 3]);
+    }
+    for (var i = 0; i < 8; i++) {
+      acTuft(canvas, w * rng.nextDouble(), h * (0.5 + rng.nextDouble() * 0.45),
+          w / 500, const Color(0x40295C1E));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ─────────────────────────────────────────────────────────────

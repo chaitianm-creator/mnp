@@ -44,11 +44,11 @@ const _spots = [
   _Spot('studio', '工房', 'C-3', 'デザインの制作・練習ができる場所。',
       Offset(0.38, 0.46), 'studio_front'),
   _Spot('museum', '資料館', 'C-6', 'デザインの資料がそろう学びの場所。',
-      Offset(0.80, 0.46), 'island_map'),
+      Offset(0.80, 0.46), 'museum_front'),
   _Spot('grocery', '八百屋さん', 'E-1', '旬の野菜のPOPを作ってほしいみたい。',
       Offset(0.15, 0.70), 'grocery_front'),
-  _Spot('plaza', '広場', 'E-5', '村人が集まる憩いの場所。',
-      Offset(0.68, 0.70), 'signboard'),
+  _Spot('plaza', '掲示板', 'E-5', 'ミッション受付。村人の依頼が貼り出されるよ。',
+      Offset(0.68, 0.70), 'board_front'),
   _Spot('port', '港', 'F-6', '島の玄関口。ワールドマップへ出発できる。',
       Offset(0.83, 0.86), 'island_map'),
 ];
@@ -92,7 +92,7 @@ class _VillagePageState extends ConsumerState<VillagePage> {
       case 'museum':
         _message('資料館は v1.1 でオープンするよ！おたのしみに♪');
       case 'plaza':
-        _message('広場で村人たちがおしゃべりしているよ♪');
+        context.go('/home'); // 依頼リスト(ミッション受付)へ
     }
   }
 
@@ -551,7 +551,7 @@ class _MiniSpotPainter extends CustomPainter {
     }
     switch (id) {
       case 'plaza':
-        _fountain(canvas, c);
+        _miniBoard(canvas, c);
       case 'port':
         _boat(canvas, c);
       default:
@@ -612,18 +612,39 @@ class _MiniSpotPainter extends CustomPainter {
         Paint()..color = const Color(0xFFBDDCF2));
   }
 
-  void _fountain(Canvas canvas, Offset base) {
-    final c = base.translate(0, -13);
-    canvas.drawCircle(c, 15, Paint()..color = const Color(0xFFEDE2C4));
-    canvas.drawCircle(c, 10, Paint()..color = const Color(0xFFA9D7EC));
-    canvas.drawCircle(
-        c.translate(0, -2), 3.4, Paint()..color = Colors.white70);
-    for (var i = 0; i < 8; i++) {
-      final a = i / 8 * math.pi * 2;
-      canvas.drawCircle(
-          c.translate(math.cos(a) * 13.4, math.sin(a) * 13.4), 1.6,
-          Paint()..color = const Color(0xFFF2A5C0));
+  void _miniBoard(Canvas canvas, Offset base) {
+    // 脚
+    for (final dx in [-11.0, 11.0]) {
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(base.dx + dx - 2, base.dy - 10, 4, 10),
+              const Radius.circular(2)),
+          Paint()..color = const Color(0xFF9A6B45));
     }
+    // 板 + 貼り紙
+    final board =
+        Rect.fromCenter(center: base.translate(0, -17), width: 34, height: 20);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(board, const Radius.circular(5)),
+        Paint()..color = const Color(0xFF9A6B45));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(board.deflate(3), const Radius.circular(3)),
+        Paint()..color = const Color(0xFF7C5B36));
+    final paper = Paint()..color = const Color(0xFFFFF8EA);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(base.dx - 11, base.dy - 22, 8, 9),
+            const Radius.circular(1.5)),
+        paper);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(base.dx + 1, base.dy - 21, 8, 9),
+            const Radius.circular(1.5)),
+        paper);
+    canvas.drawCircle(Offset(base.dx - 7, base.dy - 23), 1.4,
+        Paint()..color = const Color(0xFFDF5A4E));
+    canvas.drawCircle(Offset(base.dx + 5, base.dy - 22), 1.4,
+        Paint()..color = const Color(0xFF7FA3CB));
   }
 
   void _boat(Canvas canvas, Offset base) {
