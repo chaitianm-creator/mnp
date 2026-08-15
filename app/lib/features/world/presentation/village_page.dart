@@ -5,11 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:design_kingdom/core/state/outfit.dart';
-import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/core/widgets/pn_shell.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes_clean.dart';
-import 'package:design_kingdom/features/quest/presentation/view_models/quest_play_view_model.dart';
 
 /// SC-31 街マップ(ワイヤーフレーム22準拠)。
 /// どうぶつの森風の街マップに7スポットを配置し、タップで選択すると
@@ -42,15 +40,12 @@ const _spots = [
   _Spot('cafe', 'カフェ', 'B-5', '新メニューのポスターを作りたいんだって。',
       Offset(0.70, 0.22), 'cafe_front'),
   _Spot('studio', 'デザイン会社', 'C-3',
-      'デザイン体験として練習制作ができる会社。',
-      Offset(0.38, 0.46), 'studio_front'),
+      'デザイン体験として練習制作ができる会社。店先の掲示板には街のお困りごと(ポイント獲得)が貼り出され、たまに実務のプチお手伝い案件も登場！',
+      Offset(0.42, 0.50), 'studio_front'),
   _Spot('museum', '図書館', 'C-6', 'デザインの本や資料がそろう学びの場所。',
       Offset(0.80, 0.46), 'museum_front'),
   _Spot('grocery', '八百屋さん', 'E-1', '旬の野菜のPOPを作ってほしいみたい。',
       Offset(0.15, 0.70), 'grocery_front'),
-  _Spot('plaza', '掲示板', 'E-5',
-      '街のお困りごと(ポイント獲得)が貼り出される。たまに実務のプチお手伝い案件も登場！',
-      Offset(0.68, 0.70), 'board_front'),
   _Spot('port', 'イベント会場', 'F-6',
       'ワークショップやコンテストが開かれる会場。',
       Offset(0.83, 0.86), 'event_front'),
@@ -80,22 +75,13 @@ class _VillagePageState extends ConsumerState<VillagePage> {
       case 'port':
         _message('イベントは近日開催！おたのしみに♪');
       case 'studio':
-        final offers = ref.read(todayOffersProvider).valueOrNull;
-        final delivered = ref.read(userProgressProvider).deliveredQuestIds;
-        final next = offers?.where((q) => !delivered.contains(q.questId));
-        if (next != null && next.isNotEmpty) {
-          context.push('/quest/${next.first.questId}');
-        } else {
-          _message('きょうのお仕事はぜんぶ完了！工房はまた明日ひらくよ♪');
-        }
+        context.go('/home'); // 練習制作+お困りごとの受付(依頼リスト)へ
       case 'cafe':
         _message('カフェでひとやすみ♪ あったかいココアをどうぞ♡');
       case 'grocery':
         _message('八百屋さんのPOPづくりは、これから登場するよ♪');
       case 'museum':
         _message('図書館は v1.1 でオープンするよ！おたのしみに♪');
-      case 'plaza':
-        context.go('/home'); // 依頼リスト(ミッション受付)へ
     }
   }
 
@@ -206,7 +192,7 @@ class _VillagePageState extends ConsumerState<VillagePage> {
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: pnLine),
           ),
-          child: const Text('7スポット',
+          child: const Text('6スポット',
               style: TextStyle(
                   color: pnSub, fontSize: 12, fontWeight: FontWeight.w700)),
         ),
@@ -480,14 +466,14 @@ class _TownPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
     final path = Path()..moveTo(w * 0.24, h * 0.26);
     for (final (fx, fy) in [
-      (0.38, 0.50), (0.15, 0.74), (0.68, 0.74), (0.83, 0.90),
+      (0.42, 0.54), (0.15, 0.74), (0.5, 0.86), (0.83, 0.90),
     ]) {
       path.lineTo(w * fx, h * fy);
     }
     final path2 = Path()
       ..moveTo(w * 0.70, h * 0.26)
       ..lineTo(w * 0.80, h * 0.50)
-      ..lineTo(w * 0.68, h * 0.74);
+      ..lineTo(w * 0.83, h * 0.90);
     canvas.drawPath(path, road);
     canvas.drawPath(path2, road);
     // 港の入り江(右下)
@@ -553,8 +539,6 @@ class _MiniSpotPainter extends CustomPainter {
           Paint()..color = const Color(0x2EFFFFFF));
     }
     switch (id) {
-      case 'plaza':
-        _miniBoard(canvas, c);
       case 'port':
         _tent(canvas, c);
       default:
@@ -613,41 +597,6 @@ class _MiniSpotPainter extends CustomPainter {
                 center: base.translate(12, -13), width: 8, height: 7),
             const Radius.circular(2.5)),
         Paint()..color = const Color(0xFFBDDCF2));
-  }
-
-  void _miniBoard(Canvas canvas, Offset base) {
-    // 脚
-    for (final dx in [-11.0, 11.0]) {
-      canvas.drawRRect(
-          RRect.fromRectAndRadius(
-              Rect.fromLTWH(base.dx + dx - 2, base.dy - 10, 4, 10),
-              const Radius.circular(2)),
-          Paint()..color = const Color(0xFF9A6B45));
-    }
-    // 板 + 貼り紙
-    final board =
-        Rect.fromCenter(center: base.translate(0, -17), width: 34, height: 20);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(board, const Radius.circular(5)),
-        Paint()..color = const Color(0xFF9A6B45));
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(board.deflate(3), const Radius.circular(3)),
-        Paint()..color = const Color(0xFF7C5B36));
-    final paper = Paint()..color = const Color(0xFFFFF8EA);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(base.dx - 11, base.dy - 22, 8, 9),
-            const Radius.circular(1.5)),
-        paper);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(base.dx + 1, base.dy - 21, 8, 9),
-            const Radius.circular(1.5)),
-        paper);
-    canvas.drawCircle(Offset(base.dx - 7, base.dy - 23), 1.4,
-        Paint()..color = const Color(0xFFDF5A4E));
-    canvas.drawCircle(Offset(base.dx + 5, base.dy - 22), 1.4,
-        Paint()..color = const Color(0xFF7FA3CB));
   }
 
   void _tent(Canvas canvas, Offset base) {

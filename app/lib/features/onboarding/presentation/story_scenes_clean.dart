@@ -1527,13 +1527,15 @@ class _CleanStudioFrontPainter extends CustomPainter {
           stone);
     }
 
-    // ── 店舗(中央・正面) ──
+    // ── 店舗(右寄り・正面。左に掲示板を置く) ──
     final sh = h * 0.60, sw = sh * 1.3;
-    final sx = w / 2 - sw / 2, sy = h * 0.27;
+    final sx = w * 0.62 - sw / 2, sy = h * 0.27;
     final us = sh / 42;
     canvas.drawOval(
         Rect.fromCenter(
-            center: Offset(w / 2, sy + sh + 4), width: sw * 1.08, height: h * 0.03),
+            center: Offset(sx + sw / 2, sy + sh + 4),
+            width: sw * 1.08,
+            height: h * 0.03),
         Paint()..color = const Color(0x1F30301A));
     // 壁(クリーム)
     canvas.drawRRect(
@@ -1674,6 +1676,53 @@ class _CleanStudioFrontPainter extends CustomPainter {
             Rect.fromLTWH(px - pw / 2, pTop - phh * 0.08, pw, phh * 0.08),
             Radius.circular(pw * 0.3)),
         Paint()..color = const Color(0xFFE8A0A8));
+
+    // ── 店先の掲示板(お困りごと・プチ実務案件) ──
+    final bbw = w * 0.26, bbh = h * 0.24;
+    final bbx = w * 0.16 - bbw / 2, bby = h * 0.44;
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(bbx + bbw / 2, bby + bbh + h * 0.15),
+            width: bbw * 0.95,
+            height: h * 0.025),
+        Paint()..color = const Color(0x22304018));
+    for (final fx in [0.22, 0.78]) {
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(bbx + bbw * fx - 4, bby + bbh, 8, h * 0.15),
+              const Radius.circular(4)),
+          Paint()..color = const Color(0xFF9A6B45));
+    }
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(bbx - 6, bby - h * 0.035, bbw + 12, h * 0.04),
+            const Radius.circular(5)),
+        Paint()..color = const Color(0xFFC98A6B));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(bbx, bby, bbw, bbh), const Radius.circular(8)),
+        Paint()..color = const Color(0xFF9A6B45));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(bbx + 5, bby + 5, bbw - 10, bbh - 10),
+            const Radius.circular(5)),
+        Paint()..color = const Color(0xFF7C5B36));
+    const bbPins = [
+      Color(0xFFDF5A4E), Color(0xFF7FA3CB), Color(0xFF74B858),
+      Color(0xFFF6D96B),
+    ];
+    var bbi = 0;
+    for (final (fx, fy) in [(0.14, 0.14), (0.55, 0.18), (0.18, 0.55), (0.56, 0.52)]) {
+      final paper = Rect.fromLTWH(bbx + bbw * fx, bby + bbh * fy,
+          bbw * 0.32, bbh * 0.32);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(paper, const Radius.circular(3)),
+          Paint()..color = const Color(0xFFFFF8EA));
+      canvas.drawCircle(
+          Offset(paper.center.dx, paper.top + 2.5), 2.2,
+          Paint()..color = bbPins[bbi % bbPins.length]);
+      bbi++;
+    }
   }
 
   @override
