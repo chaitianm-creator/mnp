@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:design_kingdom/core/state/account.dart';
+import 'package:design_kingdom/core/util/external_link.dart';
 import 'package:design_kingdom/core/state/outfit.dart';
 import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
@@ -229,7 +230,7 @@ class _PnShellState extends ConsumerState<PnShell> {
     final items = <(String, IconData, String?, String?)>[
       ('ホーム', Icons.home_rounded, '/home', null),
       ('冒険伴走日記', Icons.menu_book_rounded, null, '会員限定'),
-      ('もくもく学習室', Icons.edit_note_rounded, '/workshop', null),
+      ('もくもく学習室', Icons.edit_note_rounded, 'https://mnp-sable.vercel.app/home', null),
       ('ショッピングセンター', Icons.storefront_rounded, '/shopping', null),
       ('着せ替えクローゼット', Icons.checkroom_rounded, '/closet', null),
       ('お客さまアルバム', Icons.photo_library_rounded, '/album', null),
@@ -264,7 +265,9 @@ class _PnShellState extends ConsumerState<PnShell> {
                       ? null
                       : route == null
                           ? () => _comingSoon(label)
-                          : () => context.go(route),
+                          : route.startsWith('http')
+                              ? () => openExternal(route)
+                              : () => context.go(route),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 9),
@@ -528,7 +531,7 @@ class _PnShellState extends ConsumerState<PnShell> {
                     case 'ホーム':
                       context.go('/home');
                     case 'もくもく学習室':
-                      context.push('/workshop');
+                      openExternal('https://mnp-sable.vercel.app/home');
                     case '着せ替えクローゼット':
                       context.push('/closet');
                     case 'ショッピングセンター':

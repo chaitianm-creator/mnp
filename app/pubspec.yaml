@@ -20,6 +20,7 @@ dependencies:
   go_router: ^14.2.0
   google_fonts: ^6.2.1 # Zen Maru Gothic / DotGothic16
   shared_preferences: ^2.2.3 # 中断再開のローカル保存(quest_local_source)
+  web: ^1.1.1 # 外部リンク(もくもく学習室など)を新しいタブで開く
   # Firebase(USE_FIREBASE=true 時に使用。DEMOモードでは初期化しない)
   firebase_core: ^3.1.0
   firebase_auth: ^5.1.0
