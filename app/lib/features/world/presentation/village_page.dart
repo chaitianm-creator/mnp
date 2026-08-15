@@ -44,15 +44,16 @@ const _spots = [
   _Spot('studio', 'デザイン会社', 'C-3',
       'デザイン体験として練習制作ができる会社。',
       Offset(0.38, 0.46), 'studio_front'),
-  _Spot('museum', '資料館', 'C-6', 'デザインの資料がそろう学びの場所。',
+  _Spot('museum', '図書館', 'C-6', 'デザインの本や資料がそろう学びの場所。',
       Offset(0.80, 0.46), 'museum_front'),
   _Spot('grocery', '八百屋さん', 'E-1', '旬の野菜のPOPを作ってほしいみたい。',
       Offset(0.15, 0.70), 'grocery_front'),
   _Spot('plaza', '掲示板', 'E-5',
       '街のお困りごと(ポイント獲得)が貼り出される。たまに実務のプチお手伝い案件も登場！',
       Offset(0.68, 0.70), 'board_front'),
-  _Spot('port', '港', 'F-6', '島の玄関口。ワールドマップへ出発できる。',
-      Offset(0.83, 0.86), 'island_map'),
+  _Spot('port', 'イベント会場', 'F-6',
+      'ワークショップやコンテストが開かれる会場。',
+      Offset(0.83, 0.86), 'event_front'),
 ];
 
 class _VillagePageState extends ConsumerState<VillagePage> {
@@ -77,7 +78,7 @@ class _VillagePageState extends ConsumerState<VillagePage> {
       case 'bakery':
         context.push('/daily-request');
       case 'port':
-        context.go('/map');
+        _message('イベントは近日開催！おたのしみに♪');
       case 'studio':
         final offers = ref.read(todayOffersProvider).valueOrNull;
         final delivered = ref.read(userProgressProvider).deliveredQuestIds;
@@ -92,7 +93,7 @@ class _VillagePageState extends ConsumerState<VillagePage> {
       case 'grocery':
         _message('八百屋さんのPOPづくりは、これから登場するよ♪');
       case 'museum':
-        _message('資料館は v1.1 でオープンするよ！おたのしみに♪');
+        _message('図書館は v1.1 でオープンするよ！おたのしみに♪');
       case 'plaza':
         context.go('/home'); // 依頼リスト(ミッション受付)へ
     }
@@ -555,7 +556,7 @@ class _MiniSpotPainter extends CustomPainter {
       case 'plaza':
         _miniBoard(canvas, c);
       case 'port':
-        _boat(canvas, c);
+        _tent(canvas, c);
       default:
         _house(canvas, c, _roofOf(id), awning: id == 'bakery');
     }
@@ -649,28 +650,48 @@ class _MiniSpotPainter extends CustomPainter {
         Paint()..color = const Color(0xFF7FA3CB));
   }
 
-  void _boat(Canvas canvas, Offset base) {
-    final boat = Path()
-      ..moveTo(base.dx - 17, base.dy - 13)
-      ..lineTo(base.dx + 17, base.dy - 13)
-      ..quadraticBezierTo(base.dx + 11, base.dy - 4, base.dx + 6, base.dy - 4)
-      ..lineTo(base.dx - 6, base.dy - 4)
-      ..quadraticBezierTo(base.dx - 11, base.dy - 4, base.dx - 17, base.dy - 13)
+  void _tent(Canvas canvas, Offset base) {
+    // ストライプのテント(イベント会場)
+    final wall = Rect.fromCenter(
+        center: base.translate(0, -9), width: 34, height: 14);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(wall, const Radius.circular(4)),
+        Paint()..color = const Color(0xFFF6EBD3));
+    final roof = Path()
+      ..moveTo(base.dx - 20, base.dy - 15)
+      ..quadraticBezierTo(base.dx, base.dy - 34, base.dx + 20, base.dy - 15)
       ..close();
-    canvas.drawPath(boat, Paint()..color = const Color(0xFFC98A6B));
-    final sail = Path()
-      ..moveTo(base.dx, base.dy - 30)
-      ..quadraticBezierTo(base.dx - 13, base.dy - 22, base.dx - 11, base.dy - 15)
-      ..lineTo(base.dx, base.dy - 15)
-      ..close();
-    canvas.drawPath(sail, Paint()..color = Colors.white);
+    canvas.save();
+    canvas.clipPath(roof);
+    for (var i = 0; i < 5; i++) {
+      canvas.drawRect(
+          Rect.fromLTWH(base.dx - 20 + i * 8, base.dy - 34, 8, 20),
+          Paint()
+            ..color = i.isEven ? const Color(0xFFDF6A5E) : Colors.white);
+    }
+    canvas.restore();
+    // 入口と旗
+    canvas.drawPath(
+        Path()
+          ..moveTo(base.dx - 5, base.dy - 2)
+          ..lineTo(base.dx, base.dy - 12)
+          ..lineTo(base.dx + 5, base.dy - 2)
+          ..close(),
+        Paint()..color = const Color(0xFF8E5B52));
     canvas.drawLine(
-        Offset(base.dx, base.dy - 31),
-        Offset(base.dx, base.dy - 13),
+        Offset(base.dx, base.dy - 27),
+        Offset(base.dx, base.dy - 33),
         Paint()
           ..color = const Color(0xFF9A6B45)
-          ..strokeWidth = 2.2
+          ..strokeWidth = 2
           ..strokeCap = StrokeCap.round);
+    canvas.drawPath(
+        Path()
+          ..moveTo(base.dx, base.dy - 33)
+          ..lineTo(base.dx + 7, base.dy - 30.5)
+          ..lineTo(base.dx, base.dy - 28)
+          ..close(),
+        Paint()..color = const Color(0xFFF6D96B));
   }
 
   @override

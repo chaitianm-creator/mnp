@@ -47,6 +47,8 @@ Widget buildCleanScene(String scene) {
       return const _Fill(_CleanFrontPainter(kind: 'museum'));
     case 'board_front': // カード用: クエスト掲示板
       return const _Fill(_CleanBoardFrontPainter());
+    case 'event_front': // カード用: イベント会場
+      return const _Fill(_CleanEventFrontPainter());
     default:
       return const ColoredBox(color: Color(0xFF1B2440));
   }
@@ -1764,7 +1766,7 @@ class _CleanFrontPainter extends CustomPainter {
           text: cafe
               ? 'カフェ'
               : museum
-                  ? '資料館'
+                  ? '図書館'
                   : '八百屋',
           style: TextStyle(
               color: const Color(0xFF5A3A1E),
@@ -2086,6 +2088,151 @@ class _CleanBoardFrontPainter extends CustomPainter {
     for (var i = 0; i < 8; i++) {
       acTuft(canvas, w * rng.nextDouble(), h * (0.5 + rng.nextDouble() * 0.45),
           w / 500, const Color(0x40295C1E));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ─────────────────────────────────────────────────────────────
+// イベント会場(カード用・正面構図)。
+// ─────────────────────────────────────────────────────────────
+class _CleanEventFrontPainter extends CustomPainter {
+  const _CleanEventFrontPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    acSkyGradient(canvas, size,
+        const [Color(0xFFAECBEB), Color(0xFFD7E7F5)], heightFactor: 0.34);
+    acCloud(canvas, w * 0.8, h * 0.09, w / 1200, 0.95);
+    acCloud(canvas, w * 0.16, h * 0.13, w / 1600, 0.85);
+    // 芝生
+    final grassRect = Rect.fromLTWH(0, h * 0.32, w, h * 0.68);
+    canvas.drawRect(
+        grassRect,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF7EC55E), Color(0xFF5FA843)],
+          ).createShader(grassRect));
+    acGrassSpeckle(canvas, grassRect, math.Random(37),
+        step: w / 14, color: const Color(0x14204D18));
+    acTree(canvas, w * 0.06, h * 0.62, w / 750);
+    acConifer(canvas, w * 0.95, h * 0.58, w / 820);
+
+    // ── 大テント(赤白ストライプ) ──
+    final tw = w * 0.52, th = h * 0.34;
+    final tx = w / 2 - tw / 2, ty = h * 0.36;
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(w / 2, ty + th + h * 0.22),
+            width: tw * 1.05,
+            height: h * 0.035),
+        Paint()..color = const Color(0x22304018));
+    // テントの壁(下半分)
+    canvas.drawRect(Rect.fromLTWH(tx + tw * 0.08, ty + th * 0.5,
+            tw * 0.84, th * 0.5 + h * 0.2),
+        Paint()..color = const Color(0xFFF7EFDC));
+    // 入口(三角にめくれた幕)
+    final door = Path()
+      ..moveTo(w / 2 - tw * 0.12, ty + th + h * 0.2)
+      ..lineTo(w / 2, ty + th * 0.62)
+      ..lineTo(w / 2 + tw * 0.12, ty + th + h * 0.2)
+      ..close();
+    canvas.drawPath(door, Paint()..color = const Color(0xFF8E5B52));
+    // 屋根(ストライプのドーム)
+    final roof = Path()
+      ..moveTo(tx - tw * 0.06, ty + th * 0.52)
+      ..quadraticBezierTo(w / 2, ty - th * 0.5, tx + tw * 1.06, ty + th * 0.52)
+      ..close();
+    canvas.save();
+    canvas.clipPath(roof);
+    for (var i = 0; i < 8; i++) {
+      canvas.drawRect(
+          Rect.fromLTWH(tx - tw * 0.06 + i * tw * 1.12 / 8, ty - th * 0.5,
+              tw * 1.12 / 8, th * 1.1),
+          Paint()
+            ..color =
+                i.isEven ? const Color(0xFFDF6A5E) : Colors.white);
+    }
+    canvas.restore();
+    // 頂上の旗
+    canvas.drawLine(
+        Offset(w / 2, ty - th * 0.0),
+        Offset(w / 2, ty - th * 0.34),
+        Paint()
+          ..color = const Color(0xFF9A6B45)
+          ..strokeWidth = 3
+          ..strokeCap = StrokeCap.round);
+    canvas.drawPath(
+        Path()
+          ..moveTo(w / 2, ty - th * 0.34)
+          ..lineTo(w / 2 + tw * 0.1, ty - th * 0.27)
+          ..lineTo(w / 2, ty - th * 0.2)
+          ..close(),
+        Paint()..color = const Color(0xFFF6D96B));
+
+    // ガーランド(三角の旗の連なり)
+    final garland = Path()
+      ..moveTo(w * 0.06, h * 0.2)
+      ..quadraticBezierTo(w / 2, h * 0.34, w * 0.94, h * 0.2);
+    canvas.drawPath(
+        garland,
+        Paint()
+          ..color = const Color(0xFF9A6B45)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4);
+    const flagColors = [
+      Color(0xFFDF6A5E), Color(0xFFF6D96B), Color(0xFF74B858),
+      Color(0xFF7FA3CB), Color(0xFFE8A0A8),
+    ];
+    for (var i = 0; i < 9; i++) {
+      final t = 0.06 + i * 0.11;
+      final gx = w * t;
+      final gy = h * (0.2 + 0.14 * (1 - (2 * (t - 0.5)).abs() * (2 * (t - 0.5)).abs()));
+      canvas.drawPath(
+          Path()
+            ..moveTo(gx - 7, gy)
+            ..lineTo(gx + 7, gy)
+            ..lineTo(gx, gy + 13)
+            ..close(),
+          Paint()..color = flagColors[i % flagColors.length]);
+    }
+
+    // 風船(左右)
+    for (final (fx, colors) in [
+      (0.14, [const Color(0xFFE8A0A8), const Color(0xFF7FA3CB)]),
+      (0.86, [const Color(0xFFF6D96B), const Color(0xFF74B858)]),
+    ]) {
+      for (var i = 0; i < 2; i++) {
+        final bc = Offset(w * fx + (i == 0 ? -8.0 : 9.0),
+            h * (0.55 - i * 0.05));
+        canvas.drawLine(
+            Offset(bc.dx, bc.dy + 10),
+            Offset(w * fx, h * 0.74),
+            Paint()
+              ..color = const Color(0x669A6B45)
+              ..strokeWidth = 1.6);
+        canvas.drawOval(
+            Rect.fromCenter(center: bc, width: 18, height: 22),
+            Paint()..color = colors[i]);
+        canvas.drawOval(
+            Rect.fromCenter(
+                center: bc.translate(-3, -4), width: 5, height: 7),
+            Paint()..color = Colors.white38);
+      }
+    }
+    // 足元の花
+    final rng = math.Random(41);
+    for (var i = 0; i < 8; i++) {
+      acFlower(
+          canvas,
+          w * (0.08 + rng.nextDouble() * 0.84),
+          h * (0.82 + rng.nextDouble() * 0.13),
+          [Colors.white, const Color(0xFFF2A5C0), const Color(0xFFF6D96B)][i % 3]);
     }
   }
 
