@@ -138,15 +138,15 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
             child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _outlinedText(page.boardTitle!, 26,
+                  _outlinedText(page.boardTitle!, 34,
                       const Color(0xFFF2E2B8), const Color(0xFF4E351B)),
                   if (page.boardText != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Text(page.boardText!,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                             color: Color(0xFFF2E2B8),
-                            fontSize: 15,
+                            fontSize: 19,
                             height: 1.5,
                             fontWeight: FontWeight.w800)),
                   ],
