@@ -497,20 +497,20 @@ class _Avatar extends ConsumerWidget {
     if (flying) {
       return IgnorePointer(
         child: SizedBox(
-          width: 60,
-          height: 66,
+          width: 84,
+          height: 84,
           child: Stack(alignment: Alignment.topCenter, children: [
             Positioned(
-              top: 22,
+              top: 26,
               child: CustomPaint(
-                  size: const Size(60, 34), painter: _PlanePainter()),
+                  size: const Size(84, 52), painter: _PlanePainter()),
             ),
             Positioned(top: 0, child: sprite),
             Positioned(
               bottom: 0,
               child: Container(
-                width: 30,
-                height: 6,
+                width: 46,
+                height: 7,
                 decoration: BoxDecoration(
                   color: const Color(0x26304018),
                   borderRadius: BorderRadius.circular(999),
@@ -542,47 +542,108 @@ class _Avatar extends ConsumerWidget {
   }
 }
 
-/// 主人公が乗る小さな飛行機(正面ビュー)。
+/// 主人公が乗る飛行機(横向きのジャンボ機・参考イラスト準拠)。
 class _PlanePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
-    final cx = w / 2;
-    // 主翼(左右に広がる青い翼)
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromCenter(
-                center: Offset(cx, h * 0.42), width: w, height: h * 0.3),
-            const Radius.circular(6)),
-        Paint()..color = const Color(0xFF7FA3CB));
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromCenter(
-                center: Offset(cx, h * 0.5), width: w, height: h * 0.12),
-            const Radius.circular(4)),
-        Paint()..color = const Color(0xFF5F7FA6));
-    // 胴体(白いカプセル + 赤いライン)
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromCenter(
-                center: Offset(cx, h * 0.45), width: w * 0.34, height: h * 0.9),
-            Radius.circular(w * 0.17)),
-        Paint()..color = const Color(0xFFF6F1E4));
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromCenter(
-                center: Offset(cx, h * 0.58), width: w * 0.34, height: h * 0.12),
-            const Radius.circular(3)),
-        Paint()..color = const Color(0xFFDF6A5E));
-    // 機首のプロペラ
-    canvas.drawCircle(Offset(cx, h * 0.9), 4,
-        Paint()..color = const Color(0xFFDF6A5E));
-    final prop = Paint()
-      ..color = const Color(0xFF5A4E44)
-      ..strokeWidth = 2.4
+    final outline = Paint()
+      ..color = const Color(0xFF3A3532)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.6
+      ..strokeJoin = StrokeJoin.round
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-        Offset(cx - 9, h * 0.9), Offset(cx + 9, h * 0.9), prop);
+    final white = Paint()..color = Colors.white;
+    final lightBlue = Paint()..color = const Color(0xFFC9EFFB);
+
+    // 尾翼(右うしろに大きく)
+    final fin = Path()
+      ..moveTo(w * 0.74, h * 0.44)
+      ..quadraticBezierTo(w * 0.78, h * 0.10, w * 0.87, h * 0.04)
+      ..quadraticBezierTo(w * 0.95, h * 0.00, w * 0.94, h * 0.16)
+      ..lineTo(w * 0.90, h * 0.52)
+      ..close();
+    canvas.drawPath(fin, white);
+    canvas.drawPath(fin, outline);
+    // 水平尾翼
+    final tailWing = Path()
+      ..moveTo(w * 0.80, h * 0.52)
+      ..quadraticBezierTo(w * 0.99, h * 0.56, w * 0.99, h * 0.66)
+      ..lineTo(w * 0.82, h * 0.64)
+      ..close();
+    canvas.drawPath(tailWing, white);
+    canvas.drawPath(tailWing, outline);
+
+    // 胴体(左が機首の白いカプセル)
+    final body = RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.01, h * 0.32, w * 0.92, h * 0.4),
+        Radius.circular(h * 0.2));
+    canvas.drawRRect(body, white);
+    // 青いおなか
+    canvas.save();
+    canvas.clipRRect(body);
+    canvas.drawRect(Rect.fromLTWH(0, h * 0.57, w, h * 0.16),
+        Paint()..color = const Color(0xFF2AA5CE));
+    canvas.restore();
+    canvas.drawRRect(body, outline);
+
+    // コックピットの窓(機首の上・水色の帯)
+    final cockpit = Path()
+      ..moveTo(w * 0.045, h * 0.40)
+      ..quadraticBezierTo(w * 0.10, h * 0.345, w * 0.185, h * 0.35)
+      ..lineTo(w * 0.175, h * 0.46)
+      ..quadraticBezierTo(w * 0.10, h * 0.46, w * 0.055, h * 0.49)
+      ..close();
+    canvas.drawPath(cockpit, lightBlue);
+    canvas.drawPath(
+        cockpit,
+        Paint()
+          ..color = const Color(0xFF3A3532)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.8
+          ..strokeJoin = StrokeJoin.round);
+    // 客席の窓(小さな水色の四角)
+    final winStroke = Paint()
+      ..color = const Color(0xFF3A3532)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    for (var i = 0; i < 5; i++) {
+      final wr = RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+              w * (0.25 + i * 0.105), h * 0.42, w * 0.062, h * 0.115),
+          const Radius.circular(2.5));
+      canvas.drawRRect(wr, lightBlue);
+      canvas.drawRRect(wr, winStroke);
+    }
+
+    // 主翼(手前へ下りる白い翼)
+    final wing = Path()
+      ..moveTo(w * 0.40, h * 0.55)
+      ..lineTo(w * 0.62, h * 0.62)
+      ..quadraticBezierTo(w * 0.60, h * 0.80, w * 0.50, h * 0.96)
+      ..quadraticBezierTo(w * 0.44, h * 1.02, w * 0.40, h * 0.94)
+      ..close();
+    canvas.drawPath(wing, white);
+    canvas.drawPath(wing, outline);
+    // エンジン(翼の下の黒い楕円)
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(w * 0.335, h * 0.80),
+            width: w * 0.10,
+            height: h * 0.16),
+        white);
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(w * 0.335, h * 0.80),
+            width: w * 0.10,
+            height: h * 0.16),
+        outline);
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(w * 0.325, h * 0.80),
+            width: w * 0.05,
+            height: h * 0.10),
+        Paint()..color = const Color(0xFF3A3532));
   }
 
   @override
