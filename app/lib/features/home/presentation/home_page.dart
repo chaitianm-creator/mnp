@@ -61,19 +61,6 @@ class _HomePageState extends ConsumerState<HomePage> {
               Align(alignment: Alignment.centerLeft, child: _backToMap()),
               const SizedBox(height: 10),
               _heroCard(withSpeech: true),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(
-                    child: _statCard(pnYellow, '獲得できるポイント', '+100 ポイント')),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: _statCard(
-                        pnPurple, 'クエスト数', '${_clearedCount()}/3 完了')),
-                const SizedBox(width: 10),
-                Expanded(
-                    child:
-                        _statCard(pnBlue, 'クリア報酬', 'はじまりの森 解放！')),
-              ]),
               const SizedBox(height: 18),
               _questHeader(),
               const SizedBox(height: 10),
@@ -101,12 +88,6 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
               const SizedBox(height: 10),
               _progressCard(),
-              const SizedBox(height: 10),
-              _statCard(pnYellow, '獲得できるポイント', '+100 ポイント'),
-              const SizedBox(height: 8),
-              _statCard(pnPurple, 'クエスト数', '${_clearedCount()}/3 完了'),
-              const SizedBox(height: 8),
-              _statCard(pnBlue, 'クリア報酬', 'はじまりの森 解放！'),
               const SizedBox(height: 18),
               _questHeader(),
               const SizedBox(height: 10),
@@ -249,29 +230,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       ]),
     );
   }
-
-  Widget _statCard(Color dot, String label, String value) => PnPanel(
-        child: Row(children: [
-          Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
-                      style: const TextStyle(color: pnSub, fontSize: 11)),
-                  Text(value,
-                      style: const TextStyle(
-                          color: pnInk,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800)),
-                ]),
-          ),
-        ]),
-      );
 
   Widget _questHeader() => const Row(children: [
         Text('🍃', style: TextStyle(fontSize: 16)),
