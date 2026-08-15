@@ -183,6 +183,20 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
       if (page.scene == 'bakery') ...[
         // PC(WF17a)では店の右横に2人を並べる。SPは店の前(左右)に立たせる。
         // 足元にはどうぶつの森風のやわらかい落ち影。
+        // 頭の横にはふき出す汗(大きなしずく2つ)。
+        Positioned(
+          left: size.width * (wide ? 0.55 : 0.1) +
+              (wide ? size.height * 0.26 : size.width * 0.3) * 0.82,
+          bottom: size.height * (wide ? 0.30 : 0.33) +
+              (wide ? size.height * 0.26 : size.width * 0.3) * 1.0,
+          child: IgnorePointer(
+            child: CustomPaint(
+              size: Size.square(
+                  (wide ? size.height * 0.26 : size.width * 0.3) * 0.62),
+              painter: const _SweatBurstPainter(),
+            ),
+          ),
+        ),
         Positioned(
           left: size.width * (wide ? 0.55 : 0.1) +
               (wide ? size.height * 0.026 : size.width * 0.03),
@@ -436,6 +450,55 @@ class _HeaderCard extends StatelessWidget {
 }
 
 /// 主人公の吹き出し(白カード + しっぽ)。
+/// ふき出す汗(アニメ調の大きなしずく2つ。輪郭+ハイライト付き)。
+class _SweatBurstPainter extends CustomPainter {
+  const _SweatBurstPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width;
+
+    void drop(double cx, double cy, double r, double angle) {
+      canvas.save();
+      canvas.translate(cx, cy);
+      canvas.rotate(angle);
+      // しずく(先端が尾、丸い頭)
+      final path = Path()
+        ..moveTo(0, -r * 2.1)
+        ..quadraticBezierTo(r * 0.95, -r, r, r * 0.4)
+        ..arcToPoint(Offset(-r, r * 0.4),
+            radius: Radius.circular(r * 1.02), clockwise: true)
+        ..quadraticBezierTo(-r * 0.95, -r, 0, -r * 2.1)
+        ..close();
+      canvas.drawPath(path, Paint()..color = const Color(0xFF54B9F2));
+      canvas.drawPath(
+          path,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = math.max(2.0, r * 0.22)
+            ..strokeJoin = StrokeJoin.round
+            ..color = const Color(0xFF15181D));
+      // ハイライト(頭の上側の白い月)
+      canvas.save();
+      canvas.translate(-r * 0.38, r * 0.05);
+      canvas.rotate(-0.55);
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset.zero, width: r * 0.3, height: r * 0.95),
+          Paint()..color = const Color(0xFFDFF4FF));
+      canvas.restore();
+      canvas.restore();
+    }
+
+    // 尾が頭側(左下)を向くように回転。左上に小、右下に大。
+    drop(s * 0.30, s * 0.34, s * 0.155, -2.25);
+    drop(s * 0.68, s * 0.70, s * 0.205, -2.05);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 class _SpeechBubble extends StatelessWidget {
   const _SpeechBubble({required this.text});
   final String text;

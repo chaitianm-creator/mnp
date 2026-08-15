@@ -389,8 +389,8 @@ const bakerRows = [
   '..cCCCCCCCCCCc..',
   '...cccccccccc...',
   '..ffffffffffff..',
-  '.fffkkffffkkfffD',
-  '.ffEeffffffEeffD',
+  '.fffkkffffkkfff.',
+  '.ffEeffffffEeff.',
   '.ffeeffffffeeff.',
   '.fbbMMMMMMMMbbf.',
   '.ffMMMMMMMMMMff.',
@@ -421,7 +421,8 @@ const bakerPalette = {
   // 困り顔(まゆ・への字口)と汗
   'k': Color(0xFF6B4A2F),
   'w': Color(0xFF8A4A3A),
-  'D': Color(0xFF86C9E8),
+  'D': Color(0xFF5FB4E0),
+  'd': Color(0xFFC9EFFB),
 };
 
 // ─────────────────────────────────────────────────────────────
