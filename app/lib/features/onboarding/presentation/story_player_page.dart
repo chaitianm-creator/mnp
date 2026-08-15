@@ -96,7 +96,7 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
 
     return Stack(children: [
       // ── シーン(背景はクリーンイラスト、キャラはドット) ──
-      if (page.scene == 'phone')
+      if (page.scene == 'phone' || page.scene == 'phone_notify')
         const Positioned.fill(child: CleanDeskScene())
       else if (page.scene == 'bedroom_sleep')
         const Positioned.fill(
@@ -237,32 +237,10 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Column(children: [
             const SizedBox(height: 10),
-            // ── ページ番号 + スキップ(1ページ目はスキップなし) ──
+            // ── ページ番号 ──
             Row(children: [
               _counterChip('${page.no} / ${ep.pages.length}'),
               const Spacer(),
-              if (page.no != 1)
-                Material(
-                  color: Colors.white.withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(999),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: () => _finish(ep),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: _line),
-                      ),
-                      child: const Text('スキップ',
-                          style: TextStyle(
-                              color: _sub,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700)),
-                    ),
-                  ),
-                ),
             ]),
             const SizedBox(height: 10),
             if (page.headerBadge != null || page.headerTitle != null)
@@ -275,7 +253,23 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
             ],
             if (page.scene == 'phone') ...[
               const Spacer(),
-              Center(child: _InvitePhoneCard(onDetail: advance)),
+              Flexible(
+                flex: 8,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: _InvitePhoneCard(onDetail: advance),
+                ),
+              ),
+            ],
+            if (page.scene == 'phone_notify') ...[
+              const Spacer(),
+              Flexible(
+                flex: 8,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: _NotifyPhoneCard(onTap: advance),
+                ),
+              ),
             ],
             const Spacer(),
             // ── 会話ウィンドウ ──
@@ -761,6 +755,134 @@ class _NextButton extends StatelessWidget {
         const SizedBox(width: 4),
         Text(label),
       ]),
+    );
+  }
+}
+
+/// 通知シーン(p2): ロック画面に「ピコン♪」の通知だけが届いたスマホ。
+class _NotifyPhoneCard extends StatelessWidget {
+  const _NotifyPhoneCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        width: 290,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: const Color(0xFF9A938A), width: 2.5),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x334A443A), blurRadius: 18, offset: Offset(0, 6)),
+          ],
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // スピーカー
+          Container(
+            width: 54,
+            height: 5,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD8D2C6),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // ロック画面(やわらかいグラデーション + 時計 + 通知)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              height: 330,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFBFD9F0), Color(0xFFE8D9EE)],
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(12, 22, 12, 12),
+              child: Column(children: [
+                const Text('7:00',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 40,
+                        fontWeight: FontWeight.w800,
+                        shadows: [
+                          Shadow(color: Color(0x33445566), blurRadius: 6),
+                        ])),
+                const Text('4月1日(月)',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        shadows: [
+                          Shadow(color: Color(0x33445566), blurRadius: 6),
+                        ])),
+                const SizedBox(height: 18),
+                // ピコン♪ の通知バナー
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: const [
+                      BoxShadow(
+                          color: Color(0x22445566),
+                          blurRadius: 8,
+                          offset: Offset(0, 3)),
+                    ],
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFBF4E2),
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: const Color(0xFFEBD9AE)),
+                      ),
+                      child: const Center(
+                          child: Text('✉️', style: TextStyle(fontSize: 16))),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('通知：ピコン♪',
+                                style: TextStyle(
+                                    color: _ink,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900)),
+                            SizedBox(height: 2),
+                            Text('新着メッセージが届いたよ',
+                                style: TextStyle(
+                                    color: _sub,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600)),
+                          ]),
+                    ),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // ホームバー
+          Container(
+            width: 84,
+            height: 5,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD8D2C6),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }

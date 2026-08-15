@@ -13,11 +13,11 @@
         },
         {
           "no": 2,
-          "scene": "phone"
+          "scene": "phone_notify"
         },
         {
           "no": 3,
-          "scene": "bedroom_awake",
+          "scene": "phone",
           "bubble": "実践デザイナー島…？\n何それ？"
         },
         {

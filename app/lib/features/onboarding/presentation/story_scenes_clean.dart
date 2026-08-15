@@ -661,13 +661,36 @@ class _CleanDeskPainter extends CustomPainter {
             end: Alignment.bottomCenter,
             colors: [Color(0xFFC98F5A), Color(0xFFB77E4B)],
           ).createShader(rect));
-    // 板の継ぎ目
+    // 板の継ぎ目 + 木目の節(どうぶつの森風)
     final seam = Paint()
       ..color = const Color(0x2E6E4522)
       ..strokeWidth = 3;
     for (var y = h * 0.14; y < h; y += h * 0.14) {
       canvas.drawLine(Offset(0, y), Offset(w, y), seam);
     }
+    final knot = Paint()..color = const Color(0x266E4522);
+    for (final (fx, fy) in [(0.3, 0.3), (0.62, 0.55), (0.42, 0.82), (0.85, 0.72)]) {
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(w * fx, h * fy), width: w * 0.035, height: w * 0.018),
+          knot);
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(w * fx, h * fy), width: w * 0.016, height: w * 0.008),
+          Paint()..color = const Color(0x336E4522));
+    }
+    // 小物の落ち影
+    final itemShadow = Paint()..color = const Color(0x1F30301A);
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(w * 0.105, h * 0.115),
+            width: w * 0.23,
+            height: w * 0.2),
+        itemShadow);
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(w * 0.935, h * 0.16), width: w * 0.16, height: w * 0.05),
+        itemShadow);
     // コーヒー(左上)
     final cupC = Offset(w * 0.1, h * 0.1);
     canvas.drawCircle(cupC, w * 0.105, Paint()..color = const Color(0xFFF0E6D2));
