@@ -230,7 +230,7 @@ class _PnShellState extends ConsumerState<PnShell> {
       ('ホーム', Icons.home_rounded, '/home', null),
       ('冒険伴走日記', Icons.menu_book_rounded, null, '会員限定'),
       ('もくもく学習室', Icons.edit_note_rounded, '/workshop', null),
-      ('お役立ちショップ', Icons.storefront_rounded, null, '近日公開'),
+      ('ショッピングセンター', Icons.storefront_rounded, '/shopping', null),
       ('着せ替えクローゼット', Icons.checkroom_rounded, '/closet', null),
       ('お客さまアルバム', Icons.photo_library_rounded, null, null),
     ];
@@ -507,7 +507,7 @@ class _PnShellState extends ConsumerState<PnShell> {
 
   Widget _footer() {
     const links = [
-      'ホーム', '冒険伴走日記', 'もくもく学習室', 'お役立ちショップ',
+      'ホーム', '冒険伴走日記', 'もくもく学習室', 'ショッピングセンター',
       '着せ替えクローゼット', 'お客さまアルバム', 'よくある質問',
       'お問い合わせ', '利用規約', 'プライバシーポリシー',
     ];
@@ -531,6 +531,8 @@ class _PnShellState extends ConsumerState<PnShell> {
                       context.push('/workshop');
                     case '着せ替えクローゼット':
                       context.push('/closet');
+                    case 'ショッピングセンター':
+                      context.push('/shopping');
                     default:
                       _comingSoon(l);
                   }
