@@ -186,7 +186,7 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
         Positioned(
           left: size.width * (wide ? 0.55 : 0.1) +
               (wide ? size.height * 0.026 : size.width * 0.03),
-          bottom: size.height * (wide ? 0.30 : 0.24) - 5,
+          bottom: size.height * (wide ? 0.30 : 0.33) - 5,
           child: IgnorePointer(
             child: _SpriteShadow(
                 width: (wide ? size.height * 0.26 : size.width * 0.3) * 0.8),
@@ -194,7 +194,7 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
         ),
         Positioned(
           left: size.width * (wide ? 0.55 : 0.1),
-          bottom: size.height * (wide ? 0.30 : 0.24),
+          bottom: size.height * (wide ? 0.30 : 0.33),
           child: IgnorePointer(
             child: PixelSprite(
                 rows: bakerRows,
@@ -205,7 +205,7 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
         Positioned(
           right: size.width * (wide ? 0.14 : 0.06) +
               (wide ? size.height * 0.022 : size.width * 0.026),
-          bottom: size.height * (wide ? 0.28 : 0.24) - 5,
+          bottom: size.height * (wide ? 0.28 : 0.33) - 5,
           child: IgnorePointer(
             child: _SpriteShadow(
                 width: (wide ? size.height * 0.22 : size.width * 0.26) * 0.8),
@@ -213,7 +213,7 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
         ),
         Positioned(
           right: size.width * (wide ? 0.14 : 0.06),
-          bottom: size.height * (wide ? 0.28 : 0.24),
+          bottom: size.height * (wide ? 0.28 : 0.33),
           child: IgnorePointer(
             child: PixelSprite(
                 rows: heroineFrontRows,
