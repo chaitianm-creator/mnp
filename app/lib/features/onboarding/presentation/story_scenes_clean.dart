@@ -1584,43 +1584,85 @@ class _CleanStudioFrontPainter extends CustomPainter {
         Paint()..color = const Color(0xFF83659E));
     canvas.drawRect(Rect.fromLTWH(wx, wy, ww, wh),
         Paint()..color = const Color(0xFFDCEBF5));
-    // イーゼル
-    final ec = Offset(wx + ww * 0.5, wy + wh * 0.86);
-    final leg = Paint()
-      ..color = const Color(0xFF9A6B45)
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(ec.translate(-ww * 0.2, 0),
-        ec.translate(0, -wh * 0.72), leg);
-    canvas.drawLine(ec.translate(ww * 0.2, 0),
-        ec.translate(0, -wh * 0.72), leg);
-    canvas.drawLine(ec, ec.translate(0, -wh * 0.5), leg);
-    // キャンバス(描きかけのデザイン)
-    final cv = Rect.fromCenter(
-        center: ec.translate(0, -wh * 0.46), width: ww * 0.5, height: wh * 0.44);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(cv, const Radius.circular(3)),
-        Paint()..color = Colors.white);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(cv.inflate(1.5), const Radius.circular(4)),
-        Paint()
-          ..color = const Color(0xFF9A6B45)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2);
-    canvas.drawCircle(cv.center.translate(-cv.width * 0.18, -cv.height * 0.1),
-        cv.width * 0.14, Paint()..color = const Color(0xFFF2A5C0));
+    // デスク(パソコンでデザイン制作中)
+    canvas.drawRect(
+        Rect.fromLTWH(wx, wy + wh * 0.68, ww, wh * 0.32),
+        Paint()..color = const Color(0xFF9A6B45));
+    canvas.drawRect(
+        Rect.fromLTWH(wx, wy + wh * 0.68, ww, wh * 0.05),
+        Paint()..color = const Color(0xFFB0855C));
+    // モニター(スタンド + デザインツールの画面)
+    final mon = Rect.fromCenter(
+        center: Offset(wx + ww * 0.44, wy + wh * 0.38),
+        width: ww * 0.56,
+        height: wh * 0.46);
     canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(cv.left + cv.width * 0.5, cv.top + cv.height * 0.28,
-                cv.width * 0.34, cv.height * 0.12),
+            Rect.fromCenter(
+                center: Offset(mon.center.dx, mon.bottom + wh * 0.09),
+                width: ww * 0.2,
+                height: wh * 0.05),
+            const Radius.circular(2)),
+        Paint()..color = const Color(0xFF5A4E44));
+    canvas.drawRect(
+        Rect.fromCenter(
+            center: Offset(mon.center.dx, mon.bottom + wh * 0.05),
+            width: ww * 0.05,
+            height: wh * 0.1),
+        Paint()..color = const Color(0xFF5A4E44));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(mon.inflate(3), const Radius.circular(5)),
+        Paint()..color = const Color(0xFF44403A));
+    canvas.drawRect(mon, Paint()..color = Colors.white);
+    // 画面の中: ツールバー + 描きかけのデザイン
+    canvas.drawRect(
+        Rect.fromLTWH(mon.left, mon.top, mon.width, mon.height * 0.16),
+        Paint()..color = const Color(0xFFE8E2D2));
+    canvas.drawRect(
+        Rect.fromLTWH(mon.left, mon.top + mon.height * 0.16, mon.width * 0.14,
+            mon.height * 0.84),
+        Paint()..color = const Color(0xFFD8D2C2));
+    canvas.drawCircle(
+        Offset(mon.left + mon.width * 0.5, mon.top + mon.height * 0.48),
+        mon.width * 0.12,
+        Paint()..color = const Color(0xFFF2A5C0));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(mon.left + mon.width * 0.66,
+                mon.top + mon.height * 0.36, mon.width * 0.24,
+                mon.height * 0.12),
             const Radius.circular(2)),
         Paint()..color = const Color(0xFF7FA3CB));
     canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(cv.left + cv.width * 0.14, cv.top + cv.height * 0.62,
-                cv.width * 0.6, cv.height * 0.1),
+            Rect.fromLTWH(mon.left + mon.width * 0.34,
+                mon.top + mon.height * 0.72, mon.width * 0.44,
+                mon.height * 0.1),
             const Radius.circular(2)),
         Paint()..color = const Color(0xFFF6D96B));
+    // キーボードとマウスとマグ
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(
+                center: Offset(wx + ww * 0.42, wy + wh * 0.76),
+                width: ww * 0.4,
+                height: wh * 0.07),
+            const Radius.circular(3)),
+        Paint()..color = const Color(0xFFE8E2D2));
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(wx + ww * 0.72, wy + wh * 0.76),
+            width: ww * 0.08,
+            height: wh * 0.08),
+        Paint()..color = const Color(0xFFE8E2D2));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(
+                center: Offset(wx + ww * 0.12, wy + wh * 0.73),
+                width: ww * 0.1,
+                height: wh * 0.12),
+            const Radius.circular(2)),
+        Paint()..color = const Color(0xFFE8A0A8));
     // ドア(青緑のアーチ)
     final dx = sx + sw * 0.68, dy = sy + sh * 0.34, dw = sw * 0.17,
         dh = sh * 0.66;
