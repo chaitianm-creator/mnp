@@ -283,9 +283,12 @@ class _CleanRoomPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
     final wallH = h * 0.58;
-    final u = w / 160;
+    // 家具は高さ基準のスケールで上限をかけ、横長画面でも巨大化させない
+    final u = math.min(w / 160, h / 200);
+    final cx = w / 2;
+    double ox(double units) => cx + units * u; // 中心からのオフセット
 
-    // 壁(あたたかいグラデーション)
+    // 壁(あたたかいグラデーション + どうぶつの森風の水玉の壁紙)
     final wallRect = Rect.fromLTWH(0, 0, w, wallH);
     canvas.drawRect(
         wallRect,
@@ -293,12 +296,22 @@ class _CleanRoomPainter extends CustomPainter {
           ..shader = const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFE4CBA6), Color(0xFFF3E2C2), Color(0xFFEED9B8)],
-            stops: [0.0, 0.35, 1.0],
+            colors: [Color(0xFFF2D8B4), Color(0xFFF9E8CC), Color(0xFFF3DFC0)],
+            stops: [0.0, 0.4, 1.0],
           ).createShader(wallRect));
-    // 幅木
-    canvas.drawRect(Rect.fromLTWH(0, wallH - 6 * u * 0.6, w, 6 * u * 0.6),
+    final dot = Paint()..color = const Color(0x2EFFFFFF);
+    final step = 9.5 * u;
+    for (var y = step * 0.6; y < wallH - 4 * u; y += step) {
+      final off = ((y / step).floor().isEven) ? 0.0 : step / 2;
+      for (var x = off; x < w; x += step) {
+        canvas.drawCircle(Offset(x, y), 1.9 * u, dot);
+      }
+    }
+    // 幅木(2段)
+    canvas.drawRect(Rect.fromLTWH(0, wallH - 4 * u, w, 4 * u),
         Paint()..color = const Color(0xFFC79B62));
+    canvas.drawRect(Rect.fromLTWH(0, wallH - 4 * u, w, 1.2 * u),
+        Paint()..color = const Color(0xFFDDB37E));
 
     // 床(木のグラデーション + 板のライン)
     final floorRect = Rect.fromLTWH(0, wallH, w, h - wallH);
@@ -313,27 +326,36 @@ class _CleanRoomPainter extends CustomPainter {
     final seam = Paint()
       ..color = const Color(0x338A5A30)
       ..strokeWidth = 2;
-    for (var y = wallH + 9 * u * 0.6; y < h; y += 9 * u * 0.6) {
+    for (var y = wallH + 8 * u; y < h; y += 8 * u) {
       canvas.drawLine(Offset(0, y), Offset(w, y), seam);
+    }
+    // 縦の継ぎ目(互い違い)
+    var row = 0;
+    for (var y = wallH; y < h; y += 8 * u, row++) {
+      final off2 = (row % 2) * 26 * u;
+      for (var x = off2 + 12 * u; x < w; x += 52 * u) {
+        canvas.drawLine(Offset(x, y + 1), Offset(x, y + 8 * u - 1), seam);
+      }
     }
 
     // ラグ(楕円2トーン)
-    final rugC = Offset(w / 2, wallH + (h - wallH) * 0.62);
+    final rugC = Offset(cx, wallH + (h - wallH) * 0.62);
     canvas.drawOval(
         Rect.fromCenter(
-            center: rugC, width: 104 * u, height: (h - wallH) * 0.6),
+            center: rugC, width: 118 * u, height: (h - wallH) * 0.62),
         Paint()..color = const Color(0xFFE8A88C));
     canvas.drawOval(
         Rect.fromCenter(
-            center: rugC, width: 88 * u, height: (h - wallH) * 0.48),
+            center: rugC, width: 100 * u, height: (h - wallH) * 0.5),
         Paint()..color = const Color(0xFFDD9478));
 
-    // 窓(夜空 + 月 + 星 + カーテン)
-    final wx = 52 * u, wy = wallH * 0.09, ww = 56 * u, wh = wallH * 0.46;
+    // 窓(夜空 + 三日月 + 星 + カーテン) — ベッドの真上
+    final ww = 56 * u, wh = wallH * 0.46;
+    final wx = ox(-28), wy = wallH * 0.08;
     canvas.drawRRect(
         RRect.fromRectAndRadius(
             Rect.fromLTWH(wx - 6 * u, wy - 6 * u, ww + 12 * u, wh + 12 * u),
-            Radius.circular(4 * u)),
+            Radius.circular(5 * u)),
         Paint()..color = const Color(0xFF8A5A30));
     final skyRect = Rect.fromLTWH(wx, wy, ww, wh);
     canvas.drawRect(
@@ -346,48 +368,49 @@ class _CleanRoomPainter extends CustomPainter {
           ).createShader(skyRect));
     final rng = math.Random(5);
     final starP = Paint()..color = const Color(0xFFF6E8A8);
-    for (var i = 0; i < 18; i++) {
+    for (var i = 0; i < 16; i++) {
       canvas.drawCircle(
           Offset(wx + 3 * u + rng.nextDouble() * (ww - 6 * u),
               wy + 3 * u + rng.nextDouble() * wh * 0.7),
-          i % 4 == 0 ? 1.8 : 1.1,
+          i % 4 == 0 ? 1.6 : 1.0,
           starP);
     }
-    // 月(三日月)
-    final moonC = Offset(wx + ww - 14 * u, wy + wh * 0.26);
-    canvas.drawCircle(moonC, 7 * u, Paint()..color = const Color(0xFFF6E7A0));
-    canvas.drawCircle(moonC.translate(-3 * u, -2 * u), 6 * u,
+    final moonC = Offset(wx + ww - 13 * u, wy + wh * 0.28);
+    canvas.drawCircle(moonC, 6.5 * u, Paint()..color = const Color(0xFFF6E7A0));
+    canvas.drawCircle(moonC.translate(-2.8 * u, -1.8 * u), 5.5 * u,
         Paint()..color = const Color(0xFF25336A));
-    // 桟
     final barP = Paint()..color = const Color(0xFFB07845);
-    canvas.drawRect(
-        Rect.fromLTWH(wx + ww / 2 - u, wy, 2 * u, wh), barP);
-    canvas.drawRect(
-        Rect.fromLTWH(wx, wy + wh / 2 - u, ww, 2 * u), barP);
-    // カーテン(左右 + 上飾り)
+    canvas.drawRect(Rect.fromLTWH(wx + ww / 2 - u, wy, 2 * u, wh), barP);
+    canvas.drawRect(Rect.fromLTWH(wx, wy + wh / 2 - u, ww, 2 * u), barP);
+    // カーテン + 上飾り
     final curt = Paint()..color = const Color(0xFFF2A0B4);
     for (final left in [true, false]) {
-      final cx = left ? wx - 10 * u : wx + ww - 4 * u;
+      final cxx = left ? wx - 10 * u : wx + ww - 4 * u;
       canvas.drawRRect(
           RRect.fromRectAndRadius(
-              Rect.fromLTWH(cx, wy - 7 * u, 14 * u, wh * 0.94),
+              Rect.fromLTWH(cxx, wy - 6 * u, 14 * u, wh * 0.9),
               Radius.circular(5 * u)),
           curt);
-      // タッセル
       canvas.drawRRect(
           RRect.fromRectAndRadius(
-              Rect.fromLTWH(cx - u, wy + wh * 0.5, 16 * u, 3 * u),
+              Rect.fromLTWH(cxx - u, wy + wh * 0.5, 16 * u, 3 * u),
               Radius.circular(1.5 * u)),
           Paint()..color = const Color(0xFFB95672));
     }
     canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(wx - 12 * u, wy - 9 * u, ww + 24 * u, 5 * u),
+            Rect.fromLTWH(wx - 12 * u, wy - 8 * u, ww + 24 * u, 5 * u),
             Radius.circular(2.5 * u)),
         Paint()..color = const Color(0xFFD97A94));
 
-    // 本棚(左)
-    final bx = 5 * u, bh = wallH * 0.42, by = wallH - bh;
+    // 本棚(左) + 落ち影
+    final bx = ox(-76), bh = wallH * 0.42, by = wallH - bh;
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(bx + 14 * u, wallH + 2 * u),
+            width: 34 * u,
+            height: 5 * u),
+        Paint()..color = const Color(0x22304018));
     canvas.drawRRect(
         RRect.fromRectAndRadius(
             Rect.fromLTWH(bx, by, 28 * u, bh), Radius.circular(3 * u)),
@@ -396,8 +419,8 @@ class _CleanRoomPainter extends CustomPainter {
       Color(0xFFD95C5C), Color(0xFF5C7ED9), Color(0xFF6FAF62),
       Color(0xFFE8C25A), Color(0xFF9C6FC7), Color(0xFFE08A4E),
     ];
-    for (var s = 0; s < 3; s++) {
-      final sy = by + 3 * u + s * (bh - 6 * u) / 3;
+    for (var s0 = 0; s0 < 3; s0++) {
+      final sy = by + 3 * u + s0 * (bh - 6 * u) / 3;
       final sh = (bh - 6 * u) / 3 - 2 * u;
       canvas.drawRect(Rect.fromLTWH(bx + 2 * u, sy, 24 * u, sh),
           Paint()..color = const Color(0xFF6E4522));
@@ -405,7 +428,7 @@ class _CleanRoomPainter extends CustomPainter {
       var i = 0;
       while (xx < bx + 22 * u) {
         final bwd = (3 + (i % 2)) * u;
-        final c = spineColors[(s * 3 + i) % spineColors.length];
+        final c = spineColors[(s0 * 3 + i) % spineColors.length];
         canvas.drawRRect(
             RRect.fromRectAndRadius(
                 Rect.fromLTWH(xx, sy + 2 * u, bwd, sh - 2 * u),
@@ -416,33 +439,34 @@ class _CleanRoomPainter extends CustomPainter {
       }
     }
 
-    // ベッド(中央)
-    final bedX = 44 * u, bedW = 72 * u;
-    final headTop = wallH - 26 * u * 0.6;
+    // ベッド(中央) + 落ち影
+    final bedX = ox(-36), bedW = 72 * u;
+    final headTop = wallH - 16 * u;
     final bedBottom = wallH + (h - wallH) * 0.58;
-    // 落ち影
     canvas.drawOval(
         Rect.fromCenter(
-            center: Offset(w / 2, bedBottom + 6),
-            width: bedW + 16 * u,
-            height: 10 * u),
-        Paint()..color = const Color(0x339A6838));
+            center: Offset(cx, bedBottom + 6 * u),
+            width: bedW + 18 * u,
+            height: 8 * u),
+        Paint()..color = const Color(0x33304018));
     // ヘッドボード
     canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(bedX - 3 * u, headTop - 10 * u, bedW + 6 * u, 26 * u),
+            Rect.fromLTWH(
+                bedX - 3 * u, headTop - 10 * u, bedW + 6 * u, 26 * u),
             Radius.circular(8 * u)),
         Paint()..color = const Color(0xFFB07845));
     // 枕
     canvas.drawOval(
         Rect.fromCenter(
-            center: Offset(w / 2, headTop + 12 * u),
+            center: Offset(cx, headTop + 12 * u),
             width: 34 * u,
             height: 14 * u),
         Paint()..color = const Color(0xFFFBF2DC));
     // 掛け布団(ピンク + やわらかいチェック)
     final qy = headTop + 17 * u;
-    final quiltRect = Rect.fromLTWH(bedX - 3 * u, qy, bedW + 6 * u, bedBottom - qy);
+    final quiltRect =
+        Rect.fromLTWH(bedX - 3 * u, qy, bedW + 6 * u, bedBottom - qy);
     canvas.drawRRect(
         RRect.fromRectAndCorners(quiltRect,
             bottomLeft: Radius.circular(6 * u),
@@ -475,8 +499,14 @@ class _CleanRoomPainter extends CustomPainter {
             Radius.circular(3 * u)),
         Paint()..color = const Color(0xFF9A6B45));
 
-    // ナイトスタンド + ランプ(右)
-    final nx = w - 34 * u, ny = wallH - 10 * u * 0.6;
+    // ナイトスタンド + ランプ(右) + 落ち影
+    final nx = ox(46), ny = wallH - 6 * u;
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(nx + 11 * u, ny + 21 * u),
+            width: 28 * u,
+            height: 5 * u),
+        Paint()..color = const Color(0x22304018));
     canvas.drawRRect(
         RRect.fromRectAndRadius(
             Rect.fromLTWH(nx, ny, 22 * u, 20 * u), Radius.circular(3 * u)),
@@ -500,8 +530,12 @@ class _CleanRoomPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(lx - u, ly + 3 * u, 2 * u, 9 * u),
         Paint()..color = const Color(0xFF8A5A30));
 
-    // 観葉植物(右下)
-    final gx = w - 12 * u, gy = wallH + 9 * u;
+    // 観葉植物(右下) + 落ち影
+    final gx = ox(70), gy = wallH + 12 * u;
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(gx, gy + 10 * u), width: 20 * u, height: 4 * u),
+        Paint()..color = const Color(0x22304018));
     canvas.drawRRect(
         RRect.fromRectAndRadius(
             Rect.fromLTWH(gx - 6 * u, gy, 12 * u, 9 * u),
@@ -516,27 +550,37 @@ class _CleanRoomPainter extends CustomPainter {
     // ── 女の子(ドット絵のまま) ──
     if (mode == RoomMode.awake) {
       _drawRows(canvas, _girlSittingRows, _girlSittingPal,
-          w / 2 - 7 * 2.5 * u, headTop - 3 * u, 2.5 * u);
-      // びっくりマーク
+          cx - 7 * 2.5 * u, headTop - 3 * u, 2.5 * u);
       final exP = Paint()..color = const Color(0xFFE8C25A);
       canvas.drawRect(
-          Rect.fromLTWH(w / 2 + 20 * u, headTop - 9 * u, 2.5 * u, 6 * u), exP);
+          Rect.fromLTWH(cx + 20 * u, headTop - 9 * u, 2.5 * u, 6 * u), exP);
       canvas.drawRect(
-          Rect.fromLTWH(w / 2 + 20 * u, headTop - u, 2.5 * u, 2.5 * u), exP);
+          Rect.fromLTWH(cx + 20 * u, headTop - u, 2.5 * u, 2.5 * u), exP);
     } else {
       _drawRows(canvas, _girlSleepRows, _girlSleepPal,
-          w / 2 - 7 * 1.25 * u, headTop + 8 * u, 1.25 * u);
+          cx - 7 * 1.25 * u, headTop + 8 * u, 1.25 * u);
       // 布団の上に出た腕
       canvas.drawRRect(
           RRect.fromRectAndRadius(
-              Rect.fromLTWH(w / 2 - 13 * u, qy + 3 * u, 10 * u, 5 * u),
+              Rect.fromLTWH(cx - 13 * u, qy + 3 * u, 10 * u, 5 * u),
               Radius.circular(2.5 * u)),
           Paint()..color = _ink);
       canvas.drawRRect(
           RRect.fromRectAndRadius(
-              Rect.fromLTWH(w / 2 - 12 * u, qy + 4 * u, 8 * u, 3 * u),
+              Rect.fromLTWH(cx - 12 * u, qy + 4 * u, 8 * u, 3 * u),
               Radius.circular(1.5 * u)),
           Paint()..color = const Color(0xFFFFDDC2));
+      // すやすやの「Z」
+      final zP = TextPainter(
+        text: const TextSpan(
+            text: 'Z z',
+            style: TextStyle(
+                color: Color(0xAA8A5A30),
+                fontSize: 16,
+                fontWeight: FontWeight.w900)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      zP.paint(canvas, Offset(cx + 12 * u, headTop - 2 * u));
     }
   }
 
@@ -547,7 +591,7 @@ class _CleanRoomPainter extends CustomPainter {
     '.#HLHHHHHHHHH#',
     '#HHHHSSSSSHHH#',
     '#HHSSSSSSSSH#.',
-    '#HSSESSSSESS#.',
+    '#HSCCSSSSCCS#.', // 目を閉じてすやすや(まつ毛の線)
     '#HSSSSSSSSSS#.',
     '.#SBSSSSSSBS#.',
     '.#SSSSMMSSSS#.',
@@ -559,7 +603,7 @@ class _CleanRoomPainter extends CustomPainter {
     'H': Color(0xFF9C6234),
     'L': Color(0xFFC08A50),
     'S': Color(0xFFFFDDC2),
-    'E': Color(0xFF5A3A24),
+    'C': Color(0xFF5A3A24),
     'B': Color(0xFFF49AA8),
     'M': Color(0xFFE87F6E),
   };

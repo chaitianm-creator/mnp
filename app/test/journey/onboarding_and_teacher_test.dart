@@ -34,7 +34,8 @@ void main() {
     // 1〜13ページを全画面タップで進む
     expect(find.text('1 / 15'), findsOneWidget);
     for (var i = 1; i < 14; i++) {
-      await tapAndSettle(tester, find.bySemanticsLabel('次へ'));
+      // 全画面タップ + 可視の「次へ」ボタンの両方が同ラベルなので先頭を使う
+      await tapAndSettle(tester, find.bySemanticsLabel('次へ').first);
       expect(find.text('${i + 1} / 15'), findsOneWidget);
       if (i + 1 == 10) {
         // ページ10には「島へ行く」ボタンが表示される

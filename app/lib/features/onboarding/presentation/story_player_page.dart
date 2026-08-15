@@ -237,31 +237,32 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Column(children: [
             const SizedBox(height: 10),
-            // ── ページ番号 + スキップ ──
+            // ── ページ番号 + スキップ(1ページ目はスキップなし) ──
             Row(children: [
               _counterChip('${page.no} / ${ep.pages.length}'),
               const Spacer(),
-              Material(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(999),
-                child: InkWell(
+              if (page.no != 1)
+                Material(
+                  color: Colors.white.withOpacity(0.95),
                   borderRadius: BorderRadius.circular(999),
-                  onTap: () => _finish(ep),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: _line),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: () => _finish(ep),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: _line),
+                      ),
+                      child: const Text('スキップ',
+                          style: TextStyle(
+                              color: _sub,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700)),
                     ),
-                    child: const Text('スキップ',
-                        style: TextStyle(
-                            color: _sub,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700)),
                   ),
                 ),
-              ),
             ]),
             const SizedBox(height: 10),
             if (page.headerBadge != null || page.headerTitle != null)
@@ -320,16 +321,13 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
                 ),
               )
             else if (!hasChoices)
-              const Padding(
-                padding: EdgeInsets.only(top: 10),
-                child: Text('タップして次へ',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        shadows: [
-                          Shadow(color: Colors.black38, blurRadius: 6),
-                        ])),
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: SizedBox(
+                  width: 220,
+                  height: 50,
+                  child: _NextButton(label: '次へ', onTap: advance),
+                ),
               ),
             const SizedBox(height: 12),
           ]),
