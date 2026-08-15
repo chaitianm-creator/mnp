@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -51,21 +52,48 @@ const _spots = [
       Offset(0.83, 0.86), 'event_front'),
 ];
 
+/// 道でつながっているスポットのペア(それ以外の移動はショートカット)。
+const _roadPairs = {
+  'bakery|studio', 'grocery|studio', 'grocery|port', 'cafe|museum',
+  'museum|port', 'museum|studio',
+};
+
+bool _isConnected(String a, String b) {
+  final key = ([a, b]..sort()).join('|');
+  return _roadPairs.contains(key);
+}
+
 class _VillagePageState extends ConsumerState<VillagePage> {
   String _selectedId = 'bakery';
   bool _walking = false;
+  bool _shortcutBubble = false; // 道なき道を歩いたときの「ショートカット♪」
+  Timer? _bubbleTimer;
 
   _Spot get _selected => _spots.firstWhere((s) => s.id == _selectedId);
 
+  @override
+  void dispose() {
+    _bubbleTimer?.cancel();
+    super.dispose();
+  }
+
   void _select(String id) {
     if (_selectedId == id) return;
+    final shortcut = !_isConnected(_selectedId, id);
     setState(() {
       _selectedId = id;
       _walking = true;
+      _shortcutBubble = shortcut;
     });
     Future<void>.delayed(const Duration(milliseconds: 700)).then((_) {
       if (mounted) setState(() => _walking = false);
     });
+    _bubbleTimer?.cancel();
+    if (shortcut) {
+      _bubbleTimer = Timer(const Duration(milliseconds: 2000), () {
+        if (mounted) setState(() => _shortcutBubble = false);
+      });
+    }
   }
 
   void _enter(_Spot s) {
@@ -229,6 +257,39 @@ class _VillagePageState extends ConsumerState<VillagePage> {
             left: sel.pos.dx * w + 36,
             top: sel.pos.dy * h - 22,
             child: _Avatar(walking: _walking),
+          ),
+          // 道がないところを歩いたときの吹き出し
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 650),
+            curve: Curves.easeInOut,
+            left: sel.pos.dx * w + 18,
+            top: sel.pos.dy * h - 54,
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: _shortcutBubble ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: pnLine),
+                    boxShadow: const [
+                      BoxShadow(
+                          color: Color(0x1A4A443A),
+                          blurRadius: 5,
+                          offset: Offset(0, 2)),
+                    ],
+                  ),
+                  child: const Text('ショートカット♪',
+                      style: TextStyle(
+                          color: Color(0xFFD16E8E),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ),
           ),
         ]);
       }),
@@ -474,8 +535,13 @@ class _TownPainter extends CustomPainter {
       ..moveTo(w * 0.70, h * 0.26)
       ..lineTo(w * 0.80, h * 0.50)
       ..lineTo(w * 0.83, h * 0.90);
+    // デザイン会社 → 図書館の道
+    final path3 = Path()
+      ..moveTo(w * 0.42, h * 0.54)
+      ..lineTo(w * 0.80, h * 0.50);
     canvas.drawPath(path, road);
     canvas.drawPath(path2, road);
+    canvas.drawPath(path3, road);
     // 港の入り江(右下)
     final sea = Path()
       ..moveTo(w, h * 0.82)
