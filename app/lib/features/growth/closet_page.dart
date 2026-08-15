@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:design_kingdom/core/state/outfit.dart';
 import 'package:design_kingdom/core/state/user_progress.dart';
@@ -55,20 +56,51 @@ const _items = <_Item>[
 ];
 
 class _ClosetPageState extends ConsumerState<ClosetPage> {
+  static const _ownedKey = 'closet_owned';
+
   int _hat = -1; // -1 = かぶらない
   int _glasses = -1;
   _Cat? _filter; // null = ぜんぶ
+  // 購入済みアイテム(クローゼットの中身)。キーは 'hat_0' など。
+  Set<String> _owned = {};
 
-  int get _total {
-    var t = 0;
-    final outfit = ref.read(outfitProvider);
-    for (final it in _items) {
-      final selected = switch (it.cat) {
+  @override
+  void initState() {
+    super.initState();
+    _loadOwned();
+  }
+
+  Future<void> _loadOwned() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_ownedKey);
+      if (list != null && mounted) setState(() => _owned = list.toSet());
+    } catch (_) {}
+  }
+
+  Future<void> _saveOwned() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_ownedKey, _owned.toList());
+    } catch (_) {}
+  }
+
+  String _keyOf(_Item it) => '${it.cat.name}_${it.idx}';
+
+  bool _isOwned(_Item it) => it.price == 0 || _owned.contains(_keyOf(it));
+
+  bool _isSelected(_Item it, int outfit) => switch (it.cat) {
         _Cat.tops => it.idx == outfit,
         _Cat.hat => it.idx == _hat,
         _Cat.glasses => it.idx == _glasses,
       };
-      if (selected) t += it.price;
+
+  /// まだ持っていない選択中アイテムの合計(=お会計)。
+  int get _total {
+    var t = 0;
+    final outfit = ref.read(outfitProvider);
+    for (final it in _items) {
+      if (_isSelected(it, outfit) && !_isOwned(it)) t += it.price;
     }
     return t;
   }
@@ -88,10 +120,24 @@ class _ClosetPageState extends ConsumerState<ClosetPage> {
 
   void _buy() {
     final t = _total;
+    if (t == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('今のコーデは もっているアイテムだけだよ！'),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+    final outfit = ref.read(outfitProvider);
+    setState(() {
+      for (final it in _items) {
+        if (_isSelected(it, outfit) && !_isOwned(it)) {
+          _owned.add(_keyOf(it));
+        }
+      }
+    });
+    _saveOwned();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(t == 0
-          ? '今のコーデは持っているアイテムだけだよ！'
-          : '合計 $t ポイントで こうにゅうしました！(DEMO)'),
+      content: Text('合計 $t ポイントで こうにゅうしました！クローゼットに追加したよ(DEMO)'),
       duration: const Duration(seconds: 2),
     ));
   }
@@ -140,6 +186,9 @@ class _ClosetPageState extends ConsumerState<ClosetPage> {
             ]),
           ),
         ]),
+        const SizedBox(height: 4),
+        const Text('もっているアイテムはいつでも着せ替えOK！新しいアイテムは服屋さんで購入できるよ',
+            style: TextStyle(color: pnSub, fontSize: 12)),
         const SizedBox(height: 10),
         // ── カテゴリ ──
         Wrap(spacing: 6, children: [
@@ -295,11 +344,8 @@ class _ClosetPageState extends ConsumerState<ClosetPage> {
       itemCount: items.length,
       itemBuilder: (context, i) {
         final it = items[i];
-        final selected = switch (it.cat) {
-          _Cat.tops => it.idx == outfit,
-          _Cat.hat => it.idx == _hat,
-          _Cat.glasses => it.idx == _glasses,
-        };
+        final selected = _isSelected(it, outfit);
+        final owned = _isOwned(it);
         return Material(
           color: pnCard,
           borderRadius: BorderRadius.circular(14),
@@ -338,9 +384,9 @@ class _ClosetPageState extends ConsumerState<ClosetPage> {
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
-                  Text(it.price == 0 ? 'もっている' : '⭐ ${it.price}',
+                  Text(owned ? 'もっている' : '⭐ ${it.price}',
                       style: TextStyle(
-                          color: it.price == 0 ? pnGreenInk : pnSub,
+                          color: owned ? pnGreenInk : pnSub,
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800)),
                 ]),
