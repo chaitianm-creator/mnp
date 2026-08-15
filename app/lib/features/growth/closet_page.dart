@@ -204,9 +204,11 @@ class _ClosetPageState extends ConsumerState<ClosetPage> {
                     width: 150),
               ),
             ),
+            // スプライトは下寄せ(上端y=26.5、1マス=9.4px)。
+            // 頭のてっぺん(y≈27)にぼうし、目の行(y≈92〜111)にメガネを合わせる。
             if (_hat >= 0)
               Positioned(
-                top: -26,
+                top: -4,
                 left: 8,
                 right: 8,
                 child: CustomPaint(
@@ -221,11 +223,11 @@ class _ClosetPageState extends ConsumerState<ClosetPage> {
               ),
             if (_glasses >= 0)
               Positioned(
-                top: 66,
-                left: 20,
-                right: 20,
+                top: 78,
+                left: 0,
+                right: 0,
                 child: CustomPaint(
-                  size: const Size(110, 34),
+                  size: const Size(150, 40),
                   painter: _GlassesPainter(
                       kind: _glasses,
                       color: _items
