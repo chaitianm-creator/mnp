@@ -226,14 +226,13 @@ class _PnShellState extends ConsumerState<PnShell> {
 
   // ── サイドメニュー(SP: ドロワー / PC: 左サイドバー) ──
   Widget _sideMenu({bool embedded = false}) {
-    final items = [
-      ('ホーム', Icons.home_rounded, '/home'),
-      ('冒険日誌', Icons.menu_book_rounded, null),
-      ('冒険マップ', Icons.map_rounded, '/map'),
-      ('もくもく学習室', Icons.edit_note_rounded, '/workshop'),
-      ('スキル', Icons.auto_awesome_rounded, '/skills'),
-      ('お役立ちショップ', Icons.storefront_rounded, null),
-      ('わたし', Icons.person_rounded, '/profile'),
+    final items = <(String, IconData, String?, String?)>[
+      ('ホーム', Icons.home_rounded, '/home', null),
+      ('冒険伴走日記', Icons.menu_book_rounded, null, '会員限定'),
+      ('もくもく学習室', Icons.edit_note_rounded, '/workshop', null),
+      ('お役立ちショップ', Icons.storefront_rounded, null, '近日公開'),
+      ('着せ替えクローゼット', Icons.checkroom_rounded, null, null),
+      ('お客さまアルバム', Icons.photo_library_rounded, null, null),
     ];
     final menu = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -253,7 +252,7 @@ class _PnShellState extends ConsumerState<PnShell> {
             _timerCard(),
             const SizedBox(height: 14),
           ],
-          for (final (label, icon, route) in items)
+          for (final (label, icon, route, badge) in items)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               child: Material(
@@ -283,7 +282,7 @@ class _PnShellState extends ConsumerState<PnShell> {
                                   ? FontWeight.w800
                                   : FontWeight.w600)),
                       const Spacer(),
-                      if (route == null)
+                      if (badge != null)
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
@@ -291,9 +290,9 @@ class _PnShellState extends ConsumerState<PnShell> {
                               color: pnBg,
                               borderRadius: BorderRadius.circular(999),
                               border: Border.all(color: pnLine)),
-                          child: const Text('近日公開',
-                              style:
-                                  TextStyle(fontSize: 9.5, color: pnSub)),
+                          child: Text(badge,
+                              style: const TextStyle(
+                                  fontSize: 9.5, color: pnSub)),
                         ),
                     ]),
                   ),
@@ -508,9 +507,9 @@ class _PnShellState extends ConsumerState<PnShell> {
 
   Widget _footer() {
     const links = [
-      'ホーム', '冒険日誌', '冒険マップ', 'もくもく学習室', 'スキル',
-      'お役立ちショップ', 'わたし', 'よくある質問', 'お問い合わせ',
-      '利用規約', 'プライバシーポリシー',
+      'ホーム', '冒険伴走日記', 'もくもく学習室', 'お役立ちショップ',
+      '着せ替えクローゼット', 'お客さまアルバム', 'よくある質問',
+      'お問い合わせ', '利用規約', 'プライバシーポリシー',
     ];
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
@@ -528,16 +527,8 @@ class _PnShellState extends ConsumerState<PnShell> {
                   switch (l) {
                     case 'ホーム':
                       context.go('/home');
-                    case '冒険日誌':
-                      context.push('/skills');
-                    case '冒険マップ':
-                      context.go('/map');
                     case 'もくもく学習室':
                       context.push('/workshop');
-                    case 'スキル':
-                      context.go('/skills');
-                    case 'わたし':
-                      context.go('/profile');
                     default:
                       _comingSoon(l);
                   }
