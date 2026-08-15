@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -169,6 +171,13 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
         ),
       // ── 島マップの場所ラベル ──
       if (page.mapLabels) ..._mapLabels(size),
+      // ── 島マップ: 吹き出しをパン屋(左上)の真上に ──
+      if (page.scene == 'island_map' && page.bubble != null)
+        Positioned(
+          left: math.max(8.0, size.width * 0.31 - 110),
+          bottom: size.height * 0.58 + size.width * 0.034 + 6,
+          child: IgnorePointer(child: _SpeechBubble(text: page.bubble!)),
+        ),
       // ── パン屋の看板文字 ──
       if (page.scene == 'bakery' || page.scene == 'mission')
         Positioned(
@@ -247,6 +256,7 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
               _HeaderCard(badge: page.headerBadge, title: page.headerTitle),
             if (page.bubble != null &&
                 page.scene != 'island_overview' &&
+                page.scene != 'island_map' &&
                 page.scene != 'heroine_think') ...[
               const SizedBox(height: 14),
               _SpeechBubble(text: page.bubble!),

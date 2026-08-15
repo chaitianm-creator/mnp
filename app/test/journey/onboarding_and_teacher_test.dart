@@ -31,30 +31,35 @@ void main() {
     expect(find.text('スタート ▶'), findsOneWidget);
     await tapAndSettle(tester, find.text('スタート ▶'));
 
-    // 1〜13ページを全画面タップで進む
-    expect(find.text('1 / 15'), findsOneWidget);
-    for (var i = 1; i < 14; i++) {
+    // 1〜14ページを全画面タップで進む
+    expect(find.text('1 / 16'), findsOneWidget);
+    for (var i = 1; i < 15; i++) {
       // 全画面タップ + 可視の「次へ」ボタンの両方が同ラベルなので先頭を使う
       await tapAndSettle(tester, find.bySemanticsLabel('次へ').first);
-      expect(find.text('${i + 1} / 15'), findsOneWidget);
+      expect(find.text('${i + 1} / 16'), findsOneWidget);
       if (i + 1 == 10) {
         // ページ10には「島へ行く」ボタンが表示される
         expect(find.text('島へ行く'), findsOneWidget);
       }
+      if (i + 1 == 12) {
+        // ページ12はマップ上のパン屋への誘導の吹き出し
+        expect(find.textContaining('パン屋さんが困っていそうだよ'),
+            findsOneWidget);
+      }
     }
-    // 14: 選択肢ページ(全画面タップでは進まない)
+    // 15: 選択肢ページ(全画面タップでは進まない)
     expect(find.bySemanticsLabel('次へ'), findsNothing);
     expect(find.text('どう答える？'), findsOneWidget);
     // 不正解 → フィードバックが出て前進しない
     await tapAndSettle(
         tester, find.text('パンがおいしくないんじゃないですか？'));
-    expect(find.text('14 / 15'), findsOneWidget);
+    expect(find.text('15 / 16'), findsOneWidget);
     expect(find.textContaining('しょんぼり'), findsOneWidget);
-    // 正解 → 15へ
+    // 正解 → 16へ
     await tapAndSettle(
         tester, find.text('そんなの大変ですね！一緒に考えます！'));
-    expect(find.text('15 / 15'), findsOneWidget);
-    // 最終ページ(15 ミッション発生)のみ「開始」ボタン(WF21)
+    expect(find.text('16 / 16'), findsOneWidget);
+    // 最終ページ(16 ミッション発生)のみ「開始」ボタン(WF21)
     expect(find.text('ミッション発生！'), findsOneWidget);
     expect(find.textContaining('獲得ポイント'), findsOneWidget);
     await tapAndSettle(tester, find.text('開始'));
