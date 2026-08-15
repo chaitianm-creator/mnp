@@ -1547,28 +1547,28 @@ class _CleanStudioFrontPainter extends CustomPainter {
         Paint()..color = const Color(0xFFA98BC6));
     canvas.drawRect(Rect.fromLTWH(sx - 8, sy - 2, sw + 16, 4),
         Paint()..color = const Color(0xFF83659E));
-    // 看板(工房)
+    // 看板(デザイン会社 — 文字が長いので幅広の板にする)
     canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(sx + sw * 0.18, sy - 9 * us, sw * 0.5, 15 * us),
+            Rect.fromLTWH(sx + sw * 0.08, sy - 9 * us, sw * 0.84, 15 * us),
             const Radius.circular(8)),
         Paint()..color = const Color(0xFF6E4A22));
+    final signRect =
+        Rect.fromLTWH(sx + sw * 0.11, sy - 7 * us, sw * 0.78, 11 * us);
     canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(sx + sw * 0.2, sy - 7 * us, sw * 0.46, 11 * us),
-            const Radius.circular(6)),
+        RRect.fromRectAndRadius(signRect, const Radius.circular(6)),
         Paint()..color = const Color(0xFFEDD9A5));
+    final signFont = math.min(
+        (6.5 * us).clamp(11.0, 26.0), signRect.width / 7.0);
     final tp = TextPainter(
       text: TextSpan(
-          text: '工房',
+          text: 'デザイン会社',
           style: TextStyle(
               color: const Color(0xFF5A3A1E),
-              fontSize: (6.5 * us).clamp(11.0, 26.0),
+              fontSize: signFont,
               fontWeight: FontWeight.w800)),
       textDirection: TextDirection.ltr,
     )..layout();
-    final signRect =
-        Rect.fromLTWH(sx + sw * 0.2, sy - 7 * us, sw * 0.46, 11 * us);
     tp.paint(canvas, signRect.center - Offset(tp.width / 2, tp.height / 2));
     // 大きなショーウィンドウ(中にイーゼルとキャンバス)
     final wx = sx + sw * 0.08, wy = sy + sh * 0.3, ww = sw * 0.5,
