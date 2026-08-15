@@ -329,13 +329,14 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
   }
 
   List<Widget> _mapLabels(Size size) {
+    // 各お店の建物のすぐ上に置く(建物の位置は _CleanIslandPainter と対応)
     const labels = [
-      ('パン屋さん 🍞', 0.16, 0.30),
-      ('八百屋さん 🥬', 0.14, 0.50),
-      ('デザイン会社 ✏️', 0.60, 0.22),
-      ('カフェ ☕', 0.66, 0.36),
-      ('図書館 📖', 0.64, 0.52),
-      ('イベント会場 🎪', 0.30, 0.66),
+      ('パン屋さん 🍞', 0.235, 0.335),
+      ('八百屋さん 🥬', 0.195, 0.465),
+      ('デザイン会社 ✏️', 0.565, 0.39),
+      ('カフェ ☕', 0.715, 0.35),
+      ('図書館 📖', 0.745, 0.49),
+      ('イベント会場 🎪', 0.335, 0.575),
     ];
     return [
       for (final (text, fx, fy) in labels)

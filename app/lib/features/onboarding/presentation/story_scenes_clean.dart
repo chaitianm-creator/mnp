@@ -991,22 +991,200 @@ class _CleanIslandPainter extends CustomPainter {
       }
     }
 
-    house(w * 0.36, h * 0.46, const Color(0xFFC98A6B));
-    house(w * 0.62, h * 0.40, const Color(0xFF7FA3CB));
-    house(w * 0.66, h * 0.55, const Color(0xFF8CC178));
-    house(w * 0.44, h * 0.60, const Color(0xFFA98BC6));
-    house(w * 0.30, h * 0.56, const Color(0xFFE0B268));
-    house(w * 0.52, h * 0.44, const Color(0xFFE8A0A8));
-    // 木(広葉樹ともみの木を混ぜる)
-    for (var i = 0; i < 16; i++) {
-      final tx = w * (0.24 + rng.nextDouble() * 0.58);
-      final ty = h * (0.34 + rng.nextDouble() * 0.36);
-      if (i % 3 == 0) {
-        acConifer(canvas, tx, ty, w / 2100);
+    // お店(村のスポットのミニ版: フラット屋根 + 看板 + ひさし)
+    void shop(double cx, double cy, Color band, Color? awn, String deco) {
+      final s = w / 560;
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(cx, cy + 14 * s), width: 42 * s, height: 8 * s),
+          Paint()..color = const Color(0x22304018));
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                  center: Offset(cx, cy + 4.5 * s),
+                  width: 30 * s,
+                  height: 19 * s),
+              Radius.circular(2.5 * s)),
+          Paint()..color = const Color(0xFFF6EBD3));
+      // フラット屋根の帯
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                  center: Offset(cx, cy - 6 * s), width: 34 * s, height: 5 * s),
+              Radius.circular(2 * s)),
+          Paint()..color = band);
+      // 看板(木の板)
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                  center: Offset(cx, cy - 12 * s), width: 17 * s, height: 7 * s),
+              Radius.circular(2 * s)),
+          Paint()..color = const Color(0xFF8A5A38));
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                  center: Offset(cx, cy - 12 * s),
+                  width: 13.5 * s,
+                  height: 4 * s),
+              Radius.circular(1.2 * s)),
+          Paint()..color = const Color(0xFFF1E3C0));
+      // ストライプのひさし(スカラップ)
+      if (awn != null) {
+        for (var i = 0; i < 5; i++) {
+          final ap = Paint()..color = i.isEven ? awn : Colors.white;
+          final ax = cx - 15 * s + i * 6 * s;
+          canvas.drawRect(Rect.fromLTWH(ax, cy - 3.5 * s, 6 * s, 2.6 * s), ap);
+          canvas.drawArc(Rect.fromLTWH(ax, cy - 2.9 * s, 6 * s, 4 * s), 0,
+              math.pi, true, ap);
+        }
+      }
+      // ドア
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                  center: Offset(cx + 8 * s, cy + 9 * s),
+                  width: 7 * s,
+                  height: 11 * s),
+              Radius.circular(2.2 * s)),
+          Paint()..color =
+              deco == 'monitor' ? const Color(0xFF6E93C0) : const Color(0xFF9A6B45));
+      // 窓(白枠 + 中身はお店ごとに変える)
+      final wr = Rect.fromCenter(
+          center: Offset(cx - 5.5 * s, cy + 7.5 * s),
+          width: 12 * s,
+          height: 8.5 * s);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              wr.inflate(1.2 * s), Radius.circular(2 * s)),
+          Paint()..color = Colors.white);
+      if (deco == 'books') {
+        // 図書館: カラフルな本棚
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(wr, Radius.circular(1.5 * s)),
+            Paint()..color = const Color(0xFFF1E3C0));
+        const bookCols = [
+          Color(0xFFD97A6A),
+          Color(0xFF7FA3CB),
+          Color(0xFF8CC178),
+          Color(0xFFE0B268),
+        ];
+        for (var i = 0; i < 4; i++) {
+          canvas.drawRRect(
+              RRect.fromRectAndRadius(
+                  Rect.fromLTWH(wr.left + (1.6 + i * 2.6) * s,
+                      wr.top + 1.4 * s, 1.8 * s, wr.height - 2.8 * s),
+                  Radius.circular(0.6 * s)),
+              Paint()..color = bookCols[i]);
+        }
+      } else if (deco == 'monitor') {
+        // デザイン会社: PCモニター
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(wr, Radius.circular(1.5 * s)),
+            Paint()..color = const Color(0xFFBDDCF2));
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(
+                Rect.fromCenter(
+                    center: wr.center.translate(0, -0.6 * s),
+                    width: 6.6 * s,
+                    height: 4.6 * s),
+                Radius.circular(0.8 * s)),
+            Paint()..color = Colors.white);
+        canvas.drawCircle(wr.center.translate(-1.2 * s, -1.2 * s), 1.1 * s,
+            Paint()..color = const Color(0xFFF2A5C0));
       } else {
-        acTree(canvas, tx, ty, w / 1500);
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(wr, Radius.circular(1.5 * s)),
+            Paint()..color = const Color(0xFFBDDCF2));
       }
     }
+
+    // イベント会場(赤白ストライプの屋根 + 三角入口のテント)
+    void tentAt(double cx, double cy) {
+      final s = w / 560;
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(cx, cy + 13 * s), width: 48 * s, height: 8 * s),
+          Paint()..color = const Color(0x22304018));
+      // 本体
+      canvas.drawRect(
+          Rect.fromCenter(
+              center: Offset(cx, cy + 5 * s), width: 32 * s, height: 16 * s),
+          Paint()..color = const Color(0xFFF6EBD3));
+      // 屋根(赤白ストライプのひさし)
+      final roof = Path()
+        ..moveTo(cx - 20 * s, cy - 2 * s)
+        ..quadraticBezierTo(cx, cy - 16 * s, cx + 20 * s, cy - 2 * s)
+        ..close();
+      canvas.drawPath(roof, Paint()..color = Colors.white);
+      canvas.save();
+      canvas.clipPath(roof);
+      final rp = Paint()..color = const Color(0xFFE0796A);
+      for (var i = -2; i <= 2; i += 2) {
+        canvas.drawRect(
+            Rect.fromLTWH(cx + i * 6.4 * s - 2.4 * s, cy - 16 * s, 4.8 * s,
+                15 * s),
+            rp);
+      }
+      canvas.restore();
+      // 三角の入口
+      final door = Path()
+        ..moveTo(cx, cy - 1 * s)
+        ..lineTo(cx + 6 * s, cy + 13 * s)
+        ..lineTo(cx - 6 * s, cy + 13 * s)
+        ..close();
+      canvas.drawPath(door, Paint()..color = const Color(0xFF7A4A38));
+      // 旗
+      canvas.drawLine(
+          Offset(cx, cy - 9 * s),
+          Offset(cx, cy - 16 * s),
+          Paint()
+            ..color = const Color(0xFF8A5A38)
+            ..strokeWidth = 1.4 * s);
+      canvas.drawPath(
+          Path()
+            ..moveTo(cx, cy - 16 * s)
+            ..lineTo(cx + 6 * s, cy - 14 * s)
+            ..lineTo(cx, cy - 12 * s)
+            ..close(),
+          Paint()..color = const Color(0xFFF6D96B));
+    }
+
+    // 木(広葉樹ともみの木を混ぜる。お店の近くは避ける)
+    const spotCenters = [
+      Offset(0.31, 0.42),
+      Offset(0.27, 0.55),
+      Offset(0.76, 0.43),
+      Offset(0.79, 0.57),
+      Offset(0.63, 0.47),
+      Offset(0.41, 0.655),
+    ];
+    for (var i = 0; i < 16; i++) {
+      final fx = 0.24 + rng.nextDouble() * 0.58;
+      final fy = 0.34 + rng.nextDouble() * 0.36;
+      final nearSpot = spotCenters.any(
+          (c) => (c.dx - fx).abs() < 0.055 && (c.dy - fy).abs() < 0.07);
+      if (nearSpot) continue;
+      if (i % 3 == 0) {
+        acConifer(canvas, w * fx, h * fy, w / 2100);
+      } else {
+        acTree(canvas, w * fx, h * fy, w / 1500);
+      }
+    }
+
+    // 民家を少しだけ残し、村のスポットのお店を配置
+    house(w * 0.46, h * 0.40, const Color(0xFFE8A0A8));
+    house(w * 0.64, h * 0.59, const Color(0xFF8CC178));
+    shop(w * 0.31, h * 0.42, const Color(0xFFB07A4A), const Color(0xFFE0B268),
+        'window'); // パン屋さん
+    shop(w * 0.27, h * 0.55, const Color(0xFF3E7D53), const Color(0xFF8CC178),
+        'window'); // 八百屋さん
+    shop(w * 0.76, h * 0.43, const Color(0xFFE8A0A8), const Color(0xFFF2A5C0),
+        'window'); // カフェ
+    shop(w * 0.79, h * 0.57, const Color(0xFF7FA3CB), null,
+        'books'); // 図書館
+    shop(w * 0.63, h * 0.47, const Color(0xFFA98BC6), null,
+        'monitor'); // デザイン会社
+    tentAt(w * 0.41, h * 0.655); // イベント会場
     // 花(島のあちこちに)
     for (var i = 0; i < 14; i++) {
       final a = rng.nextDouble() * math.pi * 2;
