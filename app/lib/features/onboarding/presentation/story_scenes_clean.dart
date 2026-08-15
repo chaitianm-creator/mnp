@@ -1820,32 +1820,6 @@ class _CleanBakeryPainter extends CustomPainter {
         Paint()..color = const Color(0xFF3E6B44));
     canvas.drawCircle(Offset(dx + dw * 0.78, dy + dh * 0.5), 3,
         Paint()..color = const Color(0xFFE8C46B));
-    // 黒板
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(sx + 4 * us, sy + sh + 6, 18 * us, 9 * us),
-            const Radius.circular(6)),
-        Paint()..color = const Color(0xFF6E4A22));
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(sx + 4 * us + 4, sy + sh + 10, 18 * us - 8,
-                9 * us - 8),
-            const Radius.circular(4)),
-        Paint()..color = const Color(0xFF2E3230));
-    final chalk = Paint()
-      ..color = Colors.white70
-      ..strokeWidth = 2;
-    canvas.drawLine(
-        Offset(sx + 6 * us, sy + sh + 4.3 * us),
-        Offset(sx + 14 * us, sy + sh + 4.3 * us),
-        chalk);
-    canvas.drawOval(
-        Rect.fromCenter(
-            center: Offset(sx + 10 * us, sy + sh + 6.3 * us),
-            width: 6.4 * us,
-            height: 1.75 * us),
-        Paint()..color = const Color(0xFFD8A055));
-
     if (dim) {
       canvas.drawRect(
           Offset.zero & size, Paint()..color = const Color(0x66101C3A));
