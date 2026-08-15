@@ -15,11 +15,11 @@ class ShoppingCenterPage extends StatelessWidget {
     const shops = [
       (
         '服屋さん',
-        'きせかえアイテムはこちら！',
+        'きせかえアイテムを購入できるよ！',
         Color(0xFF8E4A62),
         Color(0xFFF9E3EA),
         'clothes',
-        '/closet',
+        '/clothes-shop',
       ),
       (
         '本屋さん',

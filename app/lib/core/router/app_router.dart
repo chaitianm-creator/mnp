@@ -111,9 +111,14 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
           builder: (_, __) => const WorkshopPage(),
         ),
         GoRoute(
-          path: "/closet", // 着せ替えクローゼット
+          path: "/closet", // 着せ替えクローゼット(持っているアイテム)
           parentNavigatorKey: rootNavigatorKey,
           builder: (_, __) => const ClosetPage(),
+        ),
+        GoRoute(
+          path: "/clothes-shop", // 服屋さん(購入ページ)
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, __) => const ClosetPage(shop: true),
         ),
         GoRoute(
           path: "/shopping", // ショッピングセンター

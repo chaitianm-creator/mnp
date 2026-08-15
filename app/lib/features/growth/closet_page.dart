@@ -7,12 +7,16 @@ import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/core/widgets/pn_shell.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 
-/// 着せ替えクローゼット(どうぶつの森の衣装ショップ風)。
-/// 中央にドットの主人公プレビュー、まわりにアイテムのグリッド。
+/// 着せ替えクローゼット / 服屋さん(どうぶつの森の衣装ショップ風)。
+/// - shop=false: クローゼット。購入済み(もっている)アイテムだけを表示して
+///   着せ替える場所。デフォルトは「しろワンピ もっている」のみ。
+/// - shop=true: ショッピングセンターの服屋さん。全アイテムに価格がつき、
+///   試着して購入するとクローゼットに保存される。
 /// トップスは既存のきせかえ(outfitProvider)に反映し、
 /// ぼうし・メガネはプレビュー上の試着(DEMO)。
 class ClosetPage extends ConsumerStatefulWidget {
-  const ClosetPage({super.key});
+  const ClosetPage({super.key, this.shop = false});
+  final bool shop;
 
   @override
   ConsumerState<ClosetPage> createState() => _ClosetPageState();
@@ -154,21 +158,26 @@ class _ClosetPageState extends ConsumerState<ClosetPage> {
   Widget build(BuildContext context) {
     final p = ref.watch(userProgressProvider);
     final outfit = ref.watch(outfitProvider);
+    // クローゼットは持っているアイテムだけ、服屋さんは全アイテムを表示
+    final pool =
+        widget.shop ? _items : _items.where(_isOwned).toList();
     final visible = _filter == null
-        ? _items
-        : _items.where((e) => e.cat == _filter).toList();
+        ? pool
+        : pool.where((e) => e.cat == _filter).toList();
 
+    final title = widget.shop ? '服屋さん' : '着せ替えクローゼット';
     return PnShell(
-      current: '着せ替えクローゼット',
-      spTitle: '着せ替えクローゼット',
+      current: widget.shop ? 'ショッピングセンター' : '着せ替えクローゼット',
+      spTitle: title,
       showRail: false,
       mainBuilder: (context, wide) => [
         // ── 上部バー(タイトル + ポイント残高) ──
         Row(children: [
-          const Text('着せ替えクローゼット',
-              style: TextStyle(
+          Text(title,
+              style: const TextStyle(
                   color: pnInk, fontSize: 18, fontWeight: FontWeight.w900)),
           const Spacer(),
+          if (widget.shop)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
@@ -187,8 +196,11 @@ class _ClosetPageState extends ConsumerState<ClosetPage> {
           ),
         ]),
         const SizedBox(height: 4),
-        const Text('もっているアイテムはいつでも着せ替えOK！新しいアイテムは服屋さんで購入できるよ',
-            style: TextStyle(color: pnSub, fontSize: 12)),
+        Text(
+            widget.shop
+                ? '気に入ったアイテムを試着して購入しよう！購入するとクローゼットに保存されるよ'
+                : '購入したアイテムはここに保存されるよ。もっているアイテムはいつでも着せ替えOK！',
+            style: const TextStyle(color: pnSub, fontSize: 12)),
         const SizedBox(height: 10),
         // ── カテゴリ ──
         Wrap(spacing: 6, children: [
@@ -288,24 +300,26 @@ class _ClosetPageState extends ConsumerState<ClosetPage> {
           ]),
         ),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: pnBg,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: pnLine),
+        if (widget.shop) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: pnBg,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: pnLine),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Text('ごうけい',
+                  style: TextStyle(
+                      color: pnSub, fontSize: 11, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 8),
+              Text('$_total ポイント',
+                  style: const TextStyle(
+                      color: pnInk, fontSize: 15, fontWeight: FontWeight.w900)),
+            ]),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Text('ごうけい',
-                style: TextStyle(
-                    color: pnSub, fontSize: 11, fontWeight: FontWeight.w800)),
-            const SizedBox(width: 8),
-            Text('$_total ポイント',
-                style: const TextStyle(
-                    color: pnInk, fontSize: 15, fontWeight: FontWeight.w900)),
-          ]),
-        ),
-        const SizedBox(height: 10),
+          const SizedBox(height: 10),
+        ],
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           OutlinedButton(
             onPressed: _reset,
@@ -315,16 +329,18 @@ class _ClosetPageState extends ConsumerState<ClosetPage> {
             child: const Text('やめる',
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
           ),
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: _buy,
-            style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFF2AFC1),
-                foregroundColor: const Color(0xFF8E4A62)),
-            icon: const Icon(Icons.shopping_bag_rounded, size: 16),
-            label: const Text('購入する',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
-          ),
+          if (widget.shop) ...[
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              onPressed: _buy,
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFF2AFC1),
+                  foregroundColor: const Color(0xFF8E4A62)),
+              icon: const Icon(Icons.shopping_bag_rounded, size: 16),
+              label: const Text('購入する',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+            ),
+          ],
         ]),
       ]),
     );
