@@ -37,6 +37,8 @@ Widget buildCleanScene(String scene) {
       return _Fill(_CleanBakeryPainter(dim: scene == 'mission'));
     case 'bakery_front': // カード用: 店を真正面・全体が見える構図
       return const _Fill(_CleanBakeryPainter(dim: false, centered: true));
+    case 'studio_front': // カード用: デザイン工房の店先
+      return const _Fill(_CleanStudioFrontPainter());
     default:
       return const ColoredBox(color: Color(0xFF1B2440));
   }
@@ -1474,6 +1476,198 @@ class _CleanBakeryPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CleanBakeryPainter old) => old.dim != dim;
+}
+
+// ─────────────────────────────────────────────────────────────
+// デザイン工房の店先(カード用・正面構図)。
+// ─────────────────────────────────────────────────────────────
+class _CleanStudioFrontPainter extends CustomPainter {
+  const _CleanStudioFrontPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    acSkyGradient(canvas, size,
+        const [Color(0xFFAECBEB), Color(0xFFD7E7F5)], heightFactor: 0.3);
+    acCloud(canvas, w * 0.78, h * 0.1, w / 1200, 0.95);
+    acCloud(canvas, w * 0.2, h * 0.14, w / 1600, 0.85);
+    // 奥の緑と地面
+    canvas.drawRect(Rect.fromLTWH(0, h * 0.28, w, h * 0.2),
+        Paint()..color = const Color(0xFF6DB84E));
+    final rng = math.Random(17);
+    acGrassSpeckle(canvas, Rect.fromLTWH(0, h * 0.28, w, h * 0.2),
+        math.Random(23), step: w / 14, color: const Color(0x14173D10));
+    final groundRect = Rect.fromLTWH(0, h * 0.46, w, h * 0.54);
+    canvas.drawRect(
+        groundRect,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFD0B584), Color(0xFFC0A375)],
+          ).createShader(groundRect));
+    final stone = Paint()..color = const Color(0x33A08662);
+    for (var i = 0; i < 12; i++) {
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(
+                  rng.nextDouble() * w, h * (0.5 + rng.nextDouble() * 0.48)),
+              width: 18 + rng.nextDouble() * 14,
+              height: 7 + rng.nextDouble() * 5),
+          stone);
+    }
+
+    // ── 店舗(中央・正面) ──
+    final sh = h * 0.60, sw = sh * 1.3;
+    final sx = w / 2 - sw / 2, sy = h * 0.27;
+    final us = sh / 42;
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(w / 2, sy + sh + 4), width: sw * 1.08, height: h * 0.03),
+        Paint()..color = const Color(0x1F30301A));
+    // 壁(クリーム)
+    canvas.drawRRect(
+        RRect.fromRectAndCorners(Rect.fromLTWH(sx, sy, sw, sh),
+            topLeft: const Radius.circular(6),
+            topRight: const Radius.circular(6)),
+        Paint()..color = const Color(0xFFF1EAD8));
+    // 屋根(紫の帯)
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(sx - 8, sy - h * 0.045, sw + 16, h * 0.05),
+            const Radius.circular(6)),
+        Paint()..color = const Color(0xFFA98BC6));
+    canvas.drawRect(Rect.fromLTWH(sx - 8, sy - 2, sw + 16, 4),
+        Paint()..color = const Color(0xFF83659E));
+    // 看板(工房)
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(sx + sw * 0.18, sy - 9 * us, sw * 0.5, 15 * us),
+            const Radius.circular(8)),
+        Paint()..color = const Color(0xFF6E4A22));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(sx + sw * 0.2, sy - 7 * us, sw * 0.46, 11 * us),
+            const Radius.circular(6)),
+        Paint()..color = const Color(0xFFEDD9A5));
+    final tp = TextPainter(
+      text: TextSpan(
+          text: '工房',
+          style: TextStyle(
+              color: const Color(0xFF5A3A1E),
+              fontSize: (6.5 * us).clamp(11.0, 26.0),
+              fontWeight: FontWeight.w800)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final signRect =
+        Rect.fromLTWH(sx + sw * 0.2, sy - 7 * us, sw * 0.46, 11 * us);
+    tp.paint(canvas, signRect.center - Offset(tp.width / 2, tp.height / 2));
+    // 大きなショーウィンドウ(中にイーゼルとキャンバス)
+    final wx = sx + sw * 0.08, wy = sy + sh * 0.3, ww = sw * 0.5,
+        wh = sh * 0.52;
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(wx - 4, wy - 4, ww + 8, wh + 8),
+            const Radius.circular(8)),
+        Paint()..color = const Color(0xFF83659E));
+    canvas.drawRect(Rect.fromLTWH(wx, wy, ww, wh),
+        Paint()..color = const Color(0xFFDCEBF5));
+    // イーゼル
+    final ec = Offset(wx + ww * 0.5, wy + wh * 0.86);
+    final leg = Paint()
+      ..color = const Color(0xFF9A6B45)
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(ec.translate(-ww * 0.2, 0),
+        ec.translate(0, -wh * 0.72), leg);
+    canvas.drawLine(ec.translate(ww * 0.2, 0),
+        ec.translate(0, -wh * 0.72), leg);
+    canvas.drawLine(ec, ec.translate(0, -wh * 0.5), leg);
+    // キャンバス(描きかけのデザイン)
+    final cv = Rect.fromCenter(
+        center: ec.translate(0, -wh * 0.46), width: ww * 0.5, height: wh * 0.44);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(cv, const Radius.circular(3)),
+        Paint()..color = Colors.white);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(cv.inflate(1.5), const Radius.circular(4)),
+        Paint()
+          ..color = const Color(0xFF9A6B45)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2);
+    canvas.drawCircle(cv.center.translate(-cv.width * 0.18, -cv.height * 0.1),
+        cv.width * 0.14, Paint()..color = const Color(0xFFF2A5C0));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(cv.left + cv.width * 0.5, cv.top + cv.height * 0.28,
+                cv.width * 0.34, cv.height * 0.12),
+            const Radius.circular(2)),
+        Paint()..color = const Color(0xFF7FA3CB));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(cv.left + cv.width * 0.14, cv.top + cv.height * 0.62,
+                cv.width * 0.6, cv.height * 0.1),
+            const Radius.circular(2)),
+        Paint()..color = const Color(0xFFF6D96B));
+    // ドア(青緑のアーチ)
+    final dx = sx + sw * 0.68, dy = sy + sh * 0.34, dw = sw * 0.17,
+        dh = sh * 0.66;
+    canvas.drawRRect(
+        RRect.fromRectAndCorners(Rect.fromLTWH(dx - 3, dy, dw + 6, dh),
+            topLeft: Radius.circular(dw / 2 + 3),
+            topRight: Radius.circular(dw / 2 + 3)),
+        Paint()..color = const Color(0xFF3E6273));
+    canvas.drawRRect(
+        RRect.fromRectAndCorners(Rect.fromLTWH(dx, dy + 3, dw, dh - 3),
+            topLeft: Radius.circular(dw / 2),
+            topRight: Radius.circular(dw / 2)),
+        Paint()..color = const Color(0xFF588DBE));
+    canvas.drawCircle(Offset(dx + dw * 0.78, dy + dh * 0.5), 3,
+        Paint()..color = const Color(0xFFE8C46B));
+    // 店先の鉢植えと大きな鉛筆のオブジェ
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(
+                center: Offset(sx - w * 0.045, sy + sh - h * 0.02),
+                width: w * 0.05,
+                height: h * 0.05),
+            const Radius.circular(4)),
+        Paint()..color = const Color(0xFFA85C32));
+    final leafP = Paint()..color = const Color(0xFF5E9B4E);
+    canvas.drawCircle(Offset(sx - w * 0.045, sy + sh - h * 0.06), w * 0.025, leafP);
+    canvas.drawCircle(
+        Offset(sx - w * 0.06, sy + sh - h * 0.045), w * 0.018, leafP);
+    // 鉛筆オブジェ(右側)
+    final px = sx + sw + w * 0.045;
+    final pw = w * 0.028, phh = h * 0.22;
+    final pTop = sy + sh - phh;
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(px - pw / 2, pTop, pw, phh * 0.8),
+            Radius.circular(pw * 0.3)),
+        Paint()..color = const Color(0xFFF6D96B));
+    final tip = Path()
+      ..moveTo(px - pw / 2, pTop + phh * 0.8)
+      ..lineTo(px + pw / 2, pTop + phh * 0.8)
+      ..lineTo(px, pTop + phh)
+      ..close();
+    canvas.drawPath(tip, Paint()..color = const Color(0xFFF4D29C));
+    canvas.drawPath(
+        Path()
+          ..moveTo(px - pw * 0.18, pTop + phh * 0.93)
+          ..lineTo(px + pw * 0.18, pTop + phh * 0.93)
+          ..lineTo(px, pTop + phh)
+          ..close(),
+        Paint()..color = const Color(0xFF5A4E44));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(px - pw / 2, pTop - phh * 0.08, pw, phh * 0.08),
+            Radius.circular(pw * 0.3)),
+        Paint()..color = const Color(0xFFE8A0A8));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ─────────────────────────────────────────────────────────────

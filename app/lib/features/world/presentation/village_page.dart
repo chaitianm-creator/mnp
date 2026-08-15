@@ -42,7 +42,7 @@ const _spots = [
   _Spot('cafe', 'カフェ', 'B-5', '新メニューのポスターを作りたいんだって。',
       Offset(0.70, 0.22), 'village_path_plain'),
   _Spot('studio', '工房', 'C-3', 'デザインの制作・練習ができる場所。',
-      Offset(0.38, 0.46), 'signboard'),
+      Offset(0.38, 0.46), 'studio_front'),
   _Spot('museum', '資料館', 'C-6', 'デザインの資料がそろう学びの場所。',
       Offset(0.80, 0.46), 'island_map'),
   _Spot('grocery', '八百屋さん', 'E-1', '旬の野菜のPOPを作ってほしいみたい。',
