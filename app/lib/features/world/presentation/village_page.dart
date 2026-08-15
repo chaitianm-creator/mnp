@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
+import 'package:design_kingdom/core/state/outfit.dart';
 import 'package:design_kingdom/core/theme/kd_theme.dart';
+import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes_clean.dart';
 import 'package:design_kingdom/features/quest/presentation/view_models/quest_play_view_model.dart';
 
@@ -141,12 +143,12 @@ class _VillagePageState extends ConsumerState<VillagePage> {
                     child: const SizedBox(width: 90, height: 76),
                   ),
                 ),
-              // アバター(タップした施設まで歩く)
+              // アバター(タップした施設まで歩く・ドット絵の主人公)
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 650),
                 curve: Curves.easeInOut,
-                left: _avatar.dx * w - 17,
-                top: _avatar.dy * h - 17,
+                left: _avatar.dx * w - 19,
+                top: _avatar.dy * h - 44,
                 child: _Avatar(walking: _walking),
               ),
               // 案内チップ
@@ -176,27 +178,33 @@ class _VillagePageState extends ConsumerState<VillagePage> {
   }
 }
 
-/// プレイヤーのアバター(ピンクの円 + 影。本番はドット絵キャラに差し替え)。
-class _Avatar extends StatelessWidget {
+/// プレイヤーのアバター(ドット絵の主人公。きせかえの服も反映)。
+class _Avatar extends ConsumerWidget {
   const _Avatar({required this.walking});
   final bool walking;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final outfit = ref.watch(outfitProvider);
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: KdColors.pink100,
-          shape: BoxShape.circle,
-          border: Border.all(color: KdColors.wood900, width: 2.5),
-          boxShadow: const [
-            BoxShadow(color: KdColors.pink700, offset: Offset(0, 3)),
-          ],
+      AnimatedRotation(
+        turns: walking ? 0.012 : 0,
+        duration: const Duration(milliseconds: 250),
+        child: PixelSprite(
+          rows: heroineFrontRows,
+          palette: heroinePaletteFor(outfit),
+          width: 38,
         ),
-        child: Icon(walking ? Icons.directions_walk : Icons.person,
-            size: 18, color: KdColors.pink700),
+      ),
+      const SizedBox(height: 1),
+      // 足元のやわらかい影
+      Container(
+        width: 26,
+        height: 7,
+        decoration: BoxDecoration(
+          color: const Color(0x26304018),
+          borderRadius: BorderRadius.circular(999),
+        ),
       ),
     ]);
   }
@@ -399,109 +407,149 @@ class _VillagePainter extends CustomPainter {
     _lamp(canvas, plazaC.translate(86, 26));
   }
 
-  // ── 建物の部品 ──────────────────────────────
+  // ── 建物の部品(どうぶつの森風: 丸みのあるシルエット + 落ち影) ──
+
+  void _shadow(Canvas canvas, Offset c, double w, double h) {
+    canvas.drawOval(Rect.fromCenter(center: c, width: w, height: h),
+        Paint()..color = const Color(0x22304018));
+  }
 
   void _castle(Canvas canvas, Offset c) {
-    final body = Paint()..color = KdColors.pink500;
-    final dark = Paint()..color = KdColors.pink700;
-    final outline = Paint()
-      ..color = KdColors.wood900
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeJoin = StrokeJoin.miter;
+    final body = Paint()..color = const Color(0xFFF2AFC1);
+    final roofP = Paint()..color = const Color(0xFFDD7E9B);
     final base = c.translate(0, 22);
-    final bodyRect =
-        Rect.fromCenter(center: base.translate(0, -20), width: 74, height: 40);
-    canvas.drawRect(bodyRect, body);
-    for (var i = 0; i < 4; i++) {
-      canvas.drawRect(
-          Rect.fromLTWH(bodyRect.left + 3 + i * 18.0, bodyRect.top - 6, 11, 6),
-          body);
-    }
-    for (final dx in [-44.0, 44.0]) {
-      final tower =
-          Rect.fromCenter(center: base.translate(dx, -25), width: 20, height: 50);
-      canvas.drawRect(tower, body);
+    _shadow(canvas, base.translate(0, 3), 112, 14);
+    // 両サイドの塔(丸屋根)
+    for (final dx in [-42.0, 42.0]) {
+      final tower = Rect.fromCenter(
+          center: base.translate(dx, -24), width: 22, height: 52);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(tower, const Radius.circular(7)), body);
       final roof = Path()
-        ..moveTo(tower.left - 4, tower.top)
-        ..lineTo(tower.right + 4, tower.top)
-        ..lineTo(tower.center.dx, tower.top - 15)
+        ..moveTo(tower.left - 6, tower.top + 3)
+        ..quadraticBezierTo(
+            tower.center.dx, tower.top - 24, tower.right + 6, tower.top + 3)
         ..close();
-      canvas.drawPath(roof, dark);
-      canvas.drawPath(roof, outline);
-      canvas.drawRect(tower, outline);
+      canvas.drawPath(roof, roofP);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                  center: Offset(tower.center.dx, tower.center.dy + 4),
+                  width: 8,
+                  height: 12),
+              const Radius.circular(4)),
+          Paint()..color = const Color(0xFFBDDCF2));
     }
-    final center =
-        Rect.fromCenter(center: base.translate(0, -46), width: 24, height: 36);
-    canvas.drawRect(center, body);
+    // 本体 + 中央塔
+    final bodyRect =
+        Rect.fromCenter(center: base.translate(0, -18), width: 72, height: 40);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(bodyRect, const Radius.circular(9)), body);
+    final centerT =
+        Rect.fromCenter(center: base.translate(0, -46), width: 26, height: 38);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(centerT, const Radius.circular(8)), body);
     final centerRoof = Path()
-      ..moveTo(center.left - 5, center.top)
-      ..lineTo(center.right + 5, center.top)
-      ..lineTo(center.center.dx, center.top - 16)
+      ..moveTo(centerT.left - 7, centerT.top + 3)
+      ..quadraticBezierTo(
+          centerT.center.dx, centerT.top - 27, centerT.right + 7, centerT.top + 3)
       ..close();
-    canvas.drawPath(centerRoof, dark);
-    canvas.drawPath(centerRoof, outline);
-    canvas.drawRect(center, outline);
-    canvas.drawRect(bodyRect, outline);
-    canvas.drawLine(Offset(center.center.dx, center.top - 16),
-        Offset(center.center.dx, center.top - 27), outline);
-    final flag = Path()
-      ..moveTo(center.center.dx, center.top - 27)
-      ..lineTo(center.center.dx + 11, center.top - 24)
-      ..lineTo(center.center.dx, center.top - 21)
-      ..close();
-    canvas.drawPath(flag, dark);
-    canvas.drawRect(
-        Rect.fromCenter(
-            center: Offset(base.dx, bodyRect.bottom - 8), width: 13, height: 16),
-        Paint()..color = KdColors.wood900);
+    canvas.drawPath(centerRoof, roofP);
+    // 旗(ハート)
+    final flagBase = Offset(centerT.center.dx, centerT.top - 22);
+    canvas.drawLine(
+        flagBase,
+        flagBase.translate(0, -10),
+        Paint()
+          ..color = const Color(0xFF9A6B45)
+          ..strokeWidth = 2.4
+          ..strokeCap = StrokeCap.round);
+    final hp = Paint()..color = const Color(0xFFDD7E9B);
+    final hc = flagBase.translate(6, -8);
+    canvas.drawCircle(hc.translate(-2.2, -1), 2.4, hp);
+    canvas.drawCircle(hc.translate(2.2, -1), 2.4, hp);
+    canvas.drawPath(
+        Path()
+          ..moveTo(hc.dx - 4.4, hc.dy)
+          ..lineTo(hc.dx + 4.4, hc.dy)
+          ..lineTo(hc.dx, hc.dy + 5)
+          ..close(),
+        hp);
+    // 丸窓と扉(アーチ)
+    canvas.drawCircle(centerT.center.translate(0, 3), 5,
+        Paint()..color = Colors.white);
+    canvas.drawCircle(centerT.center.translate(0, 3), 3.4,
+        Paint()..color = const Color(0xFFBDDCF2));
+    canvas.drawRRect(
+        RRect.fromRectAndCorners(
+            Rect.fromCenter(
+                center: Offset(base.dx, bodyRect.bottom - 9),
+                width: 14,
+                height: 18),
+            topLeft: const Radius.circular(7),
+            topRight: const Radius.circular(7)),
+        Paint()..color = const Color(0xFF9A6B45));
   }
 
   void _house(Canvas canvas, Offset c,
       {required Color roof, bool awning = false, bool sign = false, bool heart = false}) {
-    final outline = Paint()
-      ..color = KdColors.wood900
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
     final wall =
-        Rect.fromCenter(center: c.translate(0, 6), width: 56, height: 34);
-    canvas.drawRect(wall, Paint()..color = const Color(0xFFFFF3E0));
-    canvas.drawRect(wall, outline);
+        Rect.fromCenter(center: c.translate(0, 7), width: 58, height: 36);
+    _shadow(canvas, Offset(c.dx, wall.bottom + 2), 68, 10);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(wall, const Radius.circular(7)),
+        Paint()..color = const Color(0xFFF6EBD3));
+    // 屋根(台形 + 丸い棟)
     final roofPath = Path()
-      ..moveTo(wall.left - 8, wall.top)
-      ..lineTo(wall.right + 8, wall.top)
-      ..lineTo(c.dx, wall.top - 26)
+      ..moveTo(wall.left - 9, wall.top + 2)
+      ..lineTo(wall.left + 15, wall.top - 22)
+      ..lineTo(wall.right - 15, wall.top - 22)
+      ..lineTo(wall.right + 9, wall.top + 2)
       ..close();
     canvas.drawPath(roofPath, Paint()..color = roof);
-    canvas.drawPath(roofPath, outline);
-    // ドア + 窓
-    canvas.drawRect(
-        Rect.fromCenter(center: c.translate(0, 14), width: 11, height: 17),
-        Paint()..color = KdColors.wood900);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(
+                center: Offset(c.dx, wall.top - 21), width: 32, height: 5),
+            const Radius.circular(2.5)),
+        Paint()..color = Color.lerp(roof, Colors.black, 0.16)!);
+    // ドア(アーチ) + 窓(白枠)
+    canvas.drawRRect(
+        RRect.fromRectAndCorners(
+            Rect.fromCenter(center: c.translate(0, 16), width: 12, height: 17),
+            topLeft: const Radius.circular(6),
+            topRight: const Radius.circular(6)),
+        Paint()..color = const Color(0xFF9A6B45));
     for (final dx in [-17.0, 17.0]) {
-      canvas.drawRect(
-          Rect.fromCenter(center: c.translate(dx, 3), width: 10, height: 9),
-          Paint()..color = const Color(0xFF9ED4F5));
-      canvas.drawRect(
-          Rect.fromCenter(center: c.translate(dx, 3), width: 10, height: 9),
-          outline);
+      final wr =
+          Rect.fromCenter(center: c.translate(dx, 5), width: 11, height: 10);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(wr.inflate(1.6), const Radius.circular(4)),
+          Paint()..color = Colors.white);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(wr, const Radius.circular(3)),
+          Paint()..color = const Color(0xFFBDDCF2));
     }
     if (awning) {
-      // しましまのひさし
+      // スカラップのひさし
       for (var i = 0; i < 5; i++) {
-        canvas.drawRect(
-            Rect.fromLTWH(wall.left + 4 + i * 10.0, wall.top + 2, 10, 6),
-            Paint()..color = i.isEven ? Colors.white : KdColors.pink500);
+        final p = Paint()
+          ..color = i.isEven ? Colors.white : const Color(0xFFE8A0A8);
+        final sx = wall.left + 4 + i * 10.0;
+        canvas.drawRect(Rect.fromLTWH(sx, wall.top + 1, 10, 5), p);
+        canvas.drawArc(
+            Rect.fromLTWH(sx, wall.top + 3, 10, 6), 0, 3.1416, true, p);
       }
     }
     if (sign) {
-      final signRect =
-          Rect.fromCenter(center: c.translate(0, -2), width: 34, height: 9);
-      canvas.drawRect(signRect, Paint()..color = Colors.white);
-      canvas.drawRect(signRect, outline);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromCenter(center: c.translate(0, -3), width: 34, height: 10),
+              const Radius.circular(5)),
+          Paint()..color = const Color(0xFFFBF4E2));
     }
     if (heart) {
-      final hp = Paint()..color = KdColors.pink700;
+      final hp = Paint()..color = const Color(0xFFDD7E9B);
       final hc = c.translate(0, -8);
       canvas.drawCircle(hc.translate(-2.4, -1), 2.6, hp);
       canvas.drawCircle(hc.translate(2.4, -1), 2.6, hp);
@@ -515,38 +563,49 @@ class _VillagePainter extends CustomPainter {
   }
 
   void _board(Canvas canvas, Offset c) {
-    final outline = Paint()
-      ..color = KdColors.wood900
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+    _shadow(canvas, c.translate(0, 26), 58, 9);
+    // 脚(丸棒)
+    for (final dx in [-18.0, 18.0]) {
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(c.dx + dx - 2.5, c.dy + 8, 5, 16),
+              const Radius.circular(2.5)),
+          Paint()..color = const Color(0xFF9A6B45));
+    }
+    // 掲示板(丸角の木板 + 明るい縁)
     final board =
-        Rect.fromCenter(center: c.translate(0, -4), width: 52, height: 34);
-    canvas.drawRect(board, Paint()..color = const Color(0xFF8A5A2B));
-    canvas.drawRect(board, outline);
-    // 貼り紙
+        Rect.fromCenter(center: c.translate(0, -4), width: 54, height: 36);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(board, const Radius.circular(8)),
+        Paint()..color = const Color(0xFF9A6B45));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(board.deflate(4), const Radius.circular(5)),
+        Paint()..color = const Color(0xFF7C5B36));
+    // 貼り紙(丸角)
     final paper = Paint()..color = const Color(0xFFFFF8EA);
     for (final (dx, dy) in [(-15.0, -8.0), (2.0, -8.0), (-7.0, 4.0), (11.0, 4.0)]) {
-      canvas.drawRect(
-          Rect.fromLTWH(c.dx + dx, c.dy + dy - 4, 12, 10), paper);
-    }
-    // 脚
-    for (final dx in [-18.0, 18.0]) {
-      canvas.drawRect(
-          Rect.fromLTWH(c.dx + dx - 2, board.bottom, 5, 12),
-          Paint()..color = const Color(0xFF6D4C2F));
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(c.dx + dx, c.dy + dy - 4, 12, 10),
+              const Radius.circular(2)),
+          paper);
     }
   }
 
   void _garden(Canvas canvas, Offset c, math.Random rng) {
     canvas.drawOval(
-        Rect.fromCenter(center: c.translate(0, 6), width: 86, height: 46),
-        Paint()..color = _grassLight);
+        Rect.fromCenter(center: c.translate(0, 8), width: 92, height: 50),
+        Paint()..color = const Color(0x22304018));
     canvas.drawOval(
         Rect.fromCenter(center: c.translate(0, 6), width: 86, height: 46),
-        Paint()
-          ..color = KdColors.grass500
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3);
+        Paint()..color = _grassLight);
+    // まわりを白い小花で縁どる
+    for (var i = 0; i < 12; i++) {
+      final a = i / 12 * math.pi * 2;
+      canvas.drawCircle(
+          c.translate(math.cos(a) * 43, 6 + math.sin(a) * 23), 2.4,
+          Paint()..color = Colors.white70);
+    }
     for (var i = 0; i < 12; i++) {
       final a = rng.nextDouble() * math.pi * 2;
       final r = rng.nextDouble() * 30;
@@ -556,35 +615,43 @@ class _VillagePainter extends CustomPainter {
   }
 
   void _dock(Canvas canvas, Offset c) {
-    final outline = Paint()
-      ..color = KdColors.wood900
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    // 桟橋
+    _shadow(canvas, c.translate(0, 21), 58, 9);
+    // 桟橋(丸角の板 + 明るい板目)
     final deck =
-        Rect.fromCenter(center: c.translate(0, 6), width: 52, height: 26);
-    canvas.drawRect(deck, Paint()..color = const Color(0xFF8A5A2B));
-    canvas.drawRect(deck, outline);
+        Rect.fromCenter(center: c.translate(0, 6), width: 54, height: 26);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(deck, const Radius.circular(7)),
+        Paint()..color = const Color(0xFF9A6B45));
+    final plank = Paint()
+      ..color = const Color(0x40FFF3D6)
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
     for (var i = 0; i < 4; i++) {
-      canvas.drawLine(Offset(deck.left + 10 + i * 11.0, deck.top),
-          Offset(deck.left + 10 + i * 11.0, deck.bottom), outline);
+      canvas.drawLine(Offset(deck.left + 10 + i * 11.0, deck.top + 3),
+          Offset(deck.left + 10 + i * 11.0, deck.bottom - 3), plank);
     }
-    // 小舟
+    // 小舟(丸い船体 + 白い帆)
     final boat = Path()
-      ..moveTo(c.dx - 20, c.dy - 12)
-      ..lineTo(c.dx + 20, c.dy - 12)
-      ..lineTo(c.dx + 12, c.dy - 3)
-      ..lineTo(c.dx - 12, c.dy - 3)
+      ..moveTo(c.dx - 20, c.dy - 13)
+      ..lineTo(c.dx + 20, c.dy - 13)
+      ..quadraticBezierTo(c.dx + 14, c.dy - 2, c.dx + 8, c.dy - 2)
+      ..lineTo(c.dx - 8, c.dy - 2)
+      ..quadraticBezierTo(c.dx - 14, c.dy - 2, c.dx - 20, c.dy - 13)
       ..close();
-    canvas.drawPath(boat, Paint()..color = const Color(0xFFA9714B));
-    canvas.drawPath(boat, outline);
+    canvas.drawPath(boat, Paint()..color = const Color(0xFFC98A6B));
     final sail = Path()
       ..moveTo(c.dx, c.dy - 30)
-      ..lineTo(c.dx - 13, c.dy - 13)
-      ..lineTo(c.dx, c.dy - 13)
+      ..quadraticBezierTo(c.dx - 14, c.dy - 22, c.dx - 12, c.dy - 14)
+      ..lineTo(c.dx, c.dy - 14)
       ..close();
     canvas.drawPath(sail, Paint()..color = Colors.white);
-    canvas.drawLine(Offset(c.dx, c.dy - 30), Offset(c.dx, c.dy - 12), outline);
+    canvas.drawLine(
+        Offset(c.dx, c.dy - 31),
+        Offset(c.dx, c.dy - 13),
+        Paint()
+          ..color = const Color(0xFF9A6B45)
+          ..strokeWidth = 2.4
+          ..strokeCap = StrokeCap.round);
   }
 
   void _tree(Canvas canvas, Offset base) =>
