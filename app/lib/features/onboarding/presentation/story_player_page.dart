@@ -301,34 +301,30 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
               const SizedBox(height: 8),
               _MissionCard(mission: page.mission!),
             ],
-            // ── 可視ボタン ──
-            if (showButton)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: SizedBox(
-                  width: 300,
-                  height: 56,
-                  child: _NextButton(
-                    label: isLast ? ep.finishLabel : page.buttonLabel!,
-                    onTap: advance,
-                  ),
-                ),
-              )
-            else if (!hasChoices)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: SizedBox(
-                  width: 220,
-                  height: 50,
-                  child: _NextButton(label: '次へ', onTap: advance),
-                ),
-              ),
-            const SizedBox(height: 12),
+            // 画面下に固定表示するボタンのぶんの余白
+            SizedBox(height: hasChoices ? 12 : 90),
           ]),
             ),
           ),
         ),
       ),
+      // ── 進行ボタン(全ページ同じ位置・画面下中央に固定) ──
+      if (!hasChoices)
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 22,
+          child: Center(
+            child: SizedBox(
+              width: showButton ? 300 : 220,
+              height: showButton ? 56 : 50,
+              child: _NextButton(
+                label: isLast ? ep.finishLabel : (page.buttonLabel ?? '次へ'),
+                onTap: advance,
+              ),
+            ),
+          ),
+        ),
     ]);
   }
 
