@@ -1681,29 +1681,35 @@ class _CleanBakeryPainter extends CustomPainter {
           stone);
     }
 
-    // ── 店舗(横長画面では幅を抑える。centered=中央に丸ごと収める) ──
+    // ── 店舗(どのアスペクトでも丸ごと収める。centered=カード用に中央) ──
     final land = w > h;
-    final u = w / 160;
     final double sx, sy, sw, sh;
     if (centered) {
       sh = h * 0.60;
       sw = sh * 1.3;
       sx = w / 2 - sw / 2;
       sy = h * 0.27;
+    } else if (land) {
+      // 横長: 店を左側に丸ごと収める(キャラは右側に立つ)
+      sh = h * 0.50;
+      sw = sh * 1.3;
+      sx = w * 0.05;
+      sy = h * 0.20;
     } else {
-      sx = -6 * u;
-      sy = h * 0.14;
-      sw = w * (land ? 0.45 : 0.72);
-      sh = h * 0.36;
+      // 縦長: 店を上部中央に丸ごと収める
+      sw = math.min(w * 0.84, h * 0.34 * 1.3);
+      sh = sw / 1.3;
+      sx = w / 2 - sw / 2;
+      sy = h * 0.19;
     }
-    // 看板はカード用(centered)では店のサイズに合わせて大きく描く
-    final us = centered ? sh / 42 : u;
+    // 看板や帯は店のサイズに合わせて描く
+    final us = sh / 42;
     // 店の落ち影
     canvas.drawOval(
         Rect.fromCenter(
             center: Offset(sx + sw / 2, sy + sh + 4),
             width: sw * 1.06,
-            height: h * 0.03),
+            height: 2.1 * us),
         Paint()..color = const Color(0x1F30301A));
     // 壁
     canvas.drawRRect(
@@ -1729,7 +1735,7 @@ class _CleanBakeryPainter extends CustomPainter {
     // 屋根(赤茶の帯)
     canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(sx - 8, sy - h * 0.045, sw + 16, h * 0.05),
+            Rect.fromLTWH(sx - 8, sy - 3.2 * us, sw + 16, 3.5 * us),
             const Radius.circular(6)),
         Paint()..color = const Color(0xFFB84C40));
     canvas.drawRect(Rect.fromLTWH(sx - 8, sy - 2, sw + 16, 4),
@@ -1745,14 +1751,14 @@ class _CleanBakeryPainter extends CustomPainter {
             Rect.fromLTWH(sx + sw * 0.2, sy - 7 * us, sw * 0.46, 11 * us),
             const Radius.circular(6)),
         Paint()..color = const Color(0xFFEDD9A5));
-    if (centered) {
-      // カード用は看板の文字も描き込む
+    {
+      // 看板の「パン屋」の文字も店のサイズに合わせて描き込む
       final tp = TextPainter(
         text: TextSpan(
             text: 'パン屋',
             style: TextStyle(
                 color: const Color(0xFF5A3A1E),
-                fontSize: (6.5 * us).clamp(11.0, 26.0),
+                fontSize: (6.5 * us).clamp(11.0, 64.0),
                 fontWeight: FontWeight.w800)),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -1761,7 +1767,7 @@ class _CleanBakeryPainter extends CustomPainter {
       tp.paint(canvas, signRect.center - Offset(tp.width / 2, tp.height / 2));
     }
     // ひさし(赤白スカラップ)
-    final ay = sy + sh * 0.28, ah = h * 0.045;
+    final ay = sy + sh * 0.28, ah = 3.2 * us;
     const n = 10;
     for (var i = 0; i < n; i++) {
       final c = i.isEven ? const Color(0xFFC85C4E) : Colors.white;
@@ -1817,27 +1823,27 @@ class _CleanBakeryPainter extends CustomPainter {
     // 黒板
     canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(sx + 8 * u * 0.6, sy + sh + 6, w * 0.14, h * 0.13),
+            Rect.fromLTWH(sx + 4 * us, sy + sh + 6, 18 * us, 9 * us),
             const Radius.circular(6)),
         Paint()..color = const Color(0xFF6E4A22));
     canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(sx + 8 * u * 0.6 + 4, sy + sh + 10, w * 0.14 - 8,
-                h * 0.13 - 8),
+            Rect.fromLTWH(sx + 4 * us + 4, sy + sh + 10, 18 * us - 8,
+                9 * us - 8),
             const Radius.circular(4)),
         Paint()..color = const Color(0xFF2E3230));
     final chalk = Paint()
       ..color = Colors.white70
       ..strokeWidth = 2;
     canvas.drawLine(
-        Offset(sx + 8 * u * 0.6 + 8, sy + sh + 18),
-        Offset(sx + 8 * u * 0.6 + w * 0.08, sy + sh + 18),
+        Offset(sx + 6 * us, sy + sh + 4.3 * us),
+        Offset(sx + 14 * us, sy + sh + 4.3 * us),
         chalk);
     canvas.drawOval(
         Rect.fromCenter(
-            center: Offset(sx + 8 * u * 0.6 + w * 0.05, sy + sh + h * 0.09),
-            width: w * 0.05,
-            height: h * 0.025),
+            center: Offset(sx + 10 * us, sy + sh + 6.3 * us),
+            width: 6.4 * us,
+            height: 1.75 * us),
         Paint()..color = const Color(0xFFD8A055));
 
     if (dim) {

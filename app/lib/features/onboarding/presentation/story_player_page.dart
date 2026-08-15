@@ -178,21 +178,7 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
           bottom: size.height * 0.58 + size.width * 0.034 + 6,
           child: IgnorePointer(child: _SpeechBubble(text: page.bubble!)),
         ),
-      // ── パン屋の看板文字 ──
-      if (page.scene == 'bakery' || page.scene == 'mission')
-        Positioned(
-          left: size.width * (wide ? 0.045 : 0.12),
-          top: size.height * (wide ? 0.12 : 0.155),
-          width: size.width * (wide ? 0.2 : 0.32),
-          child: const IgnorePointer(
-            child: Text('パン屋',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: Color(0xFF5A3A1E),
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900)),
-          ),
-        ),
+      // (パン屋の看板文字はシーン側で店のサイズに合わせて描画)
       // ── パン屋・主人公のスプライト(会話シーン) ──
       if (page.scene == 'bakery') ...[
         // PC(WF17a)では店の右横に2人を並べる。SPは店の前(左右)に立たせる。
