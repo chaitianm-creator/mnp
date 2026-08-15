@@ -232,7 +232,7 @@ class _PnShellState extends ConsumerState<PnShell> {
       ('もくもく学習室', Icons.edit_note_rounded, '/workshop', null),
       ('ショッピングセンター', Icons.storefront_rounded, '/shopping', null),
       ('着せ替えクローゼット', Icons.checkroom_rounded, '/closet', null),
-      ('お客さまアルバム', Icons.photo_library_rounded, null, null),
+      ('お客さまアルバム', Icons.photo_library_rounded, '/album', null),
     ];
     final menu = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -533,6 +533,8 @@ class _PnShellState extends ConsumerState<PnShell> {
                       context.push('/closet');
                     case 'ショッピングセンター':
                       context.push('/shopping');
+                    case 'お客さまアルバム':
+                      context.push('/album');
                     default:
                       _comingSoon(l);
                   }

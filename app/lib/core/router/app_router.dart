@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 
+import "../../features/growth/album_page.dart";
 import "../../features/growth/closet_page.dart";
 import "../../features/growth/shopping_center_page.dart";
 import "../../features/growth/placeholder_pages.dart";
@@ -124,6 +125,11 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
           path: "/shopping", // ショッピングセンター
           parentNavigatorKey: rootNavigatorKey,
           builder: (_, __) => const ShoppingCenterPage(),
+        ),
+        GoRoute(
+          path: "/album", // お客さまアルバム
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, __) => const AlbumPage(),
         ),
         GoRoute(
           path: "/notices", // お知らせ
