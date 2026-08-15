@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 
+import "../../features/growth/closet_page.dart";
 import "../../features/growth/placeholder_pages.dart";
 import "../../features/home/presentation/daily_request_page.dart";
 import "../../features/home/presentation/home_page.dart";
@@ -107,6 +108,11 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
           path: "/workshop", // 工房(つくったもの)
           parentNavigatorKey: rootNavigatorKey,
           builder: (_, __) => const WorkshopPage(),
+        ),
+        GoRoute(
+          path: "/closet", // 着せ替えクローゼット
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, __) => const ClosetPage(),
         ),
         GoRoute(
           path: "/notices", // お知らせ

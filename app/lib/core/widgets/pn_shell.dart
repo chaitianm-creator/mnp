@@ -231,7 +231,7 @@ class _PnShellState extends ConsumerState<PnShell> {
       ('冒険伴走日記', Icons.menu_book_rounded, null, '会員限定'),
       ('もくもく学習室', Icons.edit_note_rounded, '/workshop', null),
       ('お役立ちショップ', Icons.storefront_rounded, null, '近日公開'),
-      ('着せ替えクローゼット', Icons.checkroom_rounded, null, null),
+      ('着せ替えクローゼット', Icons.checkroom_rounded, '/closet', null),
       ('お客さまアルバム', Icons.photo_library_rounded, null, null),
     ];
     final menu = Column(
@@ -529,6 +529,8 @@ class _PnShellState extends ConsumerState<PnShell> {
                       context.go('/home');
                     case 'もくもく学習室':
                       context.push('/workshop');
+                    case '着せ替えクローゼット':
+                      context.push('/closet');
                     default:
                       _comingSoon(l);
                   }
