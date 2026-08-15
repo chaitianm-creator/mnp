@@ -643,94 +643,55 @@ class _MiniMapPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final p = Paint()..isAntiAlias = true;
     final rng = math.Random(5);
-    // 海(どうぶつの森風の明るい水色 + 「^」の波マーク)
-    p.color = const Color(0xFFA9D7EC);
+    // ── 海(どうぶつの森風のティール) ──
+    p.color = const Color(0xFF8AD1C6);
     canvas.drawRect(Offset.zero & size, p);
-    final wave = Paint()
-      ..color = const Color(0xFF8FC4E0)
+    // 白い波のゆらぎ(短い波線ドゥードル)
+    final squiggle = Paint()
+      ..color = const Color(0x59FFFFFF)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
+      ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
-    for (var i = 0; i < 30; i++) {
+    for (var i = 0; i < 26; i++) {
       final x = rng.nextDouble() * size.width;
       final y = rng.nextDouble() * size.height;
-      final s = 4.0 + rng.nextDouble() * 3;
+      final s = 8.0 + rng.nextDouble() * 8;
       canvas.drawPath(
           Path()
-            ..moveTo(x - s, y + s * 0.7)
-            ..lineTo(x, y)
-            ..lineTo(x + s, y + s * 0.7),
-          wave);
+            ..moveTo(x - s * 2, y)
+            ..quadraticBezierTo(x - s, y - s * 0.55, x, y)
+            ..quadraticBezierTo(x + s, y + s * 0.55, x + s * 2, y),
+          squiggle);
     }
-    // 島(白い波打ちぎわ → 砂のふち → 草地)
-    final island = Rect.fromLTWH(size.width * 0.04, size.height * 0.025,
-        size.width * 0.92, size.height * 0.95);
-    p.color = const Color(0x66FFFFFF);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(island.inflate(7), const Radius.circular(76)),
-        p);
-    p.color = const Color(0xFFEBDFB8);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(island, const Radius.circular(70)), p);
-    p.color = const Color(0xFF8AC96A);
-    final grassRRect =
-        RRect.fromRectAndRadius(island.deflate(10), const Radius.circular(60));
-    canvas.drawRRect(grassRRect, p);
-    // 芝生の紙吹雪パターン
-    canvas.save();
-    canvas.clipRRect(grassRRect);
-    acGrassSpeckle(canvas, island.deflate(10), math.Random(71),
-        step: (size.width / 14).clamp(26.0, 60.0),
-        color: const Color(0x161E5216));
-    canvas.restore();
-    // 道(順路をつなぐ)
-    final road = Path()..moveTo(anchors.first.dx, anchors.first.dy);
+
+    // ── 島々を結ぶ航路(白い点線) ──
+    final route = Path()..moveTo(anchors.first.dx, anchors.first.dy);
     for (var i = 1; i < anchors.length; i++) {
       final prev = anchors[i - 1];
       final cur = anchors[i];
       final mid = Offset((prev.dx + cur.dx) / 2, (prev.dy + cur.dy) / 2);
-      road.quadraticBezierTo(prev.dx, mid.dy, mid.dx, mid.dy);
-      road.quadraticBezierTo(cur.dx, mid.dy, cur.dx, cur.dy);
+      route.quadraticBezierTo(prev.dx, mid.dy, mid.dx, mid.dy);
+      route.quadraticBezierTo(cur.dx, mid.dy, cur.dx, cur.dy);
     }
-    p
+    final dash = Paint()
+      ..color = const Color(0xCCFFFFFF)
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    p
-      ..color = const Color(0xFFDFD3B6)
-      ..strokeWidth = 15;
-    canvas.drawPath(road, p);
-    p
-      ..color = const Color(0xFFF3EBD8)
-      ..strokeWidth = 11;
-    canvas.drawPath(road, p);
-    p.style = PaintingStyle.fill;
-    // 木(もこもこの広葉樹ともみの木を混ぜる) + 花と草の房
-    final ts = (size.width / 900).clamp(0.45, 1.0);
-    for (var i = 0; i < 20; i++) {
-      final x = size.width * (0.10 + rng.nextDouble() * 0.80);
-      final y = size.height * (0.06 + rng.nextDouble() * 0.88);
-      if (i % 3 == 0) {
-        acConifer(canvas, x, y, ts * 0.8);
-      } else {
-        acTree(canvas, x, y, ts * 0.7);
+      ..strokeWidth = 4.5
+      ..strokeCap = StrokeCap.round;
+    for (final metric in route.computeMetrics()) {
+      var d = 0.0;
+      while (d < metric.length) {
+        canvas.drawPath(metric.extractPath(d, d + 11), dash);
+        d += 22;
       }
     }
-    for (var i = 0; i < 10; i++) {
-      acFlower(
-          canvas,
-          size.width * (0.1 + rng.nextDouble() * 0.8),
-          size.height * (0.06 + rng.nextDouble() * 0.88),
-          [Colors.white, const Color(0xFFF2A5C0), const Color(0xFFF6D96B)][i % 3]);
+
+    // ── エリアごとの小島 ──
+    final s = (size.width / 1100).clamp(0.62, 1.05);
+    for (var i = 0; i < anchors.length; i++) {
+      _islet(canvas, anchors[i], s, i);
     }
-    for (var i = 0; i < 14; i++) {
-      acTuft(
-          canvas,
-          size.width * (0.09 + rng.nextDouble() * 0.82),
-          size.height * (0.06 + rng.nextDouble() * 0.9),
-          1.2,
-          const Color(0x40295C1E));
-    }
+
     // ランドマーク(エリア色の丸)
     for (var i = 0; i < anchors.length; i++) {
       final c = anchors[i];
@@ -739,6 +700,42 @@ class _MiniMapPainter extends CustomPainter {
       p.color = Color.lerp(colors[i], Colors.white, 0.35)!;
       canvas.drawCircle(c, 7.5, p);
     }
+  }
+
+  /// エリア1つぶんの小島(砂のふち + 芝生 + 木や花)。
+  void _islet(Canvas canvas, Offset c, double s, int i) {
+    final rng = math.Random(i * 7 + 3);
+    final iw = (150 + (i % 3) * 22) * s;
+    final ih = (110 + ((i + 1) % 3) * 16) * s;
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.rotate((rng.nextDouble() - 0.5) * 0.14);
+    final sand = Rect.fromCenter(center: Offset.zero, width: iw, height: ih);
+    // 波打ちぎわ(白)→砂→芝生
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(sand.inflate(6 * s), Radius.circular(ih * 0.5)),
+        Paint()..color = const Color(0x66FFFFFF));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(sand, Radius.circular(ih * 0.46)),
+        Paint()..color = const Color(0xFFEBDFB8));
+    final grass = RRect.fromRectAndRadius(
+        sand.deflate(9 * s), Radius.circular(ih * 0.4));
+    canvas.drawRRect(grass, Paint()..color = const Color(0xFF8AC96A));
+    canvas.save();
+    canvas.clipRRect(grass);
+    acGrassSpeckle(canvas, sand.deflate(9 * s), math.Random(i * 11 + 5),
+        step: (34 * s).clamp(22.0, 44.0), color: const Color(0x161E5216));
+    canvas.restore();
+    // 木・花(ピルと重ならない左上寄り)
+    if (i.isEven) {
+      acTree(canvas, -iw * 0.3, -ih * 0.1, s * 0.62);
+    } else {
+      acConifer(canvas, -iw * 0.3, -ih * 0.08, s * 0.7);
+    }
+    acFlower(canvas, iw * 0.26, ih * 0.3,
+        [Colors.white, const Color(0xFFF2A5C0), const Color(0xFFF6D96B)][i % 3]);
+    acTuft(canvas, -iw * 0.1, ih * 0.32, s, const Color(0x40295C1E));
+    canvas.restore();
   }
 
   @override
