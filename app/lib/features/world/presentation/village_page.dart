@@ -38,7 +38,7 @@ class _Spot {
 const _spots = [
   _Spot('bakery', 'パン屋さん', 'B-2',
       'お客さんが入らないと悩んでいる。チラシとメニューを見直したい。',
-      Offset(0.24, 0.22), 'bakery'),
+      Offset(0.24, 0.22), 'bakery_front'),
   _Spot('cafe', 'カフェ', 'B-5', '新メニューのポスターを作りたいんだって。',
       Offset(0.70, 0.22), 'village_path_plain'),
   _Spot('studio', '工房', 'C-3', 'デザインの制作・練習ができる場所。',

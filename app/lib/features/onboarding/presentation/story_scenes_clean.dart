@@ -35,6 +35,8 @@ Widget buildCleanScene(String scene) {
     case 'bakery':
     case 'mission':
       return _Fill(_CleanBakeryPainter(dim: scene == 'mission'));
+    case 'bakery_front': // カード用: 店を真正面・全体が見える構図
+      return const _Fill(_CleanBakeryPainter(dim: false, centered: true));
     default:
       return const ColoredBox(color: Color(0xFF1B2440));
   }
@@ -1246,8 +1248,9 @@ class _CleanVillagePathPainter extends CustomPainter {
 // パン屋の店先(p12〜15)。dim=ミッション用に暗く。
 // ─────────────────────────────────────────────────────────────
 class _CleanBakeryPainter extends CustomPainter {
-  const _CleanBakeryPainter({required this.dim});
+  const _CleanBakeryPainter({required this.dim, this.centered = false});
   final bool dim;
+  final bool centered; // true: 店を中央に丸ごと収める(カード用)
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1304,11 +1307,21 @@ class _CleanBakeryPainter extends CustomPainter {
           stone);
     }
 
-    // ── 店舗(横長画面では幅を抑える) ──
+    // ── 店舗(横長画面では幅を抑える。centered=中央に丸ごと収める) ──
     final land = w > h;
     final u = w / 160;
-    final sx = -6 * u, sy = h * 0.14, sw = w * (land ? 0.45 : 0.72),
-        sh = h * 0.36;
+    final double sx, sy, sw, sh;
+    if (centered) {
+      sh = h * 0.46;
+      sw = sh * 1.15;
+      sx = w / 2 - sw / 2;
+      sy = h * 0.32;
+    } else {
+      sx = -6 * u;
+      sy = h * 0.14;
+      sw = w * (land ? 0.45 : 0.72);
+      sh = h * 0.36;
+    }
     // 店の落ち影
     canvas.drawOval(
         Rect.fromCenter(
@@ -1356,6 +1369,21 @@ class _CleanBakeryPainter extends CustomPainter {
             Rect.fromLTWH(sx + sw * 0.2, sy - 7 * u, sw * 0.46, 11 * u),
             const Radius.circular(6)),
         Paint()..color = const Color(0xFFEDD9A5));
+    if (centered) {
+      // カード用は看板の文字も描き込む
+      final tp = TextPainter(
+        text: TextSpan(
+            text: 'パン屋',
+            style: TextStyle(
+                color: const Color(0xFF5A3A1E),
+                fontSize: (6.5 * u).clamp(11.0, 22.0),
+                fontWeight: FontWeight.w800)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final signRect =
+          Rect.fromLTWH(sx + sw * 0.2, sy - 7 * u, sw * 0.46, 11 * u);
+      tp.paint(canvas, signRect.center - Offset(tp.width / 2, tp.height / 2));
+    }
     // ひさし(赤白スカラップ)
     final ay = sy + sh * 0.28, ah = h * 0.045;
     const n = 10;
