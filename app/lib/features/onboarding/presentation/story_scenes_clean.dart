@@ -1312,16 +1312,18 @@ class _CleanBakeryPainter extends CustomPainter {
     final u = w / 160;
     final double sx, sy, sw, sh;
     if (centered) {
-      sh = h * 0.46;
-      sw = sh * 1.15;
+      sh = h * 0.60;
+      sw = sh * 1.3;
       sx = w / 2 - sw / 2;
-      sy = h * 0.32;
+      sy = h * 0.27;
     } else {
       sx = -6 * u;
       sy = h * 0.14;
       sw = w * (land ? 0.45 : 0.72);
       sh = h * 0.36;
     }
+    // 看板はカード用(centered)では店のサイズに合わせて大きく描く
+    final us = centered ? sh / 42 : u;
     // 店の落ち影
     canvas.drawOval(
         Rect.fromCenter(
@@ -1361,12 +1363,12 @@ class _CleanBakeryPainter extends CustomPainter {
     // 看板(木板) — 「パン屋」の文字はウィジェット側
     canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(sx + sw * 0.18, sy - 9 * u, sw * 0.5, 15 * u),
+            Rect.fromLTWH(sx + sw * 0.18, sy - 9 * us, sw * 0.5, 15 * us),
             const Radius.circular(8)),
         Paint()..color = const Color(0xFF6E4A22));
     canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(sx + sw * 0.2, sy - 7 * u, sw * 0.46, 11 * u),
+            Rect.fromLTWH(sx + sw * 0.2, sy - 7 * us, sw * 0.46, 11 * us),
             const Radius.circular(6)),
         Paint()..color = const Color(0xFFEDD9A5));
     if (centered) {
@@ -1376,12 +1378,12 @@ class _CleanBakeryPainter extends CustomPainter {
             text: 'パン屋',
             style: TextStyle(
                 color: const Color(0xFF5A3A1E),
-                fontSize: (6.5 * u).clamp(11.0, 22.0),
+                fontSize: (6.5 * us).clamp(11.0, 26.0),
                 fontWeight: FontWeight.w800)),
         textDirection: TextDirection.ltr,
       )..layout();
       final signRect =
-          Rect.fromLTWH(sx + sw * 0.2, sy - 7 * u, sw * 0.46, 11 * u);
+          Rect.fromLTWH(sx + sw * 0.2, sy - 7 * us, sw * 0.46, 11 * us);
       tp.paint(canvas, signRect.center - Offset(tp.width / 2, tp.height / 2));
     }
     // ひさし(赤白スカラップ)
