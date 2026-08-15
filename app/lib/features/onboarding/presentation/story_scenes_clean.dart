@@ -1030,7 +1030,11 @@ class _CleanSignboardPainter extends CustomPainter {
     acCloud(canvas, w * 0.18, h * 0.08, w / 900, 0.95);
     acCloud(canvas, w * 0.78, h * 0.12, w / 1100, 0.85);
 
-    // 茂み(緑の濃淡)
+    final land = w > h;
+    // 遠景の雪山 + 針葉樹の帯
+    acMountainRange(canvas, size, h * 0.40);
+
+    // 芝生(紙吹雪パターン + 草の房)
     final bushRect = Rect.fromLTWH(0, h * 0.38, w, h * 0.62);
     canvas.drawRect(
         bushRect,
@@ -1038,68 +1042,45 @@ class _CleanSignboardPainter extends CustomPainter {
           ..shader = const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF4B9C3E), Color(0xFF3E8A34)],
+            colors: [Color(0xFF7EC55E), Color(0xFF5FA843)],
           ).createShader(bushRect));
     final rng = math.Random(7);
-    final bushShade = Paint()..color = const Color(0x332C6620);
-    for (var i = 0; i < 20; i++) {
-      canvas.drawCircle(
-          Offset(rng.nextDouble() * w, h * (0.4 + rng.nextDouble() * 0.55)),
-          w * (0.02 + rng.nextDouble() * 0.03),
-          bushShade);
-    }
     acGrassSpeckle(canvas, bushRect, math.Random(41),
-        step: w / 13, color: const Color(0x14173D10));
-    acConifer(canvas, w * 0.14, h * 0.47, w / 560);
-    acConifer(canvas, w * 0.86, h * 0.45, w / 620);
-    // 道
+        step: w / 13, color: const Color(0x14204D18));
+    // 道(まるい先端 + 小石)
+    final roadHalf = w * (land ? 0.045 : 0.09);
     final road = Path()
-      ..moveTo(w * 0.42, h)
-      ..lineTo(w * 0.5, h * 0.7)
-      ..lineTo(w * 0.58, h)
+      ..moveTo(w * 0.5 - w * 0.02, h * 0.74)
+      ..quadraticBezierTo(w * 0.5, h * 0.70, w * 0.5 + w * 0.02, h * 0.74)
+      ..lineTo(w * 0.5 + roadHalf, h)
+      ..lineTo(w * 0.5 - roadHalf, h)
       ..close();
     canvas.drawPath(road, Paint()..color = const Color(0xFFCDB388));
-
-    // ヤシの木
-    void palm(double pxx, double pyy, double s) {
-      canvas.drawRRect(
-          RRect.fromRectAndRadius(
-              Rect.fromLTWH(pxx - 3 * s, pyy - 26 * s, 6 * s, 26 * s),
-              Radius.circular(3 * s)),
-          Paint()..color = const Color(0xFF8A5F33));
-      for (var i = 0; i < 5; i++) {
-        final a = -math.pi / 2 + (i - 2) * 0.55;
-        canvas.drawOval(
-            Rect.fromCenter(
-                center: Offset(pxx + math.cos(a) * 10 * s,
-                    pyy - 26 * s + math.sin(a) * 6 * s),
-                width: 18 * s,
-                height: 6 * s),
-            Paint()
-              ..color = i.isEven
-                  ? const Color(0xFF2E8226)
-                  : const Color(0xFF3B9A31));
-      }
+    final stoneP = Paint()..color = const Color(0x33A08662);
+    for (var i = 0; i < 8; i++) {
+      final t = 0.1 + rng.nextDouble() * 0.85;
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(
+                  w * 0.5 + (rng.nextDouble() * 2 - 1) * roadHalf * t * 0.7,
+                  h * (0.75 + t * 0.23)),
+              width: 14 + t * 10,
+              height: 6 + t * 4),
+          stoneP);
     }
-
-    palm(w * 0.09, h * 0.62, w / 430 * 1.1);
-    palm(w * 0.91, h * 0.66, w / 430 * 1.3);
-    // 足元の影と草の房
-    canvas.drawOval(
-        Rect.fromCenter(
-            center: Offset(w * 0.09, h * 0.62), width: w * 0.1, height: h * 0.014),
-        Paint()..color = const Color(0x26203818));
-    canvas.drawOval(
-        Rect.fromCenter(
-            center: Offset(w * 0.91, h * 0.66), width: w * 0.12, height: h * 0.016),
-        Paint()..color = const Color(0x26203818));
+    // 木(もこもこ広葉樹ともみの木)
+    acTree(canvas, w * 0.09, h * 0.64, w / (land ? 900 : 430));
+    acConifer(canvas, w * 0.16, h * 0.5, w / (land ? 1100 : 560));
+    acConifer(canvas, w * 0.86, h * 0.48, w / (land ? 1100 : 620));
+    acTree(canvas, w * 0.92, h * 0.68, w / (land ? 820 : 400));
     for (var i = 0; i < 18; i++) {
       acTuft(canvas, rng.nextDouble() * w, h * (0.45 + rng.nextDouble() * 0.5),
-          w / 430, const Color(0x40234F1A));
+          w / 430, const Color(0x40295C1E));
     }
 
-    // 大看板(丸角の木板 + 支柱 + つた + 花)
-    final bx = w * 0.17, by = h * 0.27, bw = w * 0.66, bh = h * 0.3;
+    // 大看板(丸角の木板 + 支柱 + つた + 花)。横長画面では幅を抑える
+    final bw = w * (land ? 0.38 : 0.66);
+    final bx = w / 2 - bw / 2, by = h * 0.27, bh = h * 0.3;
     final post = Paint()..color = const Color(0xFF5A3A1E);
     canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -1133,7 +1114,10 @@ class _CleanSignboardPainter extends CustomPainter {
       final ex = bx + bw / 2 + math.cos(t) * (bw / 2 + 4);
       final ey = by + bh / 2 + math.sin(t) * (bh / 2 + 4);
       canvas.drawOval(
-          Rect.fromCenter(center: Offset(ex, ey), width: 12, height: 8),
+          Rect.fromCenter(
+              center: Offset(ex, ey),
+              width: (bw * 0.045).clamp(12.0, 24.0),
+              height: (bw * 0.03).clamp(8.0, 16.0)),
           Paint()
             ..color =
                 i % 2 == 0 ? const Color(0xFF3B9A31) : const Color(0xFF2E8226));

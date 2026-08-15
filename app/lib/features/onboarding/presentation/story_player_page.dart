@@ -130,8 +130,8 @@ class _StoryPlayerPageState extends ConsumerState<StoryPlayerPage> {
       // ── 看板の文字(コード描画なので変更が容易) ──
       if (page.boardTitle != null)
         Positioned(
-          left: size.width * 0.17,
-          right: size.width * 0.17,
+          left: size.width * (wide ? 0.33 : 0.17),
+          right: size.width * (wide ? 0.33 : 0.17),
           top: size.height * 0.27,
           height: size.height * 0.3,
           child: IgnorePointer(
