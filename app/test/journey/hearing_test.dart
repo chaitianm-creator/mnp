@@ -66,4 +66,57 @@ void main() {
         scrollable: find.byType(Scrollable).first);
     expect(find.text('パン屋のお困りごとは？'), findsOneWidget);
   });
+
+  testWidgets('ヒアリング②: 参考チラシ選びを含めて完了フォームに到達する',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    await tester.pumpWidget(const ProviderScope(
+      child: DesignKingdomApp(initialLocation: '/hearing2'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('チラシ制作のヒアリングをしてみよう！②'), findsOneWidget);
+
+    const goods = [
+      '「“おしゃれ・高級”というより、親しみやすくて、あたたかい雰囲気が近そうですね。」',
+      '「メインでクリームパンは大きく使うので、一度確認させていただけますか？必要であれば改めて撮影することも検討しましょう」',
+      '「今回は“来店”が一番の目的なので、地図や店舗情報をしっかり見せて、Instagramは補足として掲載しましょう。」',
+    ];
+    var g = 0;
+
+    for (var i = 0; i < 100; i++) {
+      if (tester.any(find.text('ワイヤー制作へすすむ'))) break;
+      if (tester.any(find.text('次へ'))) {
+        await tester.tap(find.text('次へ'));
+      } else if (tester.any(find.text('この参考で提案する'))) {
+        // 参考チラシ: まずBのみ選んで不満の反応を確認 → A・Dで正解
+        await tester.ensureVisible(find.text('B案'));
+        await tester.tap(find.text('B案'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('この参考で提案する'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('なんだかイメージと違う'), findsOneWidget);
+        await tester.tap(find.text('B案')); // 解除
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('A案'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('D案'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('この参考で提案する'));
+      } else {
+        final good = find.text(goods[g]);
+        await tester.ensureVisible(good.last);
+        await tester.tap(good.last);
+        g++;
+      }
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('ワイヤー制作へすすむ'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('来店特典'), -200,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('来店特典'), findsOneWidget);
+  });
 }

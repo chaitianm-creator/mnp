@@ -103,9 +103,14 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
           builder: (_, __) => const PracticeQuestsPage(),
         ),
         GoRoute(
-          path: "/hearing", // パン屋さんヒアリング(練習クエストの導入)
+          path: "/hearing", // パン屋さんヒアリング①(お困りごと)
           parentNavigatorKey: rootNavigatorKey,
           builder: (_, __) => const HearingPage(),
+        ),
+        GoRoute(
+          path: "/hearing2", // パン屋さんヒアリング②(デザインの方向性)
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, __) => const HearingPage(part: 2),
         ),
         GoRoute(
           path: "/daily-request", // 今日の依頼(練習3つクリアで解放)
