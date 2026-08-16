@@ -56125,7 +56125,7 @@ if(s)o.as=A.cE(B.ct,new A.aIR(o))},
 Hv(a){var s,r=this
 switch(a.a){case"bakery":s=r.c
 s.toString
-A.en(s,"/daily-request",t.X)
+A.en(s,"/works",t.X)
 break
 case"port":r.AB("\u30a4\u30d9\u30f3\u30c8\u306f\u8fd1\u65e5\u958b\u50ac\uff01\u304a\u305f\u306e\u3057\u307f\u306b\u266a")
 break
