@@ -42,8 +42,8 @@ void main() {
     expect(find.text('次へ'), findsNothing); // BADでは進めない
 
     for (var i = 0; i < 80; i++) {
-      // 完了時は最下部の「次に進む」ボタンが見える
-      if (tester.any(find.text('次に進む'))) break;
+      // 完了時は「🎉 ヒアリング完了！」の見出しから表示される
+      if (tester.any(find.textContaining('ヒアリング完了'))) break;
       if (tester.any(find.text('次へ'))) {
         await tester.tap(find.text('次へ'));
       } else {
@@ -56,15 +56,18 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    // 完了フォームと次のクエスト(上に遡って確認)
-    expect(find.text('次に進む'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('来店のきっかけ'), -200,
-        scrollable: find.byType(Scrollable).first);
-    expect(find.text('来店のきっかけ'), findsOneWidget);
+    // 完了見出しから表示され、下にフォームとボタンが続く
+    expect(find.textContaining('ヒアリング完了'), findsOneWidget);
     await tester.scrollUntilVisible(
-        find.text('パン屋のお困りごとは？'), -200,
+        find.text('パン屋のお困りごとは？'), 200,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('パン屋のお困りごとは？'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('来店のきっかけ'), 200,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('来店のきっかけ'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('次に進む'), 200,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('次に進む'), findsOneWidget);
   });
 
   testWidgets('ヒアリング②: 参考チラシ選びを含めて完了フォームに到達する',
@@ -80,14 +83,14 @@ void main() {
     expect(find.text('チラシ制作のヒアリングをしてみよう！②'), findsOneWidget);
 
     const goods = [
-      '「“おしゃれ・高級”というより、親しみやすくて、あたたかい雰囲気が近そうですね。」',
+      '「では、“家族で気軽に入りやすい”と感じてもらえる、親しみやすい雰囲気が良さそうですね。」',
       '「メインでクリームパンは大きく使うので、一度確認させていただけますか？必要であれば改めて撮影することも検討しましょう」',
       '「今回は“来店”が一番の目的なので、地図や店舗情報をしっかり見せて、Instagramは補足として掲載しましょう。」',
     ];
     var g = 0;
 
     for (var i = 0; i < 100; i++) {
-      if (tester.any(find.text('ワイヤー制作へすすむ'))) break;
+      if (tester.any(find.textContaining('ヒアリング完了'))) break;
       if (tester.any(find.text('次へ'))) {
         await tester.tap(find.text('次へ'));
       } else if (tester.any(find.text('この参考で提案する'))) {
@@ -114,9 +117,12 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('ワイヤー制作へすすむ'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('来店特典'), -200,
+    expect(find.textContaining('ヒアリング完了'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('来店特典'), 200,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('来店特典'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('ワイヤー制作へすすむ'), 200,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('ワイヤー制作へすすむ'), findsOneWidget);
   });
 }

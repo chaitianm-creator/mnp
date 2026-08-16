@@ -214,8 +214,8 @@ const _part2 = _Scenario(
     _Msg('me', 'チラシを見た方に、お店についてどんな印象を持ってもらいたいですか？'),
     _Msg('baker', '入りやすくて、家族で気軽に行けそうなパン屋さんと思ってほしいです。'),
     _Choice('あなたなら、次にどう返す？', [
-      _Opt('「“おしゃれ・高級”というより、親しみやすくて、あたたかい雰囲気が近そうですね。」', 'good',
-          'お客様の言葉をデザインの方向性に置き換えて確認できている！\n「どんな印象を与えたいか」を整理してから、色やフォントを考えよう。'),
+      _Opt('「では、“家族で気軽に入りやすい”と感じてもらえる、親しみやすい雰囲気が良さそうですね。」', 'good',
+          'お客様の言葉から方向性を整理できている！\n「どんな印象を与えたいか」を整理してから、デザインを考えよう。'),
       _Opt('「では、かわいいデザインにしましょう！」', 'worst',
           '「家族で入りやすい＝かわいい」とは限らない。\n自分の解釈だけでデザインの方向性を決めないようにしよう！'),
       _Opt('「子育て世代向けなら、ピンクやパステルカラーが良さそうですね！」', 'worst',
@@ -277,6 +277,7 @@ class _HearingPageState extends ConsumerState<HearingPage> {
   final Set<int> _refSelected = {}; // 参考チラシの複数選択
   bool _refConfirmed = false; // 提案済みか
   final _scroll = ScrollController();
+  final _endKey = GlobalKey(); // 「🎉 ヒアリング完了！」の位置
 
   _Step get _current => _sc.steps[_index.clamp(0, _sc.steps.length - 1)];
 
@@ -296,6 +297,10 @@ class _HearingPageState extends ConsumerState<HearingPage> {
 
   void _advance() {
     final cur = _current;
+    // 完了画面に入るときのスクロール目安(いまの最下部 + 追加される吹き出しぶん)
+    final endEstimate = _scroll.hasClients
+        ? _scroll.position.maxScrollExtent + 90
+        : 0.0;
     setState(() {
       if (cur is _Choice) {
         // GOODを選んだ状態からの前進: 選んだセリフをログに追加
@@ -314,7 +319,25 @@ class _HearingPageState extends ConsumerState<HearingPage> {
         _index++;
       }
     });
-    _toBottom();
+    if (_isEnd) {
+      // 最下部まで飛ばず、「🎉 ヒアリング完了！」の見出しから見せる
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scroll.hasClients) return;
+        _scroll.jumpTo(
+            endEstimate.clamp(0.0, _scroll.position.maxScrollExtent));
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final ctx = _endKey.currentContext;
+          if (ctx != null) {
+            Scrollable.ensureVisible(ctx,
+                alignment: 0.02,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut);
+          }
+        });
+      });
+    } else {
+      _toBottom();
+    }
   }
 
   @override
@@ -781,6 +804,7 @@ class _HearingPageState extends ConsumerState<HearingPage> {
   // ── 完了(まとめフォーム + クリア案内) ──
   List<Widget> _endSection(BuildContext context) => [
         Container(
+          key: _endKey,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color(0xFFF0C9D6),
