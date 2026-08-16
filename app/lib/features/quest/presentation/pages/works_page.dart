@@ -86,17 +86,6 @@ class _WorksPageState extends State<WorksPage> {
         ),
         title: const Text('お困りの村人「パン屋さん」',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-        actions: [
-          TextButton.icon(
-            onPressed: () => context.go('/home'),
-            icon: const Icon(Icons.home_rounded, size: 16, color: pnSub),
-            label: const Text('ホームに戻る',
-                style: TextStyle(
-                    color: pnSub,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700)),
-          ),
-        ],
       ),
       body: SafeArea(
         child: Center(
