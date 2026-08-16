@@ -114,7 +114,7 @@ class _VillagePageState extends ConsumerState<VillagePage> {
   void _enter(_Spot s) {
     switch (s.id) {
       case 'bakery':
-        context.push('/daily-request');
+        context.push('/works'); // お困りの村人「パン屋さん」ワーク一覧へ
       case 'port':
         _message('イベントは近日開催！おたのしみに♪');
       case 'studio':
