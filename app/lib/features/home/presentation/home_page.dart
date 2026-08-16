@@ -255,6 +255,10 @@ class _HomePageState extends ConsumerState<HomePage> {
         desc: '実践デザイナー冒険へようこそ。これから始まる冒険の全体像を見てみよう。',
         meta: '所要時間 5分　・　獲得ポイント +50ポイント',
         buttonLabel: p.welcomeVideoWatched ? '✓ 視聴済み' : '▶ 動画を見る',
+        // 視聴済みはグレーのボタンにする
+        buttonColor:
+            p.welcomeVideoWatched ? const Color(0xFFDCD8CC) : null,
+        buttonInk: p.welcomeVideoWatched ? pnSub : null,
         // TODO(動画): ここに動画プレイヤーを埋め込む。それまでは遷移しない
         onTap: () {
           if (p.welcomeVideoWatched) {
@@ -361,6 +365,8 @@ class _QuestCard extends StatelessWidget {
     required this.onTap,
     this.progress,
     this.locked = false,
+    this.buttonColor,
+    this.buttonInk,
   });
 
   final String no;
@@ -373,6 +379,8 @@ class _QuestCard extends StatelessWidget {
   final VoidCallback onTap;
   final double? progress;
   final bool locked;
+  final Color? buttonColor; // ボタン色の上書き(視聴済みのグレーなど)
+  final Color? buttonInk;
 
   @override
   Widget build(BuildContext context) {
@@ -479,8 +487,8 @@ class _QuestCard extends StatelessWidget {
                           : FilledButton(
                               onPressed: onTap,
                               style: FilledButton.styleFrom(
-                                  backgroundColor: pnGreen,
-                                  foregroundColor: pnGreenInk,
+                                  backgroundColor: buttonColor ?? pnGreen,
+                                  foregroundColor: buttonInk ?? pnGreenInk,
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 18, vertical: 6)),
                               child: Text(buttonLabel,
