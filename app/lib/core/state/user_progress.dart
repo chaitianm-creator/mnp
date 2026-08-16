@@ -20,6 +20,7 @@ class UserProgress {
     this.deliveredQuestIds = const {},
     this.areaDelivered = const {},
     this.oneMoreUsedThisSession = false,
+    this.welcomeVideoWatched = false,
   });
 
   final int xp;
@@ -32,6 +33,7 @@ class UserProgress {
   final Set<String> deliveredQuestIds;
   final Map<String, int> areaDelivered; // areaId → 納品数(発展stage算出用)
   final bool oneMoreUsedThisSession; // 「あと1クエスト」は1セッション1回(Phase 4 §3)
+  final bool welcomeVideoWatched; // クエスト01「ようこそ」動画の視聴済みフラグ
 
   /// エリア発展 stage (Phase 5 §2.1 developmentStages: 0/6/12)
   int stageOf(String areaId) {
@@ -59,6 +61,7 @@ class UserProgress {
         'keys': keys,
         'deliveredQuestIds': deliveredQuestIds.toList(),
         'areaDelivered': areaDelivered,
+        'welcomeVideoWatched': welcomeVideoWatched,
       };
 
   static UserProgress fromJson(Map<String, dynamic> j) => UserProgress(
@@ -72,6 +75,7 @@ class UserProgress {
                 .toSet(),
         areaDelivered: ((j['areaDelivered'] as Map?) ?? const {})
             .map((k, v) => MapEntry(k as String, (v as num).toInt())),
+        welcomeVideoWatched: j['welcomeVideoWatched'] as bool? ?? false,
       );
 
   UserProgress copyWith({
@@ -86,6 +90,7 @@ class UserProgress {
     Set<String>? deliveredQuestIds,
     Map<String, int>? areaDelivered,
     bool? oneMoreUsedThisSession,
+    bool? welcomeVideoWatched,
   }) =>
       UserProgress(
         xp: xp ?? this.xp,
@@ -101,6 +106,7 @@ class UserProgress {
         areaDelivered: areaDelivered ?? this.areaDelivered,
         oneMoreUsedThisSession:
             oneMoreUsedThisSession ?? this.oneMoreUsedThisSession,
+        welcomeVideoWatched: welcomeVideoWatched ?? this.welcomeVideoWatched,
       );
 }
 
@@ -137,6 +143,13 @@ class UserProgressNotifier extends Notifier<UserProgress> {
       deliveredQuestIds: delivered,
       areaDelivered: area,
     );
+    _persist();
+  }
+
+  /// クエスト01「ようこそ」動画の視聴完了(+50ポイント。一度だけ)
+  void watchWelcomeVideo() {
+    if (state.welcomeVideoWatched) return;
+    state = state.copyWith(xp: state.xp + 50, welcomeVideoWatched: true);
     _persist();
   }
 
