@@ -88,10 +88,7 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
               GoRoute(path: "/map", builder: (_, __) => const WorldMapPage()), // SC-30
             ]),
             StatefulShellBranch(routes: [
-              GoRoute(path: "/skills", builder: (_, __) => const SkillsPage()), // SC-40
-            ]),
-            StatefulShellBranch(routes: [
-              GoRoute(path: "/profile", builder: (_, __) => const ProfilePage()), // SC-50
+              GoRoute(path: "/profile", builder: (_, __) => const ProfilePage()), // SC-50(スキルを集約)
             ]),
           ],
         ),
@@ -137,8 +134,12 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
           builder: (_, __) => const NoticesPage(),
         ),
         GoRoute(
-          path: "/progress", // 成長記録(スキルタブへ)
-          redirect: (_, __) => "/skills",
+          path: "/progress", // 成長記録(わたしへ)
+          redirect: (_, __) => "/profile",
+        ),
+        GoRoute(
+          path: "/skills", // 旧スキルページ(わたしに集約)
+          redirect: (_, __) => "/profile",
         ),
         GoRoute(
           path: "/quest/:id", // SC-20〜28
@@ -209,7 +210,6 @@ class _AppShell extends StatelessWidget {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home), label: "ホーム"),
           NavigationDestination(icon: Icon(Icons.map), label: "マップ"),
-          NavigationDestination(icon: Icon(Icons.park), label: "スキル"),
           NavigationDestination(icon: Icon(Icons.person), label: "わたし"),
         ],
       ),

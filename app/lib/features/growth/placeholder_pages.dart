@@ -8,346 +8,31 @@ import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/core/widgets/pn_shell.dart';
 import 'package:design_kingdom/features/onboarding/presentation/story_scenes.dart';
 
-/// SC-40 スキル = 画面いっぱいの全幅レイアウト(ワイヤーフレーム準拠)。
-/// 上部バー(スキル+Lv+アバター) + EXPと6スキルの一枚カード +
-/// そうび・どうぐ(中央チップ見出し+グリッド)。
-class SkillsPage extends ConsumerWidget {
-  const SkillsPage({super.key});
+// 6系統のスキル(Phase 8 §1.2)。淡いパステルで色分け。
+const _skillCategories = [
+  ('制作技術', Icons.brush_rounded, Color(0xFFF4B8C8)),
+  ('ヒアリング', Icons.hearing_rounded, Color(0xFFB8D4EE)),
+  ('提案力', Icons.lightbulb_rounded, Color(0xFFF2DFA7)),
+  ('改善力', Icons.refresh_rounded, Color(0xFFF4CBA8)),
+  ('自己管理', Icons.schedule_rounded, Color(0xFFC4E0B2)),
+  ('コミュニティ', Icons.group_rounded, Color(0xFFDCD3F2)),
+];
 
-  // 6系統(Phase 8 §1.2)。淡いパステルで色分け。
-  static const _categories = [
-    ('制作技術', Icons.brush_rounded, Color(0xFFF4B8C8)),
-    ('ヒアリング', Icons.hearing_rounded, Color(0xFFB8D4EE)),
-    ('提案力', Icons.lightbulb_rounded, Color(0xFFF2DFA7)),
-    ('改善力', Icons.refresh_rounded, Color(0xFFF4CBA8)),
-    ('自己管理', Icons.schedule_rounded, Color(0xFFC4E0B2)),
-    ('コミュニティ', Icons.group_rounded, Color(0xFFDCD3F2)),
-  ];
-
-  // そうびアイテム。DEMO: 納品数に応じて1つずつ解放される。
-  static const _items = [
-    ('デザインペン', '伝説の武器', Icons.edit_rounded, '制作力 +9',
-        'アイデアを形にする魔法のペン。'),
-    ('共感のリボン', 'そうび', Icons.loyalty_rounded, '伝える力 +8',
-        '相手の気持ちに寄り添う魔法のリボン。'),
-    ('自信のティアラ', 'そうび', Icons.workspace_premium_rounded,
-        '自己肯定感 +10', '自分の魅力に気づける魔法のティアラ。'),
-    ('実践のローブ', 'そうび', Icons.checkroom_rounded, '行動力 +10',
-        '学びを成果につなげる魔法のローブ。'),
-    ('信頼のリング', 'そうび', Icons.donut_large_rounded, '選ばれる力 +10',
-        '人とのご縁を育てる魔法のリング。'),
-    ('未来のコンパス', 'どうぐ', Icons.explore_rounded, '判断力 +8',
-        '進むべき方向を示してくれるコンパス。'),
-  ];
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = ref.watch(userProgressProvider);
-    final delivered = p.deliveredQuestIds.length;
-    // DEMO: 納品でバーが伸びる(本番は deliverQuest の skillPoints 反映)
-    double skillValue(int i) => switch (i) {
-          0 => (0.20 + delivered * 0.22).clamp(0.0, 0.95),
-          1 => (0.15 + delivered * 0.18).clamp(0.0, 0.95),
-          _ => 0.10 + delivered * 0.03,
-        };
-
-    return Scaffold(
-      backgroundColor: pnBg,
-      body: SafeArea(
-        child: LayoutBuilder(builder: (context, c) {
-          final cols = c.maxWidth >= 760 ? 3 : 2;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-            children: [
-              // ── 上部バー(タイトル + Lv + アバター) ──
-              Row(children: [
-                const Text('スキル',
-                    style: TextStyle(
-                        color: pnInk,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900)),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: pnYellow.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text('Lv.${p.level}',
-                      style: const TextStyle(
-                          color: pnInk,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900)),
-                ),
-                const SizedBox(width: 8),
-                const CircleAvatar(
-                    radius: 15,
-                    backgroundColor: pnPink,
-                    child: Text('🙂', style: TextStyle(fontSize: 14))),
-              ]),
-              const SizedBox(height: 12),
-              // ── キャラクター + EXP/スキル(PCは横並び) ──
-              if (c.maxWidth >= 760)
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  SizedBox(width: 300, child: _characterCard(ref)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _skillsCard(p, skillValue)),
-                ])
-              else ...[
-                _characterCard(ref),
-                const SizedBox(height: 12),
-                _skillsCard(p, skillValue),
-              ],
-              const SizedBox(height: 20),
-              // ── そうび・どうぐ(中央チップ見出し) ──
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 22, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0C9D6),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text('そうび・どうぐ',
-                      style: TextStyle(
-                          color: Color(0xFF9E5570),
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w900)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: cols,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  mainAxisExtent: 172,
-                ),
-                itemCount: _items.length,
-                itemBuilder: (context, i) {
-                  final item = _items[i];
-                  final owned = i < delivered; // 納品1件ごとに1つ解放(DEMO)
-                  return _ItemCard(
-                    name: item.$1,
-                    kind: item.$2,
-                    icon: item.$3,
-                    effect: item.$4,
-                    flavor: item.$5,
-                    owned: owned,
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
-              const Center(
-                child: Text('お仕事を納品すると、そうびが1つずつ手に入るよ',
-                    style: TextStyle(color: pnSub, fontSize: 12)),
-              ),
-            ],
-          );
-        }),
-      ),
-    );
-  }
-  /// キャラクターカード(きせかえ付き)。
-  Widget _characterCard(WidgetRef ref) {
-    final account = ref.watch(accountProvider);
-    final p = ref.watch(userProgressProvider);
-    final outfit = ref.watch(outfitProvider);
-    return PnPanel(
-      child: Column(children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: pnBg,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: PixelSprite(
-              rows: heroineFrontRows,
-              palette: heroinePaletteFor(outfit),
-              width: 96),
-        ),
-        const SizedBox(height: 10),
-        Text(account?.nickname ?? 'デザイナー冒険者',
-            style: const TextStyle(
-                color: pnInk, fontSize: 15, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 2),
-        const Text('勇者のステータス',
-            style: TextStyle(color: pnSub, fontSize: 11)),
-        const SizedBox(height: 8),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('Lv.${p.level}',
-              style: const TextStyle(
-                  color: pnInk, fontSize: 18, fontWeight: FontWeight.w900)),
-          const SizedBox(width: 8),
-          const Text('見習い冒険者',
-              style: TextStyle(color: pnSub, fontSize: 12)),
-        ]),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-              value: (p.xp % 100) / 100,
-              minHeight: 8,
-              backgroundColor: pnBg,
-              color: pnPurple),
-        ),
-        const SizedBox(height: 8),
-        Text('獲得ポイント　${p.xp} ポイント',
-            style: const TextStyle(color: pnSub, fontSize: 12)),
-        const SizedBox(height: 12),
-        Container(height: 1, color: pnLine),
-        const SizedBox(height: 10),
-        const Text('きせかえ',
-            style: TextStyle(
-                color: pnSub, fontSize: 11, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          for (final (i, o) in kOutfits.indexed)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Tooltip(
-                message: o.$1,
-                child: GestureDetector(
-                  onTap: () => ref.read(outfitProvider.notifier).select(i),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: o.$4,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: i == outfit ? pnInk : pnLine,
-                          width: i == outfit ? 2 : 1.5),
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                            color: o.$2, shape: BoxShape.circle),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ]),
-        const SizedBox(height: 4),
-        const Text('タップして服の色を変えられるよ',
-            style: TextStyle(color: pnSub, fontSize: 10)),
-      ]),
-    );
-  }
-
-  /// EXP + 6スキルバーの一枚カード。
-  Widget _skillsCard(UserProgress p, double Function(int) skillValue) {
-    return PnPanel(
-      padding: const EdgeInsets.all(16),
-      child: Column(children: [
-        Row(children: [
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: pnBg,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: pnLine),
-            ),
-            child: Text('Lv.${p.level}',
-                style: const TextStyle(
-                    color: pnInk,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    const Text('EXP',
-                        style: TextStyle(
-                            color: pnSub,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700)),
-                    const Spacer(),
-                    Text('${p.xp} / 100',
-                        style: const TextStyle(
-                            color: pnInk,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800)),
-                  ]),
-                  const SizedBox(height: 5),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(
-                        value: (p.xp % 100) / 100,
-                        minHeight: 7,
-                        backgroundColor: pnBg,
-                        color: const Color(0xFFE98FA9)),
-                  ),
-                ]),
-          ),
-        ]),
-        const SizedBox(height: 18),
-        for (final (i, cat) in _categories.indexed) ...[
-          if (i > 0) const SizedBox(height: 14),
-          Row(children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: cat.$3,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(cat.$2, color: pnInk, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      Text(cat.$1,
-                          style: const TextStyle(
-                              color: pnInk,
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w800)),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: pnBg,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Text('Lv.1',
-                            style: TextStyle(
-                                color: pnSub,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w800)),
-                      ),
-                    ]),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                          value: skillValue(i),
-                          minHeight: 7,
-                          backgroundColor: pnBg,
-                          color: cat.$3),
-                    ),
-                  ]),
-            ),
-          ]),
-        ],
-      ]),
-    );
-  }
-}
+// そうびアイテム。DEMO: 納品数に応じて1つずつ解放される。
+const _equipItems = [
+  ('デザインペン', '伝説の武器', Icons.edit_rounded, '制作力 +9',
+      'アイデアを形にする魔法のペン。'),
+  ('共感のリボン', 'そうび', Icons.loyalty_rounded, '伝える力 +8',
+      '相手の気持ちに寄り添う魔法のリボン。'),
+  ('自信のティアラ', 'そうび', Icons.workspace_premium_rounded,
+      '自己肯定感 +10', '自分の魅力に気づける魔法のティアラ。'),
+  ('実践のローブ', 'そうび', Icons.checkroom_rounded, '行動力 +10',
+      '学びを成果につなげる魔法のローブ。'),
+  ('信頼のリング', 'そうび', Icons.donut_large_rounded, '選ばれる力 +10',
+      '人とのご縁を育てる魔法のリング。'),
+  ('未来のコンパス', 'どうぐ', Icons.explore_rounded, '判断力 +8',
+      '進むべき方向を示してくれるコンパス。'),
+];
 
 /// SC-50 わたし(ギルドカード) = PRO NAVI ワイヤーフレーム4a/4b準拠。
 /// 共通シェル(右レールなし)にプロフィール/ぼうけんの記録/じっせきバッジ/
@@ -477,6 +162,103 @@ class ProfilePage extends ConsumerWidget {
               ),
             ]),
           ]),
+        ),
+        const SizedBox(height: 20),
+        // ── スキル(6系統。旧スキルページから集約) ──
+        _chipHeader('スキル'),
+        const SizedBox(height: 12),
+        PnPanel(
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            for (final (i, cat) in _skillCategories.indexed) ...[
+              if (i > 0) const SizedBox(height: 14),
+              Row(children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: cat.$3,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(cat.$2, color: pnInk, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Text(cat.$1,
+                              style: const TextStyle(
+                                  color: pnInk,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800)),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: pnBg,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Text('Lv.1',
+                                style: TextStyle(
+                                    color: pnSub,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w800)),
+                          ),
+                        ]),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                              value: switch (i) {
+                                0 => (0.20 + delivered * 0.22)
+                                    .clamp(0.0, 0.95),
+                                1 => (0.15 + delivered * 0.18)
+                                    .clamp(0.0, 0.95),
+                                _ => 0.10 + delivered * 0.03,
+                              },
+                              minHeight: 7,
+                              backgroundColor: pnBg,
+                              color: cat.$3),
+                        ),
+                      ]),
+                ),
+              ]),
+            ],
+          ]),
+        ),
+        const SizedBox(height: 20),
+        // ── そうび・どうぐ(旧スキルページから集約) ──
+        _chipHeader('そうび・どうぐ'),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: wide ? 3 : 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            mainAxisExtent: 172,
+          ),
+          itemCount: _equipItems.length,
+          itemBuilder: (context, i) {
+            final item = _equipItems[i];
+            return _ItemCard(
+              name: item.$1,
+              kind: item.$2,
+              icon: item.$3,
+              effect: item.$4,
+              flavor: item.$5,
+              owned: i < delivered, // 納品1件ごとに1つ解放(DEMO)
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+        const Center(
+          child: Text('お仕事を納品すると、そうびが1つずつ手に入るよ',
+              style: TextStyle(color: pnSub, fontSize: 12)),
         ),
         const SizedBox(height: 20),
         _chipHeader('ぼうけんの記録'),
