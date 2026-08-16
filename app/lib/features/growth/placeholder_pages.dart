@@ -34,6 +34,87 @@ const _equipItems = [
       '進むべき方向を示してくれるコンパス。'),
 ];
 
+/// 中央のピンクチップ見出し(わたし/アイテム共通)。
+Widget _chipHeader(String label) => Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0C9D6),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(label,
+            style: const TextStyle(
+                color: Color(0xFF9E5570),
+                fontSize: 13,
+                fontWeight: FontWeight.w900)),
+      ),
+    );
+
+/// アイテム(下部タブ)。そうび・どうぐの一覧。納品で1つずつ解放。
+class ItemsPage extends ConsumerWidget {
+  const ItemsPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = ref.watch(userProgressProvider);
+    final delivered = p.deliveredQuestIds.length;
+
+    return PnShell(
+      current: 'アイテム',
+      spTitle: 'アイテム',
+      showRail: false,
+      mainBuilder: (context, wide) => [
+        Row(children: [
+          const Text('アイテム',
+              style: TextStyle(
+                  color: pnInk, fontSize: 18, fontWeight: FontWeight.w900)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: pnYellow.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text('Lv.${p.level}',
+                style: const TextStyle(
+                    color: pnInk,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900)),
+          ),
+        ]),
+        const SizedBox(height: 4),
+        const Text('お仕事を納品すると、そうび・どうぐが1つずつ手に入るよ！',
+            style: TextStyle(color: pnSub, fontSize: 12.5)),
+        const SizedBox(height: 14),
+        _chipHeader('そうび・どうぐ'),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: wide ? 3 : 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            mainAxisExtent: 172,
+          ),
+          itemCount: _equipItems.length,
+          itemBuilder: (context, i) {
+            final item = _equipItems[i];
+            return _ItemCard(
+              name: item.$1,
+              kind: item.$2,
+              icon: item.$3,
+              effect: item.$4,
+              flavor: item.$5,
+              owned: i < delivered, // 納品1件ごとに1つ解放(DEMO)
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
 /// SC-50 わたし(ギルドカード) = PRO NAVI ワイヤーフレーム4a/4b準拠。
 /// 共通シェル(右レールなし)にプロフィール/ぼうけんの記録/じっせきバッジ/
 /// みぽりん先生からのメッセージを差し込む。
@@ -230,37 +311,6 @@ class ProfilePage extends ConsumerWidget {
           ]),
         ),
         const SizedBox(height: 20),
-        // ── そうび・どうぐ(旧スキルページから集約) ──
-        _chipHeader('そうび・どうぐ'),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: wide ? 3 : 2,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            mainAxisExtent: 172,
-          ),
-          itemCount: _equipItems.length,
-          itemBuilder: (context, i) {
-            final item = _equipItems[i];
-            return _ItemCard(
-              name: item.$1,
-              kind: item.$2,
-              icon: item.$3,
-              effect: item.$4,
-              flavor: item.$5,
-              owned: i < delivered, // 納品1件ごとに1つ解放(DEMO)
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        const Center(
-          child: Text('お仕事を納品すると、そうびが1つずつ手に入るよ',
-              style: TextStyle(color: pnSub, fontSize: 12)),
-        ),
-        const SizedBox(height: 20),
         _chipHeader('ぼうけんの記録'),
         const SizedBox(height: 12),
         PnPanel(
@@ -365,21 +415,6 @@ class ProfilePage extends ConsumerWidget {
       ],
     );
   }
-
-  Widget _chipHeader(String label) => Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0C9D6),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(label,
-              style: const TextStyle(
-                  color: Color(0xFF9E5570),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900)),
-        ),
-      );
 
   Widget _divider() => Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),

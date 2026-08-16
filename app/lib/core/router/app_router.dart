@@ -88,6 +88,9 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
               GoRoute(path: "/map", builder: (_, __) => const WorldMapPage()), // SC-30
             ]),
             StatefulShellBranch(routes: [
+              GoRoute(path: "/items", builder: (_, __) => const ItemsPage()), // アイテム(そうび・どうぐ)
+            ]),
+            StatefulShellBranch(routes: [
               GoRoute(path: "/profile", builder: (_, __) => const ProfilePage()), // SC-50(スキルを集約)
             ]),
           ],
@@ -210,6 +213,7 @@ class _AppShell extends StatelessWidget {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home), label: "ホーム"),
           NavigationDestination(icon: Icon(Icons.map), label: "マップ"),
+          NavigationDestination(icon: Icon(Icons.backpack), label: "アイテム"),
           NavigationDestination(icon: Icon(Icons.person), label: "わたし"),
         ],
       ),
