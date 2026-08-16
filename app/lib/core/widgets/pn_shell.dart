@@ -229,8 +229,8 @@ class _PnShellState extends ConsumerState<PnShell> {
   Widget _sideMenu({bool embedded = false}) {
     final items = <(String, IconData, String?, String?)>[
       ('ホーム', Icons.home_rounded, '/home', null),
-      ('冒険伴走日記', Icons.menu_book_rounded, null, '会員限定'),
-      ('もくもく学習室', Icons.edit_note_rounded, 'https://mnp-sable.vercel.app/home', null),
+      ('冒険伴走ノート', Icons.menu_book_rounded, null, '会員限定'),
+      ('もくもく自習室', Icons.edit_note_rounded, 'https://mnp-sable.vercel.app/home', null),
       ('ショッピングセンター', Icons.storefront_rounded, '/shopping', null),
       ('着せ替えクローゼット', Icons.checkroom_rounded, '/closet', null),
       ('お客さまアルバム', Icons.photo_library_rounded, '/album', null),
@@ -510,7 +510,7 @@ class _PnShellState extends ConsumerState<PnShell> {
 
   Widget _footer() {
     const links = [
-      'ホーム', '冒険伴走日記', 'もくもく学習室', 'ショッピングセンター',
+      'ホーム', '冒険伴走ノート', 'もくもく自習室', 'ショッピングセンター',
       '着せ替えクローゼット', 'お客さまアルバム', 'よくある質問',
       'お問い合わせ', '利用規約', 'プライバシーポリシー',
     ];
@@ -530,7 +530,7 @@ class _PnShellState extends ConsumerState<PnShell> {
                   switch (l) {
                     case 'ホーム':
                       context.go('/home');
-                    case 'もくもく学習室':
+                    case 'もくもく自習室':
                       openExternal('https://mnp-sable.vercel.app/home');
                     case '着せ替えクローゼット':
                       context.push('/closet');
