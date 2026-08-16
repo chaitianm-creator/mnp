@@ -319,13 +319,13 @@ const miporinPalette = {
   's': Color(0xFF422433),
 };
 
-/// 主人公(正面)。茶髪ボブ+白トップス+赤スカート。
+/// 主人公(正面)。茶髪おだんごヘア+お花かざり+白トップス+赤スカート。
 const heroineFrontRows = [
   '.....hhhhhh.....',
-  '...hhhhhhhhhh...',
-  '..hhhhhhhhhhhh..',
-  '..hHHhhhhhhhhh..',
-  '.hhHHhhhhhhhhhh.',
+  '....hHhhhhhh....',
+  '.....hhhhhhFF...',
+  '..hhhhhhhhhhhFF.',
+  '.hhhhhhhhhhhhhh.',
   '.hhhhhhhhhhhhhh.',
   '.hhffffffffffhh.',
   '.hfEeffffffEefh.',
@@ -346,11 +346,11 @@ const heroineFrontRows = [
 /// 主人公(後ろ姿)。
 const heroineBackRows = [
   '.....hhhhhh.....',
-  '...hhhhhhhhhh...',
-  '..hhhhhhhhhhhh..',
-  '..hHHHhhhhhhhh..',
-  '.hhHHhhhhhhhhhh.',
-  '.hhHhhhhhhhhhhh.',
+  '....hHhhhhhh....',
+  '.....hhhhhhFF...',
+  '..hhhhhhhhhhhFF.',
+  '.hhhhhhhhhhhhhh.',
+  '.hhhhhhhhhhhhhh.',
   '.hhhhhhhhhhhhhh.',
   '.hhhhhhhhhhhhhh.',
   '.hhhhhhhhhhhhhh.',
@@ -368,8 +368,9 @@ const heroineBackRows = [
 ];
 
 const heroinePalette = {
-  'h': Color(0xFF71413B),
+  'h': Color(0xFF7E4B33),
   'H': Color(0xFFBB7547),
+  'F': Color(0xFFEDA95B),
   'f': _skin,
   'e': _eye,
   'E': Colors.white,
@@ -380,6 +381,73 @@ const heroinePalette = {
   'R': Color(0xFFB4202A),
   's': Color(0xFF422433),
 };
+
+// ─────────────────────────────────────────────────────────────
+// 主人公の歩行スプライトシート(前・横・後ろ×3コマ)。
+// dir: 0=正面(下) 1=左 2=右 3=うしろ(上) / frame: 0=立ち 1・2=歩き
+// ─────────────────────────────────────────────────────────────
+
+/// 主人公(横向き・左向き)の上半身+スカート(脚はコマごとに差し替え)。
+/// おだんごは後頭部側に寄せる。
+const _heroineSideBody = [
+  '......hhhhhh....',
+  '.....hhHhhhhh...',
+  '.......hhhh.....',
+  '...hhhhhhhhhh...',
+  '.hhhhhhhhhhhhhh.',
+  '.hhhhhhhhhhhhhh.',
+  '.hffffffhhhhhhh.',
+  '.hfEefffhhhhhhh.',
+  '.hfeefffhhhhhhh.',
+  '.hffffffhhhhhhh.',
+  '.hbbffmfhhhhhhh.',
+  '..hfffffhhhhhh..',
+  '..hhffffhhhhhh..',
+  '....wwwwwwww....',
+  '...fwwwwwwww....',
+  '...fwwrrwwww....',
+  '....RRRRRRRR....',
+  '...RRRRRRRRRR...',
+];
+
+/// 正面・後ろ向きの脚(frameごと)。1=右足を上げる 2=左足を上げる
+const _legsFrontal = [
+  ['....ff....ff....', '...sss....sss...'],
+  ['....ff...sss....', '...sss..........'],
+  ['...sss....ff....', '..........sss...'],
+];
+
+/// 横向きの脚(frameごと)。1=大また 2=小また
+const _legsSide = [
+  ['......ffff......', '....ssssss......'],
+  ['....ff....ff....', '..sss.....sss...'],
+  ['.....ff..ff.....', '...sss...sss....'],
+];
+
+List<String> _mirrorRows(List<String> rows) => [
+      for (final r in rows) String.fromCharCodes(r.codeUnits.reversed.toList()),
+    ];
+
+/// 事前生成した歩行スプライト([dir][frame])。
+final List<List<List<String>>> _heroineWalk = () {
+  final frontBody = heroineFrontRows.sublist(0, 18);
+  final backBody = heroineBackRows.sublist(0, 18);
+  final sideR = _mirrorRows(_heroineSideBody);
+  return [
+    [for (final legs in _legsFrontal) [...frontBody, ...legs]],
+    [for (final legs in _legsSide) [..._heroineSideBody, ...legs]],
+    [
+      for (final legs in _legsSide)
+        [...sideR, ..._mirrorRows(legs)],
+    ],
+    [for (final legs in _legsFrontal) [...backBody, ...legs]],
+  ];
+}();
+
+/// 歩行スプライトの行データを返す。
+/// dir: 0=正面(下) 1=左 2=右 3=うしろ(上) / frame: 0-2
+List<String> heroineWalkRows(int dir, int frame) =>
+    _heroineWalk[dir.clamp(0, 3)][frame % 3];
 
 /// パン屋さん(コック帽・ひげ・エプロン)。
 const bakerRows = [

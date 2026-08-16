@@ -67,6 +67,7 @@ class _VillagePageState extends ConsumerState<VillagePage> {
   String _selectedId = 'bakery';
   bool _walking = false;
   bool _flying = false; // 道がないところは飛行機で移動
+  int _dir = 0; // 歩く向き(0=正面 1=左 2=右 3=うしろ)
   bool _shortcutBubble = false; // 道なき移動(飛行機)のときの「びゅーん♪」
   Timer? _bubbleTimer;
 
@@ -81,10 +82,16 @@ class _VillagePageState extends ConsumerState<VillagePage> {
   void _select(String id) {
     if (_selectedId == id) return;
     final shortcut = !_isConnected(_selectedId, id);
+    // 移動方向からスプライトの向きを決める(横移動が大きければ左右)
+    final from = _selected.pos;
+    final to = _spots.firstWhere((s) => s.id == id).pos;
+    final d = to - from;
+    final dir = d.dx.abs() >= d.dy.abs() ? (d.dx < 0 ? 1 : 2) : (d.dy < 0 ? 3 : 0);
     setState(() {
       _selectedId = id;
       _walking = true;
       _flying = shortcut;
+      _dir = dir;
       _shortcutBubble = shortcut;
     });
     Future<void>.delayed(const Duration(milliseconds: 700)).then((_) {
@@ -92,6 +99,7 @@ class _VillagePageState extends ConsumerState<VillagePage> {
         setState(() {
           _walking = false;
           _flying = false;
+          _dir = 0; // 到着したら正面に戻る
         });
       }
     });
@@ -263,7 +271,7 @@ class _VillagePageState extends ConsumerState<VillagePage> {
             curve: Curves.easeInOut,
             left: sel.pos.dx * w + 36,
             top: sel.pos.dy * h - 22,
-            child: _Avatar(walking: _walking, flying: _flying),
+            child: _Avatar(walking: _walking, flying: _flying, dir: _dir),
           ),
           // 道がないところを歩いたときの吹き出し
           AnimatedPositioned(
@@ -480,17 +488,54 @@ class _SpotMarker extends StatelessWidget {
 }
 
 /// プレイヤーのアバター(ドット絵の主人公。きせかえの服も反映)。
+/// 歩行中は参考スプライトシートのように向き(前・横・後ろ)と
+/// 足踏み3コマのアニメーションで表示する。
 /// flying=true のときは小さな飛行機に乗って移動する。
-class _Avatar extends ConsumerWidget {
-  const _Avatar({required this.walking, this.flying = false});
+class _Avatar extends ConsumerStatefulWidget {
+  const _Avatar({required this.walking, this.flying = false, this.dir = 0});
   final bool walking;
   final bool flying;
+  final int dir; // 0=正面 1=左 2=右 3=うしろ
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Avatar> createState() => _AvatarState();
+}
+
+class _AvatarState extends ConsumerState<_Avatar> {
+  Timer? _stepTimer;
+  int _tick = 0;
+  // 歩行サイクル: 大また→そろえ→小また→そろえ
+  static const _cycle = [1, 0, 2, 0];
+
+  @override
+  void didUpdateWidget(covariant _Avatar old) {
+    super.didUpdateWidget(old);
+    if (widget.walking && !old.walking) {
+      _tick = 0;
+      _stepTimer?.cancel();
+      _stepTimer = Timer.periodic(const Duration(milliseconds: 150), (_) {
+        if (mounted) setState(() => _tick++);
+      });
+    } else if (!widget.walking && old.walking) {
+      _stepTimer?.cancel();
+      _stepTimer = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _stepTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final walking = widget.walking;
+    final flying = widget.flying;
     final outfit = ref.watch(outfitProvider);
+    final frame = walking ? _cycle[_tick % _cycle.length] : 0;
     final sprite = PixelSprite(
-      rows: heroineFrontRows,
+      rows: heroineWalkRows(walking ? widget.dir : 0, frame),
       palette: heroinePaletteFor(outfit),
       width: 32,
     );
