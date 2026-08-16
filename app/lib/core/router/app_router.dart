@@ -19,6 +19,7 @@ import "../../features/onboarding/presentation/teacher_login_page.dart";
 import "../../features/onboarding/presentation/welcome_page.dart";
 import "../../features/quest/presentation/pages/hearing_page.dart";
 import "../../features/quest/presentation/pages/practice_quests_page.dart";
+import "../../features/quest/presentation/pages/works_page.dart";
 import "../../features/quest/presentation/pages/quest_play_page.dart";
 import "../../features/settings/presentation/settings_page.dart";
 import "../../features/teacher/presentation/teacher_pages.dart";
@@ -101,6 +102,11 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
           path: "/quests", // 練習クエスト一覧
           parentNavigatorKey: rootNavigatorKey,
           builder: (_, __) => const PracticeQuestsPage(),
+        ),
+        GoRoute(
+          path: "/works", // パン屋さん練習ワーク一覧(①②③)
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, __) => const WorksPage(),
         ),
         GoRoute(
           path: "/hearing", // パン屋さんヒアリング①(お困りごと)

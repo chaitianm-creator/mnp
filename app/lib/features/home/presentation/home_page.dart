@@ -286,7 +286,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         meta: '所要時間 20分　・　進捗 ${p.practiceClearedCount}/3',
         progress: p.practiceClearedCount / 3,
         buttonLabel: 'ワークを始める',
-        onTap: () => context.push('/hearing'),
+        onTap: () => context.push('/works'),
       ),
       const SizedBox(height: 10),
       _QuestCard(
