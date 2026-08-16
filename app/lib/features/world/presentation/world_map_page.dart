@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:design_kingdom/core/state/user_progress.dart';
 import 'package:design_kingdom/core/theme/kd_colors.dart';
@@ -134,9 +136,33 @@ List<Offset> _anchorsFor(bool wide) => [
 class _WorldMapPageState extends ConsumerState<WorldMapPage> {
   final _tc = TransformationController();
   double _zoom = 1.0;
+  bool _showBakeryBubble = false; // 初回表示のときだけ出すお知らせ吹き出し
+  Timer? _bubbleTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstVisitBubble();
+  }
+
+  /// はじまりの街の上の「パン屋さんが困っているよ！」吹き出し。
+  /// マップを最初に表示したときだけ出し、しばらくしたら消える。
+  Future<void> _checkFirstVisitBubble() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('map_bakery_bubble_done') ?? false) return;
+      await prefs.setBool('map_bakery_bubble_done', true);
+      if (!mounted) return;
+      setState(() => _showBakeryBubble = true);
+      _bubbleTimer = Timer(const Duration(seconds: 7), () {
+        if (mounted) setState(() => _showBakeryBubble = false);
+      });
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
+    _bubbleTimer?.cancel();
     _tc.dispose();
     super.dispose();
   }
@@ -210,6 +236,19 @@ class _WorldMapPageState extends ConsumerState<WorldMapPage> {
                       top: anchors[i].dy * size.height - 12,
                       child: _mapPill(
                           kAreas[i], _unlockedOf(kAreas[i], progress)),
+                    ),
+                  // 初回表示のみ: はじまりの街の上のお知らせ吹き出し
+                  if (_showBakeryBubble)
+                    Positioned(
+                      left: anchors[0].dx * size.width + 6,
+                      top: anchors[0].dy * size.height - 56,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() => _showBakeryBubble = false);
+                          _openArea(kAreas.first);
+                        },
+                        child: const _BakeryHintBubble(),
+                      ),
                     ),
                 ]),
               ),
@@ -1576,4 +1615,67 @@ class _IconLines extends StatelessWidget {
       ],
     ]);
   }
+}
+
+/// 「パン屋さんが困っているよ！」吹き出し(下向きのしっぽ付き)。
+class _BakeryHintBubble extends StatelessWidget {
+  const _BakeryHintBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE98FA9), width: 1.6),
+              boxShadow: const [
+                BoxShadow(
+                    color: Color(0x264A443A),
+                    blurRadius: 8,
+                    offset: Offset(0, 3)),
+              ],
+            ),
+            child: const Text('パン屋さんが困っているよ！',
+                style: TextStyle(
+                    color: pnInk,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900)),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: CustomPaint(
+                size: const Size(14, 8), painter: _BubbleTailPainter()),
+          ),
+        ]);
+  }
+}
+
+/// 吹き出しの下向きしっぽ(白塗り+ピンクのふち)。
+class _BubbleTailPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, -1)
+      ..lineTo(size.width, -1)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = Colors.white);
+    final edge = Paint()
+      ..color = const Color(0xFFE98FA9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+        const Offset(0, -1), Offset(size.width / 2, size.height), edge);
+    canvas.drawLine(Offset(size.width, -1),
+        Offset(size.width / 2, size.height), edge);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
