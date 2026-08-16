@@ -17,6 +17,7 @@ import "../../features/onboarding/presentation/story_player_page.dart";
 import "../../features/onboarding/presentation/student_register_page.dart";
 import "../../features/onboarding/presentation/teacher_login_page.dart";
 import "../../features/onboarding/presentation/welcome_page.dart";
+import "../../features/quest/presentation/pages/hearing_page.dart";
 import "../../features/quest/presentation/pages/practice_quests_page.dart";
 import "../../features/quest/presentation/pages/quest_play_page.dart";
 import "../../features/settings/presentation/settings_page.dart";
@@ -100,6 +101,11 @@ GoRouter createRouter({required String initialLocation}) => GoRouter(
           path: "/quests", // 練習クエスト一覧
           parentNavigatorKey: rootNavigatorKey,
           builder: (_, __) => const PracticeQuestsPage(),
+        ),
+        GoRoute(
+          path: "/hearing", // パン屋さんヒアリング(練習クエストの導入)
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, __) => const HearingPage(),
         ),
         GoRoute(
           path: "/daily-request", // 今日の依頼(練習3つクリアで解放)
