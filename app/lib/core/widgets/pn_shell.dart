@@ -229,7 +229,7 @@ class _PnShellState extends ConsumerState<PnShell> {
   Widget _sideMenu({bool embedded = false}) {
     final items = <(String, IconData, String?, String?)>[
       ('ホーム', Icons.home_rounded, '/home', null),
-      ('冒険伴走ノート', Icons.menu_book_rounded, null, '会員限定'),
+      ('案件伴走ノート', Icons.menu_book_rounded, null, '会員限定'),
       ('もくもく自習室', Icons.edit_note_rounded, 'https://mnp-sable.vercel.app/home', null),
       ('ショッピングセンター', Icons.storefront_rounded, '/shopping', null),
       ('着せ替えクローゼット', Icons.checkroom_rounded, '/closet', null),
@@ -510,7 +510,7 @@ class _PnShellState extends ConsumerState<PnShell> {
 
   Widget _footer() {
     const links = [
-      'ホーム', '冒険伴走ノート', 'もくもく自習室', 'ショッピングセンター',
+      'ホーム', '案件伴走ノート', 'もくもく自習室', 'ショッピングセンター',
       '着せ替えクローゼット', 'お客さまアルバム', 'よくある質問',
       'お問い合わせ', '利用規約', 'プライバシーポリシー',
     ];
