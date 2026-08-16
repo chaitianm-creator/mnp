@@ -252,7 +252,12 @@ class _HomePageState extends ConsumerState<HomePage> {
         desc: '実践デザイナー冒険へようこそ。これから始まる冒険の全体像を見てみよう。',
         meta: '所要時間 5分　・　獲得ポイント +50ポイント',
         buttonLabel: '▶ 動画を見る',
-        onTap: () => context.push('/story/ep1'),
+        // TODO(動画): ここに動画プレイヤーを埋め込む。それまでは遷移しない
+        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('動画は準備中だよ！もうすこし待っててね(近日公開)'),
+              duration: Duration(seconds: 2)),
+        ),
       ),
       const SizedBox(height: 10),
       _QuestCard(
