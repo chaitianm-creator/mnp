@@ -50,7 +50,7 @@ void main() {
     expect(find.text('みぽりん先生'), findsOneWidget); // ヒーロー内の仮キャラ
     await tester.scrollUntilVisible(find.text('今日の依頼'), 300,
         scrollable: find.byType(Scrollable).first);
-    expect(find.text('練習クエスト'), findsOneWidget);
+    expect(find.text('お困りの村人「パン屋さん」'), findsOneWidget);
     expect(find.text('今日の依頼'), findsOneWidget);
 
     // タップ1: クエストカード「今日の依頼」 → 依頼リスト(エリアバンドはここで確認)

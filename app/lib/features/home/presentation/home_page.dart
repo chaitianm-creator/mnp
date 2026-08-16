@@ -277,12 +277,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       _QuestCard(
         no: '02',
         color: pnYellow,
-        title: '練習クエスト',
+        title: 'お困りの村人「パン屋さん」',
         badges: [
-          ('ワーク', pnYellow),
+          ('練習ワーク', pnYellow),
           if (practiceDone) ('完了', pnGreen),
         ],
-        desc: 'はじめの一歩。3つの練習ワークでデザインの基礎体力をつけよう。',
+        desc: 'パン屋さんが困っているよ！まずは具体的にどんなことに悩んでいるか聞いてみよう！',
         meta: '所要時間 20分　・　進捗 ${p.practiceClearedCount}/3',
         progress: p.practiceClearedCount / 3,
         buttonLabel: 'ワークを始める',

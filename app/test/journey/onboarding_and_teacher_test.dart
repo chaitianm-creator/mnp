@@ -112,7 +112,7 @@ void main() {
     expect(find.text('てすとちゃん'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('練習3つで解放'), 300,
         scrollable: find.byType(Scrollable).first);
-    expect(find.text('練習クエスト'), findsOneWidget);
+    expect(find.text('お困りの村人「パン屋さん」'), findsOneWidget);
     expect(find.text('練習3つで解放'), findsOneWidget);
   });
 
