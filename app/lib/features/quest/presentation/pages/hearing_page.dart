@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:design_kingdom/core/state/outfit.dart';
 import 'package:design_kingdom/core/widgets/pn_shell.dart';
@@ -279,6 +281,84 @@ class _HearingPageState extends ConsumerState<HearingPage> {
   final _scroll = ScrollController();
   final _endKey = GlobalKey(); // 「🎉 ヒアリング完了！」の位置
 
+  String get _prefsKey => 'hearing_progress_${widget.part}';
+
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  /// 途中まで進めた記録を復元する(戻っても会話を見返せる)。
+  Future<void> _restore() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefsKey);
+      if (raw == null || !mounted) return;
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      final saved = <_Step>[
+        for (final e in (j['log'] as List).cast<Map<String, dynamic>>())
+          if (e['t'] == 'p')
+            _Point(e['x'] as String)
+          else
+            _Msg(e['w'] as String, e['x'] as String),
+      ];
+      if (saved.isEmpty) return;
+      setState(() {
+        _log
+          ..clear()
+          ..addAll(saved);
+        _index =
+            (j['index'] as num).toInt().clamp(1, _sc.steps.length - 1);
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scroll.hasClients) return;
+        _scroll.jumpTo(_isEnd ? 0 : _scroll.position.maxScrollExtent);
+        if (_isEnd) {
+          // 完了済みは「🎉 ヒアリング完了！」付近から
+          _scroll.jumpTo((_scroll.position.maxScrollExtent - 600)
+              .clamp(0.0, _scroll.position.maxScrollExtent));
+        }
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _save() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _prefsKey,
+          jsonEncode({
+            'index': _index,
+            'log': [
+              for (final st in _log)
+                if (st is _Msg)
+                  {'t': 'm', 'w': st.who, 'x': st.text}
+                else if (st is _Point)
+                  {'t': 'p', 'x': st.text},
+            ],
+          }));
+      if (_isEnd) await prefs.setBool('hearing_done_${widget.part}', true);
+    } catch (_) {}
+  }
+
+  Future<void> _resetProgress() async {
+    setState(() {
+      _log
+        ..clear()
+        ..add(_sc.steps.first);
+      _index = 1;
+      _selected = null;
+      _refSelected.clear();
+      _refConfirmed = false;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefsKey);
+      await prefs.remove('hearing_done_${widget.part}');
+    } catch (_) {}
+  }
+
   _Step get _current => _sc.steps[_index.clamp(0, _sc.steps.length - 1)];
 
   bool get _isEnd => _current is _End;
@@ -338,6 +418,7 @@ class _HearingPageState extends ConsumerState<HearingPage> {
     } else {
       _toBottom();
     }
+    _save();
   }
 
   @override
@@ -364,8 +445,34 @@ class _HearingPageState extends ConsumerState<HearingPage> {
         backgroundColor: pnBg,
         foregroundColor: pnInk,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'ワーク一覧へ',
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/works'),
+        ),
         title: const Text('お困りの村人「パン屋さん」',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+        actions: [
+          if (_index > 1)
+            TextButton(
+              onPressed: _resetProgress,
+              child: const Text('さいしょから',
+                  style: TextStyle(
+                      color: pnSub,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700)),
+            ),
+          TextButton(
+            onPressed: () =>
+                context.canPop() ? context.pop() : context.go('/works'),
+            child: const Text('ワーク一覧',
+                style: TextStyle(
+                    color: pnSub,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Center(
