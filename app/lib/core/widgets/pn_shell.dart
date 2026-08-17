@@ -229,7 +229,8 @@ class _PnShellState extends ConsumerState<PnShell> {
   Widget _sideMenu({bool embedded = false}) {
     final items = <(String, IconData, String?, String?)>[
       ('ホーム', Icons.home_rounded, '/home', null),
-      ('案件伴走ノート', Icons.menu_book_rounded, null, '会員限定'),
+      ('案件伴走ノート', Icons.menu_book_rounded,
+          'https://nmpdesignnote.web.app/', '会員限定'),
       ('もくもく自習室', Icons.edit_note_rounded, 'https://mnp-sable.vercel.app/home', null),
       ('ショッピングセンター', Icons.storefront_rounded, '/shopping', null),
       ('着せ替えクローゼット', Icons.checkroom_rounded, '/closet', null),
@@ -530,6 +531,8 @@ class _PnShellState extends ConsumerState<PnShell> {
                   switch (l) {
                     case 'ホーム':
                       context.go('/home');
+                    case '案件伴走ノート':
+                      openExternal('https://nmpdesignnote.web.app/');
                     case 'もくもく自習室':
                       openExternal('https://mnp-sable.vercel.app/home');
                     case '着せ替えクローゼット':
