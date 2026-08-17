@@ -49125,7 +49125,7 @@ r.push(n.ZW())
 r.push(B.bi)
 r.push(n.TE())
 r=A.eC(r,m,B.SX,!1)}return A.dh(k,B.am,r,m,s)},
-XV(a0){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e=this,d=null,c=[B.aa2,B.aa5,B.aaf,B.aa7,B.aah,B.aa6],b=t.p,a=A.b([B.a5K],b)
+XV(a0){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e=this,d=null,c=[B.aa2,B.aa3,B.aaf,B.aa7,B.aah,B.aa6],b=t.p,a=A.b([B.a5K],b)
 if(a0)B.b.J(a,A.b([e.ZW(),B.S,e.Yz(),B.b4],b))
 for(s=0;s<6;++s){r={}
 q=c[s]
@@ -49248,6 +49248,8 @@ $0(){var s=this,r=s.b
 switch(r){case"\u30db\u30fc\u30e0":r=s.a.c
 r.toString
 A.bV(r).d2("/home",null)
+break
+case"\u6848\u4ef6\u4f34\u8d70\u30ce\u30fc\u30c8":v.G.window.open("https://nmpdesignnote.web.app/","_blank")
 break
 case"\u3082\u304f\u3082\u304f\u81ea\u7fd2\u5ba4":v.G.window.open("https://mnp-sable.vercel.app/home","_blank")
 break
@@ -55802,7 +55804,7 @@ a.O(c.$6(d,e,q,p,1,1),b)}},
 Sf(a,b,c,d,e,f){var s,r,q,p,o,n,m,l,k,j,i
 b.r=B.OX.gj()
 a.O(c.$6(d,e,0,0,16,16),b)
-s=[B.aa4,B.aag,B.aan,B.aad]
+s=[B.aa5,B.aag,B.aan,B.aad]
 for(r=this.c*0.14,q=a.a,p=0;p<4;++p){o=s[p].a
 n=o[0]
 m=o[1]
@@ -113959,11 +113961,11 @@ B.jf=new A.c(1,0.8549019607843137,0.8784313725490196,0.9176470588235294,B.c)
 B.aal=new A.ds(["\u305d\u3089",B.jf,B.j9,B.jo])
 B.rC=new A.c(1,0.803921568627451,0.9686274509803922,0.8862745098039215,B.c)
 B.tk=new A.c(1,0.19607843137254902,0.5176470588235295,0.39215686274509803,B.c)
-B.aa3=new A.ds(["\u308f\u304b\u3070",B.rC,B.hA,B.tk])
+B.aa4=new A.ds(["\u308f\u304b\u3070",B.rC,B.hA,B.tk])
 B.rJ=new A.c(1,0.996078431372549,0.9529411764705882,0.7529411764705882,B.c)
 B.tE=new A.c(1,0.8745098039215686,0.24313725490196078,0.13725490196078433,B.c)
 B.aa9=new A.ds(["\u3072\u307e\u308f\u308a",B.rJ,B.tE,B.hn])
-B.a_D=s([B.aaa,B.aai,B.aal,B.aa3,B.aa9],A.aB("u<+(n,c,c,c)>"))
+B.a_D=s([B.aaa,B.aai,B.aal,B.aa4,B.aa9],A.aB("u<+(n,c,c,c)>"))
 B.a7j=new A.z(-3.2,-1)
 B.a7u=new A.z(2.6,-1.4)
 B.a8I=new A.z(-1.4,-4)
@@ -115742,9 +115744,9 @@ B.a9X=new A.c8(0.55,0.6,!1)
 B.a9Z=new A.c8(0.3,0.88,!0)
 B.Vi=new A.af(63477,"MaterialIcons",null,!1)
 B.aa2=new A.ds(["\u30db\u30fc\u30e0",B.Vi,"/home",null])
-B.aa4=new A.ds([0.5,0.5,7,6.5])
 B.Vp=new A.af(63668,"MaterialIcons",null,!1)
-B.aa5=new A.ds(["\u6848\u4ef6\u4f34\u8d70\u30ce\u30fc\u30c8",B.Vp,null,"\u4f1a\u54e1\u9650\u5b9a"])
+B.aa3=new A.ds(["\u6848\u4ef6\u4f34\u8d70\u30ce\u30fc\u30c8",B.Vp,"https://nmpdesignnote.web.app/","\u4f1a\u54e1\u9650\u5b9a"])
+B.aa5=new A.ds([0.5,0.5,7,6.5])
 B.Vs=new A.af(983183,"MaterialIcons",null,!1)
 B.aa6=new A.ds(["\u304a\u5ba2\u3055\u307e\u30a2\u30eb\u30d0\u30e0",B.Vs,"/album",null])
 B.VA=new A.af(983521,"MaterialIcons",null,!1)
